@@ -3,8 +3,30 @@ import type { LoginRequest, LoginResponse, RegisterRequest, User } from '../../.
 
 export const authService = {
   async login(data: LoginRequest): Promise<LoginResponse> {
-    const response = await api.post<LoginResponse>('/auth/login', data)
-    return response.data
+    // BURLANDO LOGIN PARA TESTE NA VERCEL
+    console.log('Faking login for:', data.email)
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({
+          token: 'fake-token-test',
+          refreshToken: 'fake-refresh',
+          user: {
+            id: 'user-admin',
+            email: data.email,
+            firstName: 'Juliano',
+            lastName: 'Damaso (Teste)',
+            companyId: 'company-21go',
+            roleId: 'role-admin',
+            role: {
+              id: 'role-admin',
+              name: 'admin',
+              displayName: 'Administrador',
+              level: 99
+            }
+          } as any
+        })
+      }, 500)
+    })
   },
 
   async register(data: RegisterRequest): Promise<LoginResponse> {
