@@ -9,6 +9,6 @@
     }
   },
   "rewrites": [
-    { "source": "/((?!api/|assets/|.*\\.).*)", "destination": "/index.html" }
+    { "source": "/((?!api/|socket.io/|assets/|.*\\.).*)", "destination": "/index.html" }
   ]
 }
