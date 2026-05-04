@@ -21,6 +21,7 @@ import { ProjectsPage } from './pages/projects/ProjectsPage'
 import { SinistrosPage } from './pages/sinistros/SinistrosPage'
 import { CotacoesPage } from './pages/cotacoes/CotacoesPage'
 import { IndicacoesPage } from './pages/indicacoes/IndicacoesPage'
+import { TeamPage } from './pages/team/TeamPage'
 
 // Layouts
 import { AppLayout } from './components/layouts/AppLayout'
@@ -92,6 +93,7 @@ export function Router() {
           <Route path="/automations" element={<AutomationsPage />} />
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/billing" element={<BillingPage />} />
+          <Route path="/equipe" element={<TeamPage />} />
         </Route>
       </Route>
 

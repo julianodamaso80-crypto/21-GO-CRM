@@ -64,7 +64,29 @@ export function fail(res: VercelResponse, status: number, msg: string) {
   return res.status(status).json({ error: msg, message: msg })
 }
 
-async function sb(path: string, init: RequestInit = {}): Promise<Response> {
+export function authenticate(req: VercelRequest, res: VercelResponse): JwtPayload | null {
+  const token = getBearerToken(req)
+  if (!token) { fail(res, 401, 'Token ausente'); return null }
+  try {
+    return jwt.verify(token, JWT_SECRET) as JwtPayload
+  } catch {
+    fail(res, 401, 'Token invalido ou expirado')
+    return null
+  }
+}
+
+export function requireAdmin(req: VercelRequest, res: VercelResponse): JwtPayload | null {
+  const payload = authenticate(req, res)
+  if (!payload) return null
+  if (payload.role !== 'admin') {
+    fail(res, 403, 'Acesso restrito a administradores')
+    return null
+  }
+  return payload
+}
+
+
+export async function sb(path: string, init: RequestInit = {}): Promise<Response> {
   if (!SUPABASE_URL || !SUPABASE_KEY) {
     throw new Error('SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY ausentes nas env vars')
   }
@@ -80,7 +102,7 @@ async function sb(path: string, init: RequestInit = {}): Promise<Response> {
   })
 }
 
-async function sbJson<T = any>(path: string, init: RequestInit = {}): Promise<T> {
+export async function sbJson<T = any>(path: string, init: RequestInit = {}): Promise<T> {
   const r = await sb(path, init)
   if (!r.ok) {
     const text = await r.text()

@@ -4,7 +4,7 @@ import {
   LayoutGrid, LogOut, Webhook, Zap, CreditCard, BarChart3,
   SmilePlus, Car, FileText, AlertTriangle, Gift, Link2,
   Search, Bell, ChevronDown, ClipboardList, Settings,
-  Shield, Wrench,
+  Shield, Wrench, UserCog,
 } from 'lucide-react'
 import { useAuthStore, type UserRole } from '../../store/auth-store'
 import { useState } from 'react'
@@ -72,6 +72,13 @@ const NAV_SECTIONS: NavSection[] = [
       { path: '/webhooks', icon: Webhook, label: 'Webhooks', roles: ['admin'] },
       { path: '/hinova', icon: Link2, label: 'Hinova (SGA)' },
       { path: '/projects', icon: ClipboardList, label: 'Projetos' },
+    ],
+  },
+  {
+    label: 'Administracao',
+    roles: ['admin'],
+    items: [
+      { path: '/equipe', icon: UserCog, label: 'Equipe & Acessos' },
     ],
   },
 ]
