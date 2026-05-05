@@ -226,7 +226,8 @@
 
   .drawer-panel {
     @apply fixed right-0 top-0 h-full bg-dark-800 border-l border-dark-700/50
-           shadow-glass-lg animate-slide-in-right overflow-y-auto;
+           shadow-glass-lg animate-slide-in-right overflow-y-auto
+           z-[60] w-full max-w-md flex flex-col;
   }
 }
 
