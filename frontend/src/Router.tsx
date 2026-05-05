@@ -22,6 +22,7 @@ import { SinistrosPage } from './pages/sinistros/SinistrosPage'
 import { CotacoesPage } from './pages/cotacoes/CotacoesPage'
 import { IndicacoesPage } from './pages/indicacoes/IndicacoesPage'
 import { TeamPage } from './pages/team/TeamPage'
+import { TarefasPage } from './pages/tarefas/TarefasPage'
 
 // Layouts
 import { AppLayout } from './components/layouts/AppLayout'
@@ -77,6 +78,7 @@ export function Router() {
 
           {/* Novos modulos */}
           <Route path="/cotacoes" element={<CotacoesPage />} />
+          <Route path="/tarefas" element={<TarefasPage />} />
           <Route path="/sinistros" element={<SinistrosPage />} />
           <Route path="/indicacoes" element={<IndicacoesPage />} />
           <Route path="/hinova" element={<ComingSoon title="Integracao Hinova SGA" />} />

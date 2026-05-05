@@ -1,0 +1,22 @@
+{
+  "_README": "Template do vercel.json. Quando o backend estiver no Railway, copiar este arquivo pra vercel.json (substituindo REPLACE-WITH-RAILWAY-URL pela URL real, ex: 21-go-crm-backend-production.up.railway.app)",
+
+  "buildCommand": "cd frontend && npm install && npm run build",
+  "outputDirectory": "frontend/dist",
+  "installCommand": "npm install",
+  "framework": null,
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://REPLACE-WITH-RAILWAY-URL/api/:path*"
+    },
+    {
+      "source": "/socket.io/:path*",
+      "destination": "https://REPLACE-WITH-RAILWAY-URL/socket.io/:path*"
+    },
+    {
+      "source": "/((?!api/|socket.io/|assets/|.*\\.).*)",
+      "destination": "/index.html"
+    }
+  ]
+}

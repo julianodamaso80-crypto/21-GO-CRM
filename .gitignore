@@ -57,3 +57,11 @@ nul
 21go-website/node_modules/
 21go-website/.next/
 generate_pptx.py
+.vercel
+
+# Claude runtime
+.claude/scheduled_tasks.lock
+
+# Arquivos sensiveis (credenciais, tokens) — NUNCA commitar
+scripts/_search_supabase_creds.sh
+DEPLOY_EASYPANEL.md

@@ -12,9 +12,12 @@ import {
   X,
   Car,
   Send,
+  ListChecks,
+  FileText,
 } from 'lucide-react'
 import { useLeads, useLeadStats, useCreateLead, useUpdateLead, useDeleteLead } from '../../hooks/useLeads'
 import { useAssociados } from '../../hooks/useAssociados'
+import { LeadTasksPanel } from '../tarefas/LeadTasksPanel'
 import type { Lead, CreateLeadRequest, UpdateLeadRequest, LeadStatus, LeadSource, VehiclePlano } from '../../../../shared/types'
 
 const STATUS_MAP: Partial<Record<LeadStatus, { label: string; cls: string }>> = {
@@ -306,6 +309,7 @@ function LeadDrawer({ lead, onClose }: { lead: Lead | null; onClose: () => void 
   const { data: associadosData } = useAssociados({ limit: 100 })
   const associados = associadosData?.data || []
 
+  const [tab, setTab] = useState<'detalhes' | 'tarefas'>('detalhes')
   const [title, setTitle] = useState(lead?.title || '')
   const [description, setDescription] = useState(lead?.description || '')
   const [contactId, setContactId] = useState(lead?.contactId || '')
@@ -364,12 +368,48 @@ function LeadDrawer({ lead, onClose }: { lead: Lead | null; onClose: () => void 
       <div className="relative w-full max-w-md bg-dark-800 shadow-xl overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-dark-800 border-b border-dark-700/40 px-6 py-4 flex items-center justify-between z-10">
-          <h2 className="text-lg font-display font-semibold text-white">{isEditing ? 'Editar Lead' : 'Novo Lead'}</h2>
+          <div>
+            <h2 className="text-lg font-display font-semibold text-white">{isEditing ? 'Editar Lead' : 'Novo Lead'}</h2>
+            {isEditing && lead?.contact?.fullName && (
+              <p className="text-xs text-gray-500 mt-0.5">{lead.contact.fullName}</p>
+            )}
+          </div>
           <button onClick={onClose} className="p-1 text-gray-500 hover:text-gray-400 rounded">
             <X className="w-5 h-5" />
           </button>
         </div>
 
+        {/* Tabs (apenas em edição) */}
+        {isEditing && (
+          <div className="sticky top-[73px] bg-dark-800 border-b border-dark-700/40 px-6 py-2 z-10 flex gap-1">
+            <button
+              onClick={() => setTab('detalhes')}
+              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                tab === 'detalhes'
+                  ? 'bg-gold-500/15 text-gold-400'
+                  : 'text-gray-400 hover:text-gray-200 hover:bg-dark-700/40'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5" /> Detalhes
+            </button>
+            <button
+              onClick={() => setTab('tarefas')}
+              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                tab === 'tarefas'
+                  ? 'bg-gold-500/15 text-gold-400'
+                  : 'text-gray-400 hover:text-gray-200 hover:bg-dark-700/40'
+              }`}
+            >
+              <ListChecks className="w-3.5 h-3.5" /> Tarefas
+            </button>
+          </div>
+        )}
+
+        {isEditing && tab === 'tarefas' ? (
+          <div className="p-6">
+            <LeadTasksPanel leadId={lead!.id} />
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {/* Associado */}
           {!isEditing && (
@@ -518,6 +558,7 @@ function LeadDrawer({ lead, onClose }: { lead: Lead | null; onClose: () => void 
             </button>
           </div>
         </form>
+        )}
       </div>
     </div>
   )

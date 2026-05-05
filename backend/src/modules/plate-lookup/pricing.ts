@@ -253,7 +253,6 @@ export const PLAN_INFO: Record<PlanId, PlanInfo> = {
       { text: 'Carro Amigo', included: false },
       { text: 'Carro Reserva', included: false },
       { text: 'AP morte/invalidez', included: false },
-      { text: 'Funeral familiar', included: false },
     ],
   },
   'do-seu-jeito': {
@@ -281,7 +280,6 @@ export const PLAN_INFO: Record<PlanId, PlanInfo> = {
       { text: 'Carro Reserva', included: false },
       { text: 'Todos os Vidros', included: false },
       { text: 'AP morte/invalidez', included: false },
-      { text: 'Funeral familiar', included: false },
     ],
   },
   'vip': {
@@ -308,7 +306,6 @@ export const PLAN_INFO: Record<PlanId, PlanInfo> = {
       { text: 'Retorno a domicílio', included: true },
       { text: 'Socorro mecânico / elétrico', included: true },
       { text: 'Clube de Benefícios', included: true },
-      { text: 'Funeral familiar até R$5.000', included: true },
       { text: 'Reboque Adicional', included: false },
       { text: 'Todos os Vidros', included: false },
       { text: 'AP morte/invalidez', included: false },
@@ -340,7 +337,6 @@ export const PLAN_INFO: Record<PlanId, PlanInfo> = {
       { text: 'Socorro mecânico / elétrico', included: true },
       { text: 'AP morte acidental ou invalidez R$10.000', included: true },
       { text: 'Clube de Benefícios', included: true },
-      { text: 'Funeral familiar R$5.000', included: true },
     ],
   },
   'suv': {
@@ -366,7 +362,6 @@ export const PLAN_INFO: Record<PlanId, PlanInfo> = {
       { text: 'Socorro mecânico / elétrico', included: true },
       { text: 'AP morte/invalidez R$10.000', included: true },
       { text: 'Clube de Benefícios', included: true },
-      { text: 'Funeral familiar até R$5.000', included: true },
     ],
   },
   'moto-400': {
@@ -388,7 +383,6 @@ export const PLAN_INFO: Record<PlanId, PlanInfo> = {
       { text: 'Socorro mecânico / elétrico', included: true },
       { text: 'AP morte acidental ou invalidez (R$10.000)', included: true },
       { text: 'Clube de Benefícios', included: true },
-      { text: 'Funeral familiar', included: true },
     ],
   },
   'moto-1000': {
@@ -410,7 +404,6 @@ export const PLAN_INFO: Record<PlanId, PlanInfo> = {
       { text: 'Socorro mecânico / elétrico', included: true },
       { text: 'AP morte acidental ou invalidez (R$10.000)', included: true },
       { text: 'Clube de Benefícios', included: true },
-      { text: 'Funeral familiar', included: true },
     ],
   },
   'especial': {
@@ -435,7 +428,6 @@ export const PLAN_INFO: Record<PlanId, PlanInfo> = {
       { text: 'Retorno a domicílio', included: true },
       { text: 'Socorro mecânico / elétrico', included: true },
       { text: 'Clube de Benefícios', included: true },
-      { text: 'Funeral familiar até R$5.000', included: true },
     ],
   },
 }

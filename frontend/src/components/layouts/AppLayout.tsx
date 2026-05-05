@@ -4,7 +4,7 @@ import {
   LayoutGrid, LogOut, Webhook, Zap, CreditCard, BarChart3,
   SmilePlus, Car, FileText, AlertTriangle, Gift, Link2,
   Search, Bell, ChevronDown, ChevronRight, ClipboardList, Settings,
-  Shield, Wrench, UserCog, Loader2,
+  Shield, Wrench, UserCog, Loader2, ListChecks,
 } from 'lucide-react'
 import { useAuthStore, type UserRole } from '../../store/auth-store'
 import { useState } from 'react'
@@ -45,7 +45,8 @@ const NAV_SECTIONS: NavSection[] = [
     roles: ['admin', 'gestor', 'vendedor'],
     items: [
       { path: '/leads', icon: UserCircle2, label: 'Leads' },
-      { path: '/cotacoes', icon: FileText, label: 'Cotacoes' },
+      { path: '/tarefas', icon: ListChecks, label: 'Tarefas' },
+      { path: '/cotacoes', icon: FileText, label: 'Cotacoes', roles: ['admin', 'gestor'] },
       { path: '/analytics', icon: BarChart3, label: 'Analytics', roles: ['admin', 'gestor'] },
     ],
   },
@@ -65,13 +66,13 @@ const NAV_SECTIONS: NavSection[] = [
   },
   {
     label: 'Ferramentas',
-    roles: ['admin', 'gestor'],
+    roles: ['admin', 'gestor', 'vendedor'],
     items: [
       { path: '/ai', icon: Brain, label: 'IA & Treinamento' },
-      { path: '/automations', icon: Zap, label: 'Automacoes' },
+      { path: '/automations', icon: Zap, label: 'Automacoes', roles: ['admin', 'gestor'] },
       { path: '/webhooks', icon: Webhook, label: 'Webhooks', roles: ['admin'] },
-      { path: '/hinova', icon: Link2, label: 'Hinova (SGA)' },
-      { path: '/projects', icon: ClipboardList, label: 'Projetos' },
+      { path: '/hinova', icon: Link2, label: 'Hinova (SGA)', roles: ['admin', 'gestor'] },
+      { path: '/projects', icon: ClipboardList, label: 'Projetos', roles: ['admin', 'gestor'] },
     ],
   },
   {
