@@ -123,12 +123,14 @@ export async function sinistrosRoutes(fastify: FastifyInstance) {
   // GET /sinistros/stats
   fastify.get('/stats', async (request, reply) => {
     const { companyId } = (request as any).user
-    const [total, abertos, emReparo, encerrados] = await Promise.all([
+    const [total, abertos, emReparo, encerrados, custoAgg] = await Promise.all([
       prisma.sinistro.count({ where: { companyId } }),
       prisma.sinistro.count({ where: { companyId, status: 'aberto' } }),
       prisma.sinistro.count({ where: { companyId, status: 'reparo' } }),
       prisma.sinistro.count({ where: { companyId, status: 'encerrado' } }),
+      prisma.sinistro.aggregate({ where: { companyId }, _sum: { custoReal: true, custoEstimado: true } }),
     ])
-    return reply.send({ total, abertos, emReparo, encerrados })
+    const custoTotal = Number(custoAgg._sum.custoReal || 0) + Number(custoAgg._sum.custoEstimado || 0)
+    return reply.send({ total, abertos, emReparo, encerrados, custoTotal })
   })
 }

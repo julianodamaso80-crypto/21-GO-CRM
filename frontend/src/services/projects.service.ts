@@ -42,26 +42,26 @@ export interface CreateProjectRequest {
 
 export const projectsService = {
   async list(params?: Record<string, string>): Promise<ProjectsResponse> {
-    const { data } = await api.get('/api/projects', { params })
+    const { data } = await api.get('/projects', { params })
     return data
   },
 
   async getById(id: string): Promise<Project> {
-    const { data } = await api.get(`/api/projects/${id}`)
+    const { data } = await api.get(`/projects/${id}`)
     return data
   },
 
   async create(payload: CreateProjectRequest): Promise<Project> {
-    const { data } = await api.post('/api/projects', payload)
+    const { data } = await api.post('/projects', payload)
     return data
   },
 
   async update(id: string, payload: Partial<CreateProjectRequest>): Promise<Project> {
-    const { data } = await api.put(`/api/projects/${id}`, payload)
+    const { data } = await api.put(`/projects/${id}`, payload)
     return data
   },
 
   async remove(id: string): Promise<void> {
-    await api.delete(`/api/projects/${id}`)
+    await api.delete(`/projects/${id}`)
   },
 }

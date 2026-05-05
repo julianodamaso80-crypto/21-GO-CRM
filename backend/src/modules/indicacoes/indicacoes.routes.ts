@@ -103,6 +103,14 @@ export async function indicacoesRoutes(fastify: FastifyInstance) {
 
     const conversionRate = total > 0 ? Math.round((convertidos / total) * 100) : 0
 
-    return reply.send({ total, pendentes, convertidos, conversionRate })
+    // Frontend usa convertidas (feminino) + taxaConversao; mantem aliases pra back-compat
+    return reply.send({
+      total,
+      pendentes,
+      convertidos,
+      convertidas: convertidos,
+      conversionRate,
+      taxaConversao: conversionRate,
+    })
   })
 }

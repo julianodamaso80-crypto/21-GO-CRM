@@ -12,31 +12,31 @@ export interface ListVehiclesParams {
 
 export const vehiclesService = {
   async list(params: ListVehiclesParams = {}): Promise<VehiclesListResponse> {
-    const { data } = await api.get('/api/vehicles', { params })
+    const { data } = await api.get('/vehicles', { params })
     return data
   },
 
   async getById(id: string): Promise<Vehicle> {
-    const { data } = await api.get(`/api/vehicles/${id}`)
+    const { data } = await api.get(`/vehicles/${id}`)
     return data
   },
 
   async getByAssociado(associadoId: string): Promise<Vehicle[]> {
-    const { data } = await api.get(`/api/contacts/${associadoId}/vehicles`)
+    const { data } = await api.get(`/contacts/${associadoId}/vehicles`)
     return data
   },
 
   async create(payload: CreateVehicleRequest): Promise<Vehicle> {
-    const { data } = await api.post('/api/vehicles', payload)
+    const { data } = await api.post('/vehicles', payload)
     return data
   },
 
   async update(id: string, payload: UpdateVehicleRequest): Promise<Vehicle> {
-    const { data } = await api.put(`/api/vehicles/${id}`, payload)
+    const { data } = await api.put(`/vehicles/${id}`, payload)
     return data
   },
 
   async remove(id: string): Promise<void> {
-    await api.delete(`/api/vehicles/${id}`)
+    await api.delete(`/vehicles/${id}`)
   },
 }
