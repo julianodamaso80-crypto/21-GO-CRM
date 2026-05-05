@@ -1065,3 +1065,37 @@ model Ouvidoria {
   @@index([createdAt])
   @@map("ouvidoria")
 }
+
+// ============================================================================
+// TAREFAS (atividades de vendas — Pipedrive Activities-style)
+// ============================================================================
+
+model Task {
+  id          String  @id @default(uuid())
+  companyId   String  @map("company_id")
+  userId      String  @map("user_id")          // responsavel
+  createdById String  @map("created_by_id")    // quem criou
+  leadId      String? @map("lead_id")
+  contactId   String? @map("contact_id")
+
+  title       String
+  description String?
+  type        String  @default("tarefa") // ligacao, whatsapp, reuniao, visita, follow_up, email, tarefa
+  priority    String  @default("media")  // baixa, media, alta
+  status      String  @default("pendente") // pendente, concluida, cancelada
+  dueAt       DateTime  @map("due_at")
+  durationMin Int?      @map("duration_min")
+  completedAt DateTime? @map("completed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([companyId])
+  @@index([userId])
+  @@index([leadId])
+  @@index([contactId])
+  @@index([dueAt])
+  @@index([status])
+  @@index([companyId, userId, dueAt])
+  @@map("tasks")
+}

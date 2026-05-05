@@ -25,6 +25,7 @@ import { vehiclesRoutes } from './modules/vehicles/vehicles.routes'
 import { aiRoutes } from './modules/ai/ai.routes'
 import { pipesRoutes } from './modules/pipes/pipes.routes'
 import { leadsRoutes } from './modules/leads/leads.routes'
+import { tasksRoutes, leadTasksRoutes } from './modules/tasks/tasks.routes'
 import { inboxRoutes } from './modules/inbox/inbox.routes'
 import { npsRoutes } from './modules/nps/nps.routes'
 import { automationsRoutes } from './modules/automations/automations.routes'
@@ -154,6 +155,8 @@ async function bootstrap() {
     await fastify.register(associadosRoutes, { prefix: '/api/associados' })
     await fastify.register(vehiclesRoutes, { prefix: '/api/vehicles' })
     await fastify.register(leadsRoutes, { prefix: '/api/leads' })
+    await fastify.register(leadTasksRoutes, { prefix: '/api/leads' })
+    await fastify.register(tasksRoutes, { prefix: '/api/tasks' })
     await fastify.register(sinistrosRoutes, { prefix: '/api/sinistros' })
     await fastify.register(cotacoesRoutes, { prefix: '/api/cotacoes' })
     await fastify.register(indicacoesRoutes, { prefix: '/api/indicacoes' })
