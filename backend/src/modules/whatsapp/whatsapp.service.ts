@@ -153,15 +153,23 @@ export class WhatsappService {
       return { ...shape({ ...inst, status: newStatus }), connectionState, qrCodeBase64 }
     }
 
-    // close
-    newStatus = STATUS.DISCONNECTED
+    // close — força nova geração de QR via /instance/connect (reativa o pairing)
+    // Sem isso o user fica preso em loading infinito quando a instancia fechou
+    newStatus = STATUS.QR_PENDING
+    const reconnectQr = await evolution.fetchQrCode(inst.evolutionName, inst.evolutionApiKey)
+    qrCodeBase64 = reconnectQr.base64
+
     if (inst.status !== newStatus) {
       await prisma.whatsappInstance.update({
         where: { id: inst.id },
         data: { status: newStatus },
       })
     }
-    return { ...shape({ ...inst, status: newStatus }), connectionState, qrCodeBase64: null }
+    return {
+      ...shape({ ...inst, status: newStatus }),
+      connectionState: 'connecting' as const,
+      qrCodeBase64,
+    }
   }
 
   /** DELETE /whatsapp — remove instância e desconecta */
