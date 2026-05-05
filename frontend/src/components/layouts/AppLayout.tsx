@@ -61,7 +61,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     label: 'Comunicacao',
     items: [
-      { path: '/inbox', icon: MessageSquare, label: 'Inbox' },
+      { path: '/whatsapp', icon: MessageSquare, label: 'WhatsApp' },
     ],
   },
   {

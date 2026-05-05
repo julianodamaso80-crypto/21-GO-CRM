@@ -136,7 +136,23 @@ async function handleMessageUpsert(payload: EvolutionWebhookPayload) {
     if (existing) return { ignored: 'duplicate', messageId: existing.id }
   }
 
-  const companyId = await resolveCompanyId()
+  // Mapeia instance → user (cada user tem 1 instancia Evolution propria)
+  // Permite filtrar conversas por userId (vendedor so ve as suas)
+  const instanceName: string | undefined = payload.instance
+  let assignedUserId: string | null = null
+  let mappedCompanyId: string | null = null
+  if (instanceName) {
+    const inst = await prisma.whatsappInstance.findUnique({
+      where: { evolutionName: instanceName },
+      select: { userId: true, companyId: true },
+    })
+    if (inst) {
+      assignedUserId = inst.userId
+      mappedCompanyId = inst.companyId
+    }
+  }
+
+  const companyId = mappedCompanyId || (await resolveCompanyId())
   if (!companyId) return { ignored: 'no_company' }
 
   const pushName = firstName(data.pushName)
@@ -208,9 +224,12 @@ async function handleMessageUpsert(payload: EvolutionWebhookPayload) {
         status: 'open',
         associadoId: associado?.id ?? null,
         leadId: leadId ?? null,
+        assignedToId: assignedUserId, // Vendedor que conectou WhatsApp recebe a conversa
       },
       select: { id: true },
     })
+  } else if (assignedUserId && !conversation) {
+    // edge case
   }
 
   // 5. Persiste a mensagem

@@ -16,6 +16,9 @@ export class InboxController {
     const filters: ListConversationsQuery = {
       status: query.status,
       channelType: query.channelType,
+      scope: query.scope,
+      userId: user.id,
+      userRole: user.role,
     }
 
     const result = await inboxService.listConversations(companyId, filters)
@@ -80,6 +83,19 @@ export class InboxController {
     const conversation = await inboxService.updateConversationStatus(id, companyId, status)
 
     return reply.send(conversation)
+  }
+
+  /**
+   * POST /inbox/:id/convert-to-lead
+   * Cria card no Kanban a partir da conversa
+   */
+  async convertToLead(request: FastifyRequest, reply: FastifyReply) {
+    const user = (request as any).user
+    const { id } = request.params as { id: string }
+    const body = request.body as { funilType: 'consultor' | 'associado'; title?: string }
+
+    const card = await inboxService.convertToLead(id, user.companyId, user.id, body.funilType, body.title)
+    return reply.status(201).send(card)
   }
 
   /**

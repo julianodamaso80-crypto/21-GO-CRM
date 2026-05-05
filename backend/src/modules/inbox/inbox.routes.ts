@@ -118,6 +118,29 @@ export async function inboxRoutes(fastify: FastifyInstance) {
     handler: inboxController.updateStatus.bind(inboxController),
   })
 
+  // POST /inbox/:id/convert-to-lead
+  fastify.post('/:id/convert-to-lead', {
+    schema: {
+      description: 'Converte conversa em card no Kanban (escolhe funil consultor/associado)',
+      tags: ['inbox'],
+      security: [{ bearerAuth: [] }],
+      params: {
+        type: 'object',
+        required: ['id'],
+        properties: { id: { type: 'string' } },
+      },
+      body: {
+        type: 'object',
+        required: ['funilType'],
+        properties: {
+          funilType: { type: 'string', enum: ['consultor', 'associado'] },
+          title: { type: 'string' },
+        },
+      },
+    },
+    handler: inboxController.convertToLead.bind(inboxController),
+  })
+
   // PATCH /inbox/:id/read
   fastify.patch('/:id/read', {
     schema: {

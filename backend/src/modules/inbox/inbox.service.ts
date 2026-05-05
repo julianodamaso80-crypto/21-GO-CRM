@@ -4,6 +4,9 @@ import { AppError } from '../../utils/app-error'
 export interface ListConversationsQuery {
   status?: string
   channelType?: string
+  scope?: 'mine' | 'all'
+  userId?: string
+  userRole?: string
 }
 
 export interface SendMessageDTO {
@@ -21,6 +24,13 @@ export class InboxService {
 
     if (query.channelType) {
       where.channel = query.channelType
+    }
+
+    // Vendedor sempre ve apenas as conversas atribuidas a ele.
+    // Admin/gestor podem passar scope=all pra ver todas, ou scope=mine pra filtrar.
+    const isPrivileged = query.userRole === 'admin' || query.userRole === 'gestor'
+    if (!isPrivileged || query.scope === 'mine') {
+      if (query.userId) where.assignedToId = query.userId
     }
 
     const conversations = await prisma.conversation.findMany({
@@ -174,5 +184,88 @@ export class InboxService {
     })
 
     return { success: true, message: 'Conversation closed' }
+  }
+
+  /**
+   * Converte uma conversa em card no Kanban (1a fase do funil escolhido).
+   * funilType:
+   *  - 'consultor' → busca pipe com slug/tag 'consultores'
+   *  - 'associado' → busca pipe com slug/tag 'associados'
+   */
+  async convertToLead(
+    conversationId: string,
+    companyId: string,
+    userId: string,
+    funilType: 'consultor' | 'associado',
+    customTitle?: string,
+  ) {
+    const conversation = await prisma.conversation.findFirst({
+      where: { id: conversationId, companyId },
+      include: {
+        lead: { select: { id: true, nome: true, telefone: true, whatsapp: true } },
+        associado: { select: { id: true, nome: true, telefone: true } },
+      },
+    })
+    if (!conversation) throw new AppError('Conversa nao encontrada', 404, 'NOT_FOUND')
+
+    // Encontra pipe pelo tipo (procura por nome contendo a palavra-chave)
+    const keyword = funilType === 'consultor' ? 'consultor' : 'associado'
+    const pipes = await prisma.pipe.findMany({
+      where: { companyId },
+      orderBy: { createdAt: 'asc' },
+    })
+    const pipe = pipes.find(p => p.name.toLowerCase().includes(keyword))
+    if (!pipe) {
+      throw new AppError(
+        `Funil de ${funilType} nao encontrado. Crie um funil com nome contendo '${keyword}'.`,
+        400,
+        'PIPE_NOT_FOUND',
+      )
+    }
+
+    // Pega 1a fase
+    const firstPhase = await prisma.phase.findFirst({
+      where: { pipeId: pipe.id },
+      orderBy: { position: 'asc' },
+    })
+    if (!firstPhase) {
+      throw new AppError('Funil sem fases. Adicione uma fase primeiro.', 400, 'NO_PHASES')
+    }
+
+    const contactName = conversation.lead?.nome || conversation.associado?.nome || 'Contato WhatsApp'
+    const title = customTitle?.trim() || `${contactName} (WhatsApp)`
+
+    const card = await prisma.card.create({
+      data: {
+        companyId,
+        pipeId: pipe.id,
+        currentPhaseId: firstPhase.id,
+        title,
+        description: `Convertido da conversa de WhatsApp em ${new Date().toLocaleString('pt-BR')}`,
+        status: 'active',
+        createdById: userId,
+        assignedToId: userId,
+      },
+    })
+
+    // Atribui a conversa pro user (se ainda nao estiver) e marca como assigned
+    await prisma.conversation.update({
+      where: { id: conversationId },
+      data: {
+        assignedToId: conversation.assignedToId || userId,
+        status: 'assigned',
+      },
+    })
+
+    return {
+      card: {
+        id: card.id,
+        title: card.title,
+        pipeId: card.pipeId,
+        phaseId: card.currentPhaseId,
+      },
+      pipe: { id: pipe.id, name: pipe.name },
+      kanbanUrl: `/pipes/${pipe.id}/kanban`,
+    }
   }
 }

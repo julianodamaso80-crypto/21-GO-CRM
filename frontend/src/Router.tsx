@@ -23,6 +23,7 @@ import { CotacoesPage } from './pages/cotacoes/CotacoesPage'
 import { IndicacoesPage } from './pages/indicacoes/IndicacoesPage'
 import { TeamPage } from './pages/team/TeamPage'
 import { TarefasPage } from './pages/tarefas/TarefasPage'
+import { WhatsappPage } from './pages/whatsapp/WhatsappPage'
 
 // Layouts
 import { AppLayout } from './components/layouts/AppLayout'
@@ -85,7 +86,8 @@ export function Router() {
 
           {/* Mantidos */}
           <Route path="/nps" element={<NPSPage />} />
-          <Route path="/inbox" element={<InboxPage />} />
+          <Route path="/inbox" element={<Navigate to="/whatsapp" replace />} />
+          <Route path="/whatsapp" element={<WhatsappPage />} />
           <Route path="/ai" element={<AITrainingPage />} />
           <Route path="/pipes" element={<PipesListPage />} />
           <Route path="/pipes/new-ai" element={<PipeBuilderPage />} />

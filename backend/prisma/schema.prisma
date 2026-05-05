@@ -1100,3 +1100,33 @@ model Task {
   @@index([companyId, userId, dueAt])
   @@map("tasks")
 }
+
+// ============================================================================
+// WHATSAPP INSTANCES (1 chip por user via Evolution API)
+// ============================================================================
+
+model WhatsappInstance {
+  id              String  @id @default(uuid())
+  companyId       String  @map("company_id")
+  userId          String  @map("user_id") @unique // 1 instancia por user
+  name            String
+  evolutionName   String  @unique @map("evolution_name") // {prefix}{userIdShort}
+  evolutionApiKey String? @map("evolution_api_key")
+
+  phone           String?
+  ownerJid        String? @map("owner_jid")
+  profileName     String? @map("profile_name")
+  profilePicUrl   String? @map("profile_pic_url")
+
+  status          String  @default("DISCONNECTED") // DISCONNECTED | QR_PENDING | CONNECTED
+
+  connectedAt     DateTime? @map("connected_at")
+  lastSeenAt      DateTime? @map("last_seen_at")
+
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([companyId])
+  @@index([status])
+  @@map("whatsapp_instances")
+}
