@@ -66,6 +66,8 @@ async function bootstrap() {
           'https://21go.site',
           'https://www.21go.site',
           'https://app.21go.site',
+          'https://crm21go.site',
+          'https://www.crm21go.site',
           'https://21go-website-production.up.railway.app',
           'http://localhost:5173',
           'http://localhost:3000',

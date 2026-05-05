@@ -5,6 +5,9 @@ export async function authenticate(
   request: FastifyRequest,
   _reply: FastifyReply
 ) {
+  // Skip OPTIONS preflight - browsers nao enviam Authorization header em preflight CORS
+  if (request.method === 'OPTIONS') return
+
   try {
     await request.jwtVerify()
 

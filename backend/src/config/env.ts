@@ -22,7 +22,8 @@ const envSchema = z.object({
 
   // JWT
   JWT_SECRET: z.string().min(8).default('dev-jwt-secret-change-in-production-32chars'),
-  JWT_EXPIRES_IN: z.string().default('15m'),
+  // 24h default - antes era 15m, mas user perdia sessao enquanto preenchia formularios longos
+  JWT_EXPIRES_IN: z.string().default('24h'),
   REFRESH_TOKEN_SECRET: z.string().min(8).default('dev-refresh-secret-change-in-prod-32chars'),
   REFRESH_TOKEN_EXPIRES_IN: z.string().default('7d'),
 
