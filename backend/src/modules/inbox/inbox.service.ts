@@ -55,16 +55,27 @@ export class InboxService {
     })
 
     // Transform to match frontend expectations
-    return conversations.map(c => ({
-      ...c,
-      channel: { type: c.channel, name: c.channel },
-      contact: c.associado
-        ? { id: c.associado.id, fullName: c.associado.nome, email: c.associado.email, phone: c.associado.telefone, avatar: null }
+    return conversations.map(c => {
+      const source = c.associado
+        ? { id: c.associado.id, fullName: c.associado.nome, email: c.associado.email, phone: c.associado.telefone }
         : c.lead
-          ? { id: c.lead.id, fullName: c.lead.nome, email: c.lead.email, phone: c.lead.telefone, avatar: null }
+          ? { id: c.lead.id, fullName: c.lead.nome, email: c.lead.email, phone: c.lead.telefone }
+          : null
+      return {
+        ...c,
+        channel: { type: c.channel, name: c.channel },
+        contact: source
+          ? {
+              ...source,
+              firstName: source.fullName?.split(' ')[0] || '',
+              lastName: source.fullName?.split(' ').slice(1).join(' ') || '',
+              avatar: null,
+            }
           : null,
-      lastMessage: c.messages[0] || null,
-    }))
+        lastMessage: c.messages[0] || null,
+        lastMessagePreview: c.messages[0]?.content || null,
+      }
+    })
   }
 
   async getConversationById(id: string, companyId: string) {

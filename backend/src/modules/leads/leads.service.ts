@@ -119,7 +119,27 @@ export class LeadsService {
       utmCampaign: l.utmCampaign,
       createdAt: l.createdAt,
       updatedAt: l.updatedAt,
-      contact: l.associado ? { id: l.associado.id, fullName: l.associado.nome } : null,
+      // Frontend espera contact com nome+phone+email. Fallback pros campos do proprio lead
+      // (importante pra leads vindos do WhatsApp sem associado vinculado)
+      contact: l.associado
+        ? {
+            id: l.associado.id,
+            fullName: l.associado.nome,
+            firstName: l.associado.nome?.split(' ')[0] || '',
+            lastName: l.associado.nome?.split(' ').slice(1).join(' ') || '',
+            phone: l.associado.telefone || l.telefone,
+            whatsapp: l.associado.whatsapp || l.whatsapp,
+            email: l.associado.email || l.email,
+          }
+        : {
+            id: l.id,
+            fullName: l.nome,
+            firstName: l.nome?.split(' ')[0] || '',
+            lastName: l.nome?.split(' ').slice(1).join(' ') || '',
+            phone: l.telefone,
+            whatsapp: l.whatsapp,
+            email: l.email,
+          },
     }))
 
     return {
