@@ -337,4 +337,56 @@ export class PipesService {
     // CardAttachment model removed from schema — return stub
     return { id: 'stub', cardId, fileName: data.fileName, storageUrl: data.storageUrl }
   }
+
+  /**
+   * Transfere um card pra outro funil.
+   * Move pra primeira fase do funil destino (ou pra fase específica se passada).
+   */
+  async transferCard(
+    cardId: string,
+    companyId: string,
+    targetPipeId: string,
+    targetPhaseId: string | undefined,
+    _userId: string,
+  ) {
+    const card = await prisma.card.findFirst({ where: { id: cardId, companyId } })
+    if (!card) throw new AppError('Card nao encontrado', 404, 'NOT_FOUND')
+
+    const targetPipe = await prisma.pipe.findFirst({ where: { id: targetPipeId, companyId } })
+    if (!targetPipe) throw new AppError('Funil destino nao encontrado', 404, 'NOT_FOUND')
+
+    if (card.pipeId === targetPipeId) {
+      throw new AppError('Card ja esta neste funil', 400, 'SAME_PIPE')
+    }
+
+    // Resolve fase destino: especificada ou primeira do pipe
+    let phase
+    if (targetPhaseId) {
+      phase = await prisma.phase.findFirst({
+        where: { id: targetPhaseId, pipeId: targetPipeId, companyId },
+      })
+      if (!phase) throw new AppError('Fase destino invalida', 400, 'INVALID_PHASE')
+    } else {
+      phase = await prisma.phase.findFirst({
+        where: { pipeId: targetPipeId, companyId },
+        orderBy: { position: 'asc' },
+      })
+      if (!phase) {
+        throw new AppError('Funil destino nao tem fases', 400, 'NO_PHASES')
+      }
+    }
+
+    const updated = await prisma.card.update({
+      where: { id: cardId },
+      data: {
+        pipeId: targetPipeId,
+        currentPhaseId: phase.id,
+        status: phase.isWon ? 'done' : phase.isLost ? 'done' : 'active',
+        completedAt: (phase.isWon || phase.isLost) ? new Date() : null,
+      },
+      include: { currentPhase: true },
+    })
+
+    return updated
+  }
 }

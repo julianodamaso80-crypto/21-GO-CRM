@@ -117,6 +117,15 @@ export class PipesController {
     return reply.send(card)
   }
 
+  async transferCard(request: FastifyRequest, reply: FastifyReply) {
+    const user = (request as any).user
+    const { cardId } = request.params as { cardId: string }
+    const { targetPipeId, targetPhaseId } = request.body as { targetPipeId: string; targetPhaseId?: string }
+    if (!targetPipeId) throw new AppError('targetPipeId obrigatorio', 400, 'BAD_REQUEST')
+    const card = await pipesService.transferCard(cardId, user.companyId, targetPipeId, targetPhaseId, user.id)
+    return reply.send(card)
+  }
+
   async updateCardFields(request: FastifyRequest, reply: FastifyReply) {
     const user = (request as any).user
     const { cardId } = request.params as { cardId: string }

@@ -203,6 +203,24 @@ export function useMoveCard(pipeId: string) {
   })
 }
 
+export function useTransferCard(currentPipeId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ cardId, targetPipeId, targetPhaseId }: { cardId: string; targetPipeId: string; targetPhaseId?: string }) =>
+      pipesService.transferCard(cardId, targetPipeId, targetPhaseId),
+    onSuccess: (_, vars) => {
+      // Invalida ambos os kanbans (origem e destino)
+      queryClient.invalidateQueries({ queryKey: ['kanban', currentPipeId] })
+      queryClient.invalidateQueries({ queryKey: ['kanban', vars.targetPipeId] })
+      queryClient.invalidateQueries({ queryKey: ['pipes'] })
+      toast.success('Card transferido!')
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Erro ao transferir card')
+    },
+  })
+}
+
 export function useUpdateCardFields() {
   const queryClient = useQueryClient()
   return useMutation({

@@ -109,6 +109,19 @@ export const pipesService = {
     return response.data
   },
 
+  /** Transfere card pra outro funil (vai pra primeira fase do destino, ou fase específica) */
+  async transferCard(
+    cardId: string,
+    targetPipeId: string,
+    targetPhaseId?: string,
+  ): Promise<Card> {
+    const response = await api.patch<Card>(`/pipes/cards/${cardId}/transfer`, {
+      targetPipeId,
+      targetPhaseId,
+    })
+    return response.data
+  },
+
   async updateCardFields(cardId: string, data: UpdateCardFieldsRequest): Promise<{ success: boolean }> {
     const response = await api.patch(`/pipes/cards/${cardId}/fields`, data)
     return response.data

@@ -201,6 +201,23 @@ export async function pipesRoutes(fastify: FastifyInstance) {
     handler: pipesController.moveCard.bind(pipesController),
   })
 
+  fastify.patch('/cards/:cardId/transfer', {
+    schema: {
+      description: 'Transferir card pra outro funil (vai pra primeira fase do destino, ou fase especifica)',
+      tags: ['Cards'],
+      security: [{ bearerAuth: [] }],
+      body: {
+        type: 'object',
+        required: ['targetPipeId'],
+        properties: {
+          targetPipeId: { type: 'string' },
+          targetPhaseId: { type: 'string' },
+        },
+      },
+    },
+    handler: pipesController.transferCard.bind(pipesController),
+  })
+
   fastify.patch('/cards/:cardId/fields', {
     schema: {
       description: 'Atualizar campos do card',

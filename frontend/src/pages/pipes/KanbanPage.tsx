@@ -1,8 +1,8 @@
 // @ts-nocheck
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, Plus, Loader2, GripVertical, Settings2 } from 'lucide-react'
-import { useKanban, useCreateCard, useMoveCard } from '../../hooks/usePipes'
+import { ArrowLeft, Plus, Loader2, GripVertical, Settings2, ArrowRightLeft, X } from 'lucide-react'
+import { useKanban, useCreateCard, useMoveCard, useTransferCard, usePipes } from '../../hooks/usePipes'
 import { CardDrawer } from './CardDrawer'
 import { PhasesEditorDrawer } from './PhasesEditorDrawer'
 import { useAuthStore } from '../../store/auth-store'
@@ -11,13 +11,16 @@ import type { Card, Phase } from '../../../../shared/types'
 export function KanbanPage() {
   const { pipeId } = useParams<{ pipeId: string }>()
   const { data: kanban, isLoading } = useKanban(pipeId || '')
+  const { data: allPipes } = usePipes()
   const createCard = useCreateCard(pipeId || '')
   const moveCard = useMoveCard(pipeId || '')
+  const transferCard = useTransferCard(pipeId || '')
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null)
   const [newCardPhaseId, setNewCardPhaseId] = useState<string | null>(null)
   const [newCardTitle, setNewCardTitle] = useState('')
   const [draggedCardId, setDraggedCardId] = useState<string | null>(null)
   const [phasesEditorOpen, setPhasesEditorOpen] = useState(false)
+  const [transferCardId, setTransferCardId] = useState<string | null>(null)
   const me = useAuthStore((s) => s.user)
   const isAdmin = me?.role?.name === 'admin'
 
@@ -164,7 +167,7 @@ export function KanbanPage() {
                     draggable
                     onDragStart={(e) => handleDragStart(e, card.id)}
                     onClick={() => setSelectedCardId(card.id)}
-                    className="card p-3 cursor-pointer hover:shadow-sm transition-shadow group"
+                    className="card p-3 cursor-pointer hover:shadow-sm transition-shadow group relative"
                   >
                     <div className="flex items-start gap-2">
                       <GripVertical className="w-4 h-4 text-gray-600 mt-0.5 opacity-0 group-hover:opacity-100 flex-shrink-0 cursor-grab" />
@@ -184,6 +187,14 @@ export function KanbanPage() {
                           </div>
                         )}
                       </div>
+                      {/* Botão "Transferir pra outro funil" */}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setTransferCardId(card.id) }}
+                        title="Transferir pra outro funil"
+                        className="absolute top-2 right-2 p-1.5 rounded-md text-gray-500 hover:text-gold-400 hover:bg-dark-700/60 opacity-0 group-hover:opacity-100 transition"
+                      >
+                        <ArrowRightLeft className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -212,6 +223,108 @@ export function KanbanPage() {
           onClose={() => setPhasesEditorOpen(false)}
         />
       )}
+
+      {/* Transfer Card Modal */}
+      {transferCardId && (
+        <TransferCardModal
+          cardId={transferCardId}
+          currentPipeId={pipeId}
+          pipes={(allPipes || []).filter((p: any) => p.id !== pipeId)}
+          onClose={() => setTransferCardId(null)}
+          onTransfer={(targetPipeId) => {
+            transferCard.mutate(
+              { cardId: transferCardId, targetPipeId },
+              { onSuccess: () => setTransferCardId(null) },
+            )
+          }}
+          isPending={transferCard.isPending}
+        />
+      )}
     </div>
+  )
+}
+
+function TransferCardModal({
+  cardId,
+  currentPipeId,
+  pipes,
+  onClose,
+  onTransfer,
+  isPending,
+}: {
+  cardId: string
+  currentPipeId: string
+  pipes: Array<{ id: string; name: string; color?: string; description?: string }>
+  onClose: () => void
+  onTransfer: (targetPipeId: string) => void
+  isPending: boolean
+}) {
+  const [selected, setSelected] = useState<string | null>(null)
+
+  return (
+    <>
+      <div className="drawer-overlay" onClick={onClose} />
+      <div className="drawer-panel max-w-md flex flex-col">
+        <div className="px-6 py-4 border-b border-dark-700/40 flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-display font-semibold text-white">Transferir pra outro funil</h3>
+            <p className="text-xs text-gray-500 mt-0.5">O card vai pra primeira fase do funil escolhido</p>
+          </div>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-300">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6 space-y-2">
+          {pipes.length === 0 ? (
+            <p className="text-sm text-gray-500 text-center py-8">
+              Sem outros funis disponíveis
+            </p>
+          ) : (
+            pipes.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => setSelected(p.id)}
+                className={`w-full text-left p-3 rounded-xl border transition flex items-center gap-3 ${
+                  selected === p.id
+                    ? 'bg-gold-500/10 border-gold-500/40 ring-1 ring-gold-500/20'
+                    : 'border-dark-700/40 hover:border-dark-600 hover:bg-dark-800/40'
+                }`}
+              >
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm flex-shrink-0"
+                  style={{ backgroundColor: p.color || '#3B82F6' }}
+                >
+                  {p.name?.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-medium ${selected === p.id ? 'text-white' : 'text-gray-300'} truncate`}>
+                    {p.name}
+                  </p>
+                  {p.description && (
+                    <p className="text-xs text-gray-500 truncate mt-0.5">{p.description}</p>
+                  )}
+                </div>
+                {selected === p.id && <ArrowRightLeft className="w-4 h-4 text-gold-400 flex-shrink-0" />}
+              </button>
+            ))
+          )}
+        </div>
+
+        <div className="px-6 py-4 border-t border-dark-700/40 flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-300 border border-dark-700/50 rounded-lg hover:bg-dark-700/40">
+            Cancelar
+          </button>
+          <button
+            onClick={() => selected && onTransfer(selected)}
+            disabled={!selected || isPending}
+            className="btn-primary inline-flex items-center gap-2 text-sm disabled:opacity-50"
+          >
+            {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRightLeft className="w-4 h-4" />}
+            Transferir
+          </button>
+        </div>
+      </div>
+    </>
   )
 }
