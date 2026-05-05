@@ -5,7 +5,8 @@ import { prisma } from '../../config/database'
 export async function projectsRoutes(fastify: FastifyInstance) {
   fastify.addHook('onRequest', authenticate)
 
-  // GET /projects
+  // GET /projects — retorna {data:[...], stats:{backlog,em_andamento,em_revisao,concluido}}
+  // (frontend usa data?.data e data?.stats)
   fastify.get('/', async (request, reply) => {
     const { companyId } = (request as any).user
     const query = request.query as any
@@ -18,7 +19,15 @@ export async function projectsRoutes(fastify: FastifyInstance) {
       orderBy: { createdAt: 'desc' },
     })
 
-    return reply.send(projetos)
+    const stats = {
+      backlog: projetos.filter(p => p.status === 'backlog').length,
+      em_andamento: projetos.filter(p => p.status === 'em_andamento').length,
+      em_revisao: projetos.filter(p => p.status === 'em_revisao').length,
+      concluido: projetos.filter(p => p.status === 'concluido').length,
+      total: projetos.length,
+    }
+
+    return reply.send({ data: projetos, stats })
   })
 
   // GET /projects/:id
