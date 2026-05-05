@@ -23,16 +23,12 @@ export interface UpdateUserDTO {
   password?: string
 }
 
-const ROLE_DISPLAY: Record<Role, string> = {
-  admin: 'Administrador',
-  gestor: 'Gestor',
-  vendedor: 'Vendedor',
-  operacao: 'Operacao',
-}
-const ROLE_LEVEL: Record<Role, number> = { admin: 10, gestor: 7, vendedor: 5, operacao: 3 }
-
+/**
+ * Shape pro endpoint /api/users — retorna role como string ('admin' | 'gestor' | etc),
+ * NÃO como objeto. Frontend (TeamPage) faz comparações tipo m.role === 'admin' e usa
+ * role como key em counts/filters. Não confundir com shape do /auth/me que retorna objeto.
+ */
 function shape(u: any) {
-  const role = (u.role as Role) || 'vendedor'
   return {
     id: u.id,
     email: u.email,
@@ -40,12 +36,9 @@ function shape(u: any) {
     lastName: u.lastName,
     phone: u.phone,
     avatar: u.avatar,
+    role: (u.role as Role) || 'vendedor',
     isActive: u.isActive,
     companyId: u.companyId,
-    roleId: role,
-    role: { id: role, name: role, displayName: ROLE_DISPLAY[role] || role, level: ROLE_LEVEL[role] || 1 },
-    timezone: 'America/Sao_Paulo',
-    language: 'pt-BR',
     createdAt: u.createdAt,
     updatedAt: u.updatedAt,
     lastLoginAt: u.lastLoginAt,
