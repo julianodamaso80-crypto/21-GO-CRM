@@ -8,65 +8,13 @@ export async function npsRoutes(fastify: FastifyInstance) {
   // Todas as rotas requerem autenticação
   fastify.addHook('onRequest', authenticate)
 
-  // GET /nps/stats - deve vir antes de rotas com parâmetros
+  // GET /nps/stats - schema de response removido pra Fastify nao filtrar campos
+  // (frontend espera answered, recentComments com associadoName/date, etc)
   fastify.get('/stats', {
     schema: {
       description: 'Get NPS statistics and analytics',
       tags: ['nps'],
       security: [{ bearerAuth: [] }],
-      response: {
-        200: {
-          type: 'object',
-          properties: {
-            total: { type: 'number' },
-            answeredCount: { type: 'number' },
-            responseRate: { type: 'number' },
-            promoters: { type: 'number' },
-            passives: { type: 'number' },
-            detractors: { type: 'number' },
-            npsScore: { type: 'number' },
-            avgScore: { type: 'number' },
-            byMonth: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  month: { type: 'string' },
-                  nps: { type: 'number' },
-                  responses: { type: 'number' },
-                },
-              },
-            },
-            byDoctor: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  doctorId: { type: 'string' },
-                  name: { type: 'string' },
-                  nps: { type: 'number' },
-                  responses: { type: 'number' },
-                },
-              },
-            },
-            recentComments: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  id: { type: 'string' },
-                  score: { type: 'number' },
-                  category: { type: 'string' },
-                  comment: { type: 'string' },
-                  patientName: { type: 'string' },
-                  doctorName: { type: 'string' },
-                  answeredAt: { type: 'string', format: 'date-time' },
-                },
-              },
-            },
-          },
-        },
-      },
     },
     handler: npsController.getStats.bind(npsController),
   })
