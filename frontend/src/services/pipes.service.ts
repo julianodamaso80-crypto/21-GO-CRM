@@ -60,6 +60,19 @@ export const pipesService = {
     return response.data
   },
 
+  async updatePhase(phaseId: string, data: Partial<{ name: string; color: string; probability: number; isWon: boolean; isLost: boolean }>): Promise<Phase> {
+    const response = await api.patch<Phase>(`/pipes/phases/${phaseId}`, data)
+    return response.data
+  },
+
+  async deletePhase(phaseId: string): Promise<void> {
+    await api.delete(`/pipes/phases/${phaseId}`)
+  },
+
+  async reorderPhases(pipeId: string, phaseIds: string[]): Promise<void> {
+    await api.patch(`/pipes/${pipeId}/phases`, { phaseIds })
+  },
+
   // === Fields ===
 
   async createField(pipeId: string, data: CreateFieldDefinitionRequest): Promise<FieldDefinition> {
@@ -89,8 +102,10 @@ export const pipesService = {
     return response.data
   },
 
-  async moveCard(cardId: string, data: MoveCardRequest): Promise<Card> {
-    const response = await api.patch<Card>(`/pipes/cards/${cardId}/move`, data)
+  async moveCard(cardId: string, data: MoveCardRequest & { pipeId?: string }): Promise<Card> {
+    const pipeId = (data as any).pipeId
+    if (!pipeId) throw new Error('moveCard requires pipeId')
+    const response = await api.patch<Card>(`/pipes/${pipeId}/cards`, { cardId, phaseId: data.phaseId })
     return response.data
   },
 

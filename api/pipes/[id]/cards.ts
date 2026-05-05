@@ -35,6 +35,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ data: cards.map(shapeCard), pagination: { total: cards.length } })
     }
 
+    if (req.method === 'PATCH') {
+      const body = await readBody(req)
+      const cardId = String(body.cardId || '')
+      const phaseId = String(body.phaseId || '')
+      if (!cardId || !phaseId) return fail(res, 400, 'cardId e phaseId obrigatorios')
+
+      const cards = await sbJson<any[]>(
+        `/cards?id=eq.${encodeURIComponent(cardId)}&pipe_id=eq.${encodeURIComponent(pipeId)}&limit=1`
+      )
+      if (!cards.length) return fail(res, 404, 'Card nao encontrado')
+
+      const phase = await sbJson<any[]>(
+        `/phases?id=eq.${encodeURIComponent(phaseId)}&pipe_id=eq.${encodeURIComponent(pipeId)}&limit=1`
+      )
+      if (!phase.length) return fail(res, 400, 'Fase invalida')
+
+      const now = new Date().toISOString()
+      const update: any = { current_phase_id: phaseId, updated_at: now }
+      if (phase[0].is_won) { update.status = 'done'; update.completed_at = now }
+      else if (phase[0].is_lost) { update.status = 'archived' }
+      else { update.status = 'active'; update.completed_at = null }
+
+      const r = await sb(`/cards?id=eq.${encodeURIComponent(cardId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify(update),
+      })
+      if (!r.ok) {
+        const text = await r.text()
+        return fail(res, 500, `Erro: ${text.slice(0, 200)}`)
+      }
+      const updated = await r.json() as any[]
+      return res.status(200).json(shapeCard(updated[0]))
+    }
+
     if (req.method === 'POST') {
       const body = await readBody(req)
       const title = String(body.title || '').trim()

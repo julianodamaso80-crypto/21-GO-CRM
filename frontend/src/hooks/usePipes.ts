@@ -88,6 +88,50 @@ export function useCreatePhase(pipeId: string) {
   })
 }
 
+export function useUpdatePhase(pipeId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ phaseId, data }: { phaseId: string; data: Partial<{ name: string; color: string; probability: number; isWon: boolean; isLost: boolean }> }) =>
+      pipesService.updatePhase(phaseId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pipes', pipeId] })
+      queryClient.invalidateQueries({ queryKey: ['kanban', pipeId] })
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Erro ao atualizar fase')
+    },
+  })
+}
+
+export function useDeletePhase(pipeId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (phaseId: string) => pipesService.deletePhase(phaseId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pipes', pipeId] })
+      queryClient.invalidateQueries({ queryKey: ['kanban', pipeId] })
+      toast.success('Fase removida!')
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Erro ao remover fase')
+    },
+  })
+}
+
+export function useReorderPhases(pipeId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (phaseIds: string[]) => pipesService.reorderPhases(pipeId, phaseIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pipes', pipeId] })
+      queryClient.invalidateQueries({ queryKey: ['kanban', pipeId] })
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Erro ao reordenar fases')
+    },
+  })
+}
+
 export function useCreateFieldDefinition(pipeId: string) {
   const queryClient = useQueryClient()
   return useMutation({
@@ -149,7 +193,7 @@ export function useMoveCard(pipeId: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ cardId, data }: { cardId: string; data: MoveCardRequest }) =>
-      pipesService.moveCard(cardId, data),
+      pipesService.moveCard(cardId, { ...data, pipeId } as any),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kanban', pipeId] })
     },

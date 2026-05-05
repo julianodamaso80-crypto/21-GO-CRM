@@ -1,9 +1,11 @@
 // @ts-nocheck
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, Plus, Loader2, GripVertical } from 'lucide-react'
+import { ArrowLeft, Plus, Loader2, GripVertical, Settings2 } from 'lucide-react'
 import { useKanban, useCreateCard, useMoveCard } from '../../hooks/usePipes'
 import { CardDrawer } from './CardDrawer'
+import { PhasesEditorDrawer } from './PhasesEditorDrawer'
+import { useAuthStore } from '../../store/auth-store'
 import type { Card, Phase } from '../../../../shared/types'
 
 export function KanbanPage() {
@@ -15,6 +17,9 @@ export function KanbanPage() {
   const [newCardPhaseId, setNewCardPhaseId] = useState<string | null>(null)
   const [newCardTitle, setNewCardTitle] = useState('')
   const [draggedCardId, setDraggedCardId] = useState<string | null>(null)
+  const [phasesEditorOpen, setPhasesEditorOpen] = useState(false)
+  const me = useAuthStore((s) => s.user)
+  const isAdmin = me?.role?.name === 'admin'
 
   if (!pipeId) return null
 
@@ -75,10 +80,20 @@ export function KanbanPage() {
         >
           {kanban.name?.charAt(0).toUpperCase()}
         </div>
-        <div>
+        <div className="flex-1 min-w-0">
           <h1 className="text-lg font-semibold text-white font-display">{kanban.name}</h1>
-          {kanban.description && <p className="text-xs text-gray-400">{kanban.description}</p>}
+          {kanban.description && <p className="text-xs text-gray-400 truncate">{kanban.description}</p>}
         </div>
+        {isAdmin && (
+          <button
+            onClick={() => setPhasesEditorOpen(true)}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gold-500/10 border border-gold-500/30 text-gold-400 rounded-lg hover:bg-gold-500/20 transition-colors"
+            title="Editar fases do funil (admin)"
+          >
+            <Settings2 className="w-4 h-4" />
+            Editar fases
+          </button>
+        )}
       </div>
 
       {/* Kanban Board */}
@@ -184,6 +199,17 @@ export function KanbanPage() {
           cardId={selectedCardId}
           pipeId={pipeId}
           onClose={() => setSelectedCardId(null)}
+        />
+      )}
+
+      {/* Phases Editor (admin only) */}
+      {isAdmin && (
+        <PhasesEditorDrawer
+          isOpen={phasesEditorOpen}
+          pipeId={pipeId}
+          pipeName={kanban.name}
+          phases={kanban.phases || []}
+          onClose={() => setPhasesEditorOpen(false)}
         />
       )}
     </div>
