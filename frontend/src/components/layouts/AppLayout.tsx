@@ -3,11 +3,12 @@ import {
   LayoutDashboard, Users, MessageSquare, UserCircle2, Brain,
   LayoutGrid, LogOut, Webhook, Zap, CreditCard, BarChart3,
   SmilePlus, Car, FileText, AlertTriangle, Gift, Link2,
-  Search, Bell, ChevronDown, ClipboardList, Settings,
-  Shield, Wrench, UserCog,
+  Search, Bell, ChevronDown, ChevronRight, ClipboardList, Settings,
+  Shield, Wrench, UserCog, Loader2,
 } from 'lucide-react'
 import { useAuthStore, type UserRole } from '../../store/auth-store'
 import { useState } from 'react'
+import { usePipes } from '../../hooks/usePipes'
 
 type NavItem = {
   path: string
@@ -45,7 +46,6 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { path: '/leads', icon: UserCircle2, label: 'Leads' },
       { path: '/cotacoes', icon: FileText, label: 'Cotacoes' },
-      { path: '/pipes', icon: LayoutGrid, label: 'Funil de Vendas' },
       { path: '/analytics', icon: BarChart3, label: 'Analytics', roles: ['admin', 'gestor'] },
     ],
   },
@@ -151,6 +151,9 @@ export function AppLayout() {
                 <p className="text-[10px] font-semibold text-dark-400 uppercase tracking-[0.15em] pt-5 pb-2 px-3">
                   {section.label}
                 </p>
+              )}
+              {section.label === 'Comercial' && ['admin', 'gestor', 'vendedor'].includes(currentRole) && (
+                <PipesNavItem isActive={isActive} />
               )}
               {section.items.filter(canSeeItem).map((item) => {
                 const Icon = item.icon
@@ -287,6 +290,74 @@ export function AppLayout() {
           <Outlet />
         </main>
       </div>
+    </div>
+  )
+}
+
+function PipesNavItem({ isActive }: { isActive: (path: string) => boolean }) {
+  const location = useLocation()
+  const { data: pipes, isLoading } = usePipes()
+  const isOnPipesArea = location.pathname.startsWith('/pipes')
+  const [expanded, setExpanded] = useState(isOnPipesArea)
+
+  const headerActive = isActive('/pipes')
+  const activePipes = pipes || []
+
+  return (
+    <div>
+      <div className="flex items-center">
+        <Link
+          to="/pipes"
+          className={`flex-1 ${headerActive && location.pathname === '/pipes' ? 'sidebar-link-active' : 'sidebar-link-inactive'}`}
+        >
+          <LayoutGrid size={18} className={headerActive ? 'text-gold-400' : ''} />
+          <span>Funil de Vendas</span>
+        </Link>
+        <button
+          type="button"
+          onClick={() => setExpanded(!expanded)}
+          className="p-2 text-gray-500 hover:text-gold-400 transition-colors"
+          aria-label={expanded ? 'Recolher' : 'Expandir'}
+        >
+          {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        </button>
+      </div>
+
+      {expanded && (
+        <div className="ml-7 mt-1 space-y-0.5 border-l border-dark-700/30 pl-3">
+          {isLoading && (
+            <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-gray-500">
+              <Loader2 size={12} className="animate-spin" /> carregando...
+            </div>
+          )}
+          {!isLoading && activePipes.length === 0 && (
+            <p className="px-3 py-1.5 text-xs text-gray-500 italic">Nenhum funil ainda</p>
+          )}
+          {activePipes.map((pipe) => {
+            const path = `/pipes/${pipe.id}/kanban`
+            const active = location.pathname === path
+            return (
+              <Link
+                key={pipe.id}
+                to={path}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs transition-colors ${
+                  active ? 'bg-gold-500/10 text-gold-400 font-medium' : 'text-gray-400 hover:text-gray-200 hover:bg-dark-700/30'
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: pipe.color }} />
+                <span className="truncate">{pipe.name}</span>
+              </Link>
+            )
+          })}
+          <Link
+            to="/pipes"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-gray-500 hover:text-gold-400 transition-colors"
+          >
+            <span className="w-2 h-2 rounded-full border border-gray-500 flex-shrink-0" />
+            <span>Gerenciar funis...</span>
+          </Link>
+        </div>
+      )}
     </div>
   )
 }
