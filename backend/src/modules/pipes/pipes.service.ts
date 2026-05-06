@@ -231,15 +231,33 @@ export class PipesService {
       where: { id: cardId, companyId },
       include: {
         currentPhase: true,
+        pipe: { select: { id: true, name: true, color: true } },
         createdBy: { select: { id: true, firstName: true, lastName: true, avatar: true } },
         assignedTo: { select: { id: true, firstName: true, lastName: true, avatar: true } },
         fieldValues: { include: { fieldDefinition: true } },
-        activityLogs: { orderBy: { createdAt: 'desc' }, take: 50 },
-        attachments: { orderBy: { createdAt: 'desc' } },
       },
     })
     if (!card) throw new AppError('Card nao encontrado', 404, 'NOT_FOUND')
-    return card
+
+    // Tenta achar Lead/Conversation vinculados pelo titulo (que copiamos do nome do lead)
+    // Heuristica: card title === lead nome ou phone do desc bate com whatsapp do lead
+    const lead = await prisma.lead.findFirst({
+      where: { companyId, nome: card.title },
+      select: { id: true, nome: true, telefone: true, whatsapp: true, email: true, origem: true, etapaFunil: true },
+    })
+
+    let conversation: any = null
+    if (lead) {
+      conversation = await prisma.conversation.findFirst({
+        where: { companyId, leadId: lead.id },
+        include: {
+          messages: { orderBy: { createdAt: 'asc' } },
+        },
+        orderBy: { createdAt: 'desc' },
+      })
+    }
+
+    return { ...card, lead, conversation }
   }
 
   async createCard(
