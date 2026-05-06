@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import {
   Search, Loader2, UserCircle2, User, Car, Phone, Mail, X,
@@ -44,8 +45,26 @@ export function GlobalSearch() {
   const [results, setResults] = useState<SearchResult>(EMPTY)
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState<{ left: number; top: number; width: number } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Calcula posição do dropdown baseado no input (pra ficar fixo na viewport)
+  useLayoutEffect(() => {
+    if (!open || !containerRef.current) return
+    const update = () => {
+      const r = containerRef.current!.getBoundingClientRect()
+      setPos({ left: r.left, top: r.bottom + 8, width: r.width })
+    }
+    update()
+    window.addEventListener('resize', update)
+    window.addEventListener('scroll', update, true)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('scroll', update, true)
+    }
+  }, [open])
 
   // Atalho "/" pra focar
   useEffect(() => {
@@ -63,10 +82,13 @@ export function GlobalSearch() {
     return () => window.removeEventListener('keydown', onKey)
   }, [open])
 
-  // Click fora fecha
+  // Click fora fecha (input + dropdown contam como "dentro")
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node
+      const insideContainer = containerRef.current?.contains(target)
+      const insideDropdown = dropdownRef.current?.contains(target)
+      if (!insideContainer && !insideDropdown) {
         setOpen(false)
       }
     }
@@ -127,9 +149,13 @@ export function GlobalSearch() {
         <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-500 bg-dark-700/50 px-1.5 py-0.5 rounded-md border border-dark-600/30 font-mono">/</kbd>
       )}
 
-      {/* Dropdown de resultados */}
-      {open && q.trim().length >= 2 && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-dark-800 border border-dark-700/50 rounded-xl shadow-2xl overflow-hidden z-50 max-h-[60vh] overflow-y-auto">
+      {/* Dropdown via Portal (escapa de overflow:hidden de qualquer parent) */}
+      {open && q.trim().length >= 2 && pos && createPortal(
+        <div
+          ref={dropdownRef}
+          style={{ left: pos.left, top: pos.top, width: pos.width, zIndex: 9999 }}
+          className="fixed bg-dark-800 border border-dark-700/50 rounded-xl shadow-2xl overflow-hidden max-h-[60vh] overflow-y-auto"
+        >
           {loading ? (
             <div className="flex items-center gap-2 px-4 py-3 text-xs text-gray-400">
               <Loader2 className="w-3.5 h-3.5 animate-spin" /> Buscando…
@@ -229,7 +255,8 @@ export function GlobalSearch() {
               )}
             </>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )
