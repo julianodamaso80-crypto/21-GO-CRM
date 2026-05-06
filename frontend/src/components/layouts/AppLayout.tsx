@@ -9,6 +9,7 @@ import {
 import { useAuthStore, type UserRole } from '../../store/auth-store'
 import { useState } from 'react'
 import { usePipes } from '../../hooks/usePipes'
+import { GlobalSearch } from '../GlobalSearch'
 
 type NavItem = {
   path: string
@@ -215,20 +216,8 @@ export function AppLayout() {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <header className="h-14 border-b border-dark-700/30 bg-dark-900/40 backdrop-blur-md flex items-center justify-between px-6 flex-shrink-0">
-          {/* Search */}
-          <div className={`relative transition-all duration-300 ${searchFocused ? 'w-96' : 'w-72'}`}>
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-            <input
-              type="text"
-              placeholder="Buscar..."
-              onFocus={() => setSearchFocused(true)}
-              onBlur={() => setSearchFocused(false)}
-              className="w-full pl-9 pr-3 py-2 bg-dark-800/40 border border-dark-700/40 rounded-xl text-sm text-gray-300 placeholder-gray-500 focus:outline-none focus:border-gold-500/30 focus:ring-1 focus:ring-gold-500/20 transition-all"
-            />
-            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-500 bg-dark-700/50 px-1.5 py-0.5 rounded-md border border-dark-600/30 font-mono">
-              /
-            </kbd>
-          </div>
+          {/* Global Search */}
+          <GlobalSearch />
 
           {/* Right Actions */}
           <div className="flex items-center gap-2">

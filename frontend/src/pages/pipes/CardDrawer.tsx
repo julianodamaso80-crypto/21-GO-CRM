@@ -1,12 +1,16 @@
 // @ts-nocheck
 import { useState, useRef, useEffect } from 'react'
 import {
-  X, Loader2, Send, MessageSquare, Phone, Mail, MapPin, User2, Calendar,
-  Sparkles, ArrowRightLeft, CheckCircle2, XCircle, Tag,
+  X, Loader2, Send, MessageSquare, Phone, Mail, User2, Calendar,
+  ArrowRightLeft, Tag, CheckSquare, Clock, Plus,
 } from 'lucide-react'
 import { useCard, useTransferCard, usePipes } from '../../hooks/usePipes'
+import { useTasksByLead, useCompleteTask } from '../../hooks/useTasks'
+import { KommoTaskModal } from '../tarefas/KommoTaskModal'
 import { api } from '../../lib/api'
 import { toast } from 'sonner'
+import { format } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 
 interface CardDrawerProps {
   cardId: string
@@ -27,11 +31,18 @@ export function CardDrawer({ cardId, pipeId, onClose }: CardDrawerProps) {
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const [transferOpen, setTransferOpen] = useState(false)
+  const [taskModalOpen, setTaskModalOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<'chat' | 'tarefas'>('chat')
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const conversation = (card as any)?.conversation
   const lead = (card as any)?.lead
   const messages = conversation?.messages || []
+
+  const { data: tasksData, refetch: refetchTasks } = useTasksByLead(lead?.id || '')
+  const completeTask = useCompleteTask()
+  const tasks = tasksData?.data || []
+  const pendingTasks = tasks.filter((t) => t.status === 'pendente')
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -162,62 +173,134 @@ export function CardDrawer({ cardId, pipeId, onClose }: CardDrawerProps) {
                 )}
               </div>
 
-              {/* COLUNA DIREITA — Chat WhatsApp embutido */}
+              {/* COLUNA DIREITA — Tabs (Chat / Tarefas) */}
               <div className="flex-1 flex flex-col bg-dark-900">
-                {/* Chat header */}
-                <div className="px-5 py-3 border-b border-dark-700/40 bg-dark-800/40">
-                  <div className="flex items-center gap-2 text-sm text-gray-400">
-                    <MessageSquare className="w-4 h-4 text-emerald-400" />
-                    <span className="font-medium">Conversa WhatsApp</span>
-                    {messages.length > 0 && (
-                      <span className="text-xs text-gray-500">• {messages.length} mensagens</span>
-                    )}
+                {/* Tabs */}
+                <div className="px-5 py-2 border-b border-dark-700/40 bg-dark-800/40 flex items-center gap-1">
+                  <TabButton
+                    icon={MessageSquare}
+                    label="Bate-papo"
+                    badge={messages.length > 0 ? messages.length : null}
+                    active={activeTab === 'chat'}
+                    onClick={() => setActiveTab('chat')}
+                  />
+                  <TabButton
+                    icon={CheckSquare}
+                    label="Tarefas"
+                    badge={pendingTasks.length > 0 ? pendingTasks.length : null}
+                    active={activeTab === 'tarefas'}
+                    onClick={() => setActiveTab('tarefas')}
+                  />
+                  <div className="ml-auto">
+                    <button
+                      onClick={() => setTaskModalOpen(true)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gold-500/10 border border-gold-500/30 text-gold-400 hover:bg-gold-500/20 text-xs font-medium transition"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Nova tarefa
+                    </button>
                   </div>
                 </div>
 
-                {/* Mensagens */}
-                <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
-                  {!conversation ? (
-                    <div className="flex flex-col items-center justify-center h-full text-center max-w-sm mx-auto">
-                      <MessageSquare className="w-12 h-12 text-gray-600 mb-3" />
-                      <p className="text-sm text-gray-400">Sem conversa vinculada</p>
-                      <p className="text-xs text-gray-600 mt-1">Esse card não tem mensagens de WhatsApp ainda</p>
+                {activeTab === 'chat' ? (
+                  <>
+                    {/* Mensagens */}
+                    <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+                      {!conversation ? (
+                        <div className="flex flex-col items-center justify-center h-full text-center max-w-sm mx-auto">
+                          <MessageSquare className="w-12 h-12 text-gray-600 mb-3" />
+                          <p className="text-sm text-gray-400">Sem conversa vinculada</p>
+                          <p className="text-xs text-gray-600 mt-1">Esse card não tem mensagens de WhatsApp ainda</p>
+                        </div>
+                      ) : messages.length === 0 ? (
+                        <p className="text-center text-sm text-gray-500 py-8">Nenhuma mensagem</p>
+                      ) : (
+                        messages.map((msg: any) => <MessageBubble key={msg.id} message={msg} />)
+                      )}
+                      <div ref={bottomRef} />
                     </div>
-                  ) : messages.length === 0 ? (
-                    <p className="text-center text-sm text-gray-500 py-8">Nenhuma mensagem</p>
-                  ) : (
-                    messages.map((msg: any) => <MessageBubble key={msg.id} message={msg} />)
-                  )}
-                  <div ref={bottomRef} />
-                </div>
 
-                {/* Input */}
-                {conversation && (
-                  <div className="px-5 py-3 border-t border-dark-700/40 bg-dark-800/40">
-                    <div className="flex items-end gap-2">
-                      <textarea
-                        value={text}
-                        onChange={(e) => setText(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        placeholder="Digite e pressione Enter pra enviar pelo WhatsApp..."
-                        rows={1}
-                        className="flex-1 px-3 py-2 text-sm bg-dark-800 border border-dark-600/50 text-gray-200 rounded-lg resize-none focus:ring-2 focus:ring-gold-500/30 focus:border-gold-500"
-                      />
-                      <button
-                        onClick={handleSend}
-                        disabled={!text.trim() || sending}
-                        className="p-2.5 btn-primary rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                      </button>
-                    </div>
-                    <p className="text-[10px] text-gray-600 mt-1.5">
-                      A mensagem sai pelo seu WhatsApp conectado
-                    </p>
+                    {/* Input */}
+                    {conversation && (
+                      <div className="px-5 py-3 border-t border-dark-700/40 bg-dark-800/40">
+                        <div className="flex items-end gap-2">
+                          <textarea
+                            value={text}
+                            onChange={(e) => setText(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            placeholder="Digite e pressione Enter pra enviar pelo WhatsApp..."
+                            rows={1}
+                            className="flex-1 px-3 py-2 text-sm bg-dark-800 border border-dark-600/50 text-gray-200 rounded-lg resize-none focus:ring-2 focus:ring-gold-500/30 focus:border-gold-500"
+                          />
+                          <button
+                            onClick={handleSend}
+                            disabled={!text.trim() || sending}
+                            className="p-2.5 btn-primary rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-gray-600 mt-1.5">
+                          A mensagem sai pelo seu WhatsApp conectado
+                        </p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  /* TAB TAREFAS */
+                  <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+                    {tasks.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-full text-center max-w-sm mx-auto">
+                        <CheckSquare className="w-12 h-12 text-gray-600 mb-3" />
+                        <p className="text-sm text-gray-400">Sem tarefas</p>
+                        <p className="text-xs text-gray-600 mt-1">Click em "Nova tarefa" pra agendar follow-up</p>
+                      </div>
+                    ) : (
+                      <>
+                        {pendingTasks.length > 0 && (
+                          <div>
+                            <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-2">
+                              Pendentes ({pendingTasks.length})
+                            </p>
+                            <div className="space-y-2">
+                              {pendingTasks.map((t) => (
+                                <TaskItem
+                                  key={t.id}
+                                  task={t}
+                                  onComplete={() => completeTask.mutate(t.id, { onSuccess: () => refetchTasks() })}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {tasks.filter((t) => t.status === 'concluida').length > 0 && (
+                          <div className="pt-3 border-t border-dark-700/30 mt-3">
+                            <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-2">
+                              Concluídas ({tasks.filter((t) => t.status === 'concluida').length})
+                            </p>
+                            <div className="space-y-2 opacity-60">
+                              {tasks.filter((t) => t.status === 'concluida').slice(0, 5).map((t) => (
+                                <TaskItem key={t.id} task={t} />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 )}
               </div>
             </div>
+
+            {/* Modal de Tarefa estilo Kommo */}
+            {taskModalOpen && lead?.id && (
+              <KommoTaskModal
+                leadId={lead.id}
+                leadName={lead.nome || card.title}
+                onClose={() => setTaskModalOpen(false)}
+                onCreated={() => { refetchTasks(); setActiveTab('tarefas') }}
+              />
+            )}
 
             {/* Modal de transferência */}
             {transferOpen && allPipes && (
@@ -240,6 +323,55 @@ export function CardDrawer({ cardId, pipeId, onClose }: CardDrawerProps) {
             )}
           </>
         )}
+      </div>
+    </div>
+  )
+}
+
+function TabButton({ icon: Icon, label, badge, active, onClick }: { icon: any; label: string; badge: number | null; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+        active ? 'bg-gold-500/15 text-gold-400' : 'text-gray-400 hover:text-gray-200 hover:bg-dark-700/40'
+      }`}
+    >
+      <Icon className="w-3.5 h-3.5" />
+      {label}
+      {badge != null && (
+        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${active ? 'bg-gold-500/20 text-gold-300' : 'bg-dark-700 text-gray-400'}`}>
+          {badge}
+        </span>
+      )}
+    </button>
+  )
+}
+
+function TaskItem({ task, onComplete }: { task: any; onComplete?: () => void }) {
+  const due = new Date(task.dueAt)
+  const isDone = task.status === 'concluida'
+  return (
+    <div className="flex items-start gap-2.5 p-3 rounded-xl bg-dark-800/40 border border-dark-700/30">
+      <button
+        onClick={onComplete}
+        disabled={isDone}
+        className={`mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+          isDone
+            ? 'bg-emerald-500 border-emerald-500'
+            : 'border-dark-600 hover:border-gold-400'
+        }`}
+      >
+        {isDone && <CheckSquare className="w-2.5 h-2.5 text-white" />}
+      </button>
+      <div className="flex-1 min-w-0">
+        <p className={`text-sm ${isDone ? 'text-gray-500 line-through' : 'text-white'} truncate`}>
+          {task.title}
+        </p>
+        <div className="flex items-center gap-2 text-[10px] text-gray-500 mt-1">
+          <Clock className="w-3 h-3" />
+          {format(due, "dd/MM 'às' HH:mm", { locale: ptBR })}
+          {task.type && task.type !== 'tarefa' && <span>· {task.type}</span>}
+        </div>
       </div>
     </div>
   )
