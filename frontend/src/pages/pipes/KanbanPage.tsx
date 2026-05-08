@@ -1,12 +1,48 @@
 // @ts-nocheck
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams, Link, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Plus, Loader2, GripVertical, Settings2, ArrowRightLeft, X, MoveRight } from 'lucide-react'
+import {
+  ArrowLeft, Plus, Loader2, Settings2, ArrowRightLeft, X, MoveRight,
+  Search, Phone, MessageCircle, Bell, Clock, Filter,
+} from 'lucide-react'
 import { useKanban, useCreateCard, useMoveCard, useTransferCard, usePipes } from '../../hooks/usePipes'
 import { CardDrawer } from './CardDrawer'
 import { PhasesEditorDrawer } from './PhasesEditorDrawer'
 import { useAuthStore } from '../../store/auth-store'
 import type { Card, Phase } from '../../../../shared/types'
+
+// Formata "tempo na fase" em humano (5min / 2h / 3d / 2sem)
+function timeAgoCompact(date: string | Date): string {
+  const ms = Date.now() - new Date(date).getTime()
+  const min = Math.floor(ms / 60000)
+  if (min < 1) return 'agora'
+  if (min < 60) return `${min}m`
+  const h = Math.floor(min / 60)
+  if (h < 24) return `${h}h`
+  const d = Math.floor(h / 24)
+  if (d < 14) return `${d}d`
+  const w = Math.floor(d / 7)
+  return `${w}sem`
+}
+
+// Cor do badge "tempo na fase" — vai esquentando conforme o lead esfria
+function ageColor(date: string | Date): string {
+  const days = (Date.now() - new Date(date).getTime()) / (1000 * 60 * 60 * 24)
+  if (days < 1) return 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+  if (days < 3) return 'text-blue-400 bg-blue-500/10 border-blue-500/20'
+  if (days < 7) return 'text-amber-400 bg-amber-500/10 border-amber-500/20'
+  return 'text-red-400 bg-red-500/10 border-red-500/20'
+}
+
+// Normaliza telefone (5521992208062) → "+55 21 99220-8062"
+function formatPhone(p?: string | null): string {
+  if (!p) return ''
+  const digits = p.replace(/\D/g, '')
+  if (digits.length === 13) return `+${digits.slice(0, 2)} ${digits.slice(2, 4)} ${digits.slice(4, 9)}-${digits.slice(9)}`
+  if (digits.length === 12) return `+${digits.slice(0, 2)} ${digits.slice(2, 4)} ${digits.slice(4, 8)}-${digits.slice(8)}`
+  if (digits.length === 11) return `${digits.slice(0, 2)} ${digits.slice(2, 7)}-${digits.slice(7)}`
+  return p
+}
 
 export function KanbanPage() {
   const { pipeId } = useParams<{ pipeId: string }>()
@@ -25,14 +61,39 @@ export function KanbanPage() {
       setSelectedCardId(focusCardFromUrl)
     }
   }, [focusCardFromUrl])
+
   const [newCardPhaseId, setNewCardPhaseId] = useState<string | null>(null)
   const [newCardTitle, setNewCardTitle] = useState('')
   const [draggedCardId, setDraggedCardId] = useState<string | null>(null)
   const [phasesEditorOpen, setPhasesEditorOpen] = useState(false)
   const [transferCardId, setTransferCardId] = useState<string | null>(null)
   const [moveCardId, setMoveCardId] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [onlyMine, setOnlyMine] = useState(false)
   const me = useAuthStore((s) => s.user)
   const isAdmin = me?.role?.name === 'admin'
+
+  // Filtra cards conforme busca + "só meus"
+  const filteredPhases = useMemo(() => {
+    if (!kanban?.phases) return []
+    const q = searchQuery.trim().toLowerCase()
+    const qDigits = q.replace(/\D/g, '')
+    return kanban.phases.map((phase: any) => {
+      const cards = (phase.cards || []).filter((c: any) => {
+        if (onlyMine && c.assignedToId !== me?.id) return false
+        if (!q) return true
+        const lead = c.lead || {}
+        // bate em title, descrição, telefone, email, nome do lead
+        if (c.title?.toLowerCase().includes(q)) return true
+        if (c.description?.toLowerCase().includes(q)) return true
+        if (lead.nome?.toLowerCase().includes(q)) return true
+        if (lead.email?.toLowerCase().includes(q)) return true
+        if (qDigits && (lead.whatsapp?.includes(qDigits) || lead.telefone?.includes(qDigits))) return true
+        return false
+      })
+      return { ...phase, cards, _filteredCount: cards.length }
+    })
+  }, [kanban?.phases, searchQuery, onlyMine, me?.id])
 
   if (!pipeId) return null
 
@@ -80,6 +141,9 @@ export function KanbanPage() {
     )
   }
 
+  const totalCards = kanban.phases?.reduce((s: number, p: any) => s + (p.cards?.length || 0), 0) || 0
+  const filteredCards = filteredPhases.reduce((s: number, p: any) => s + p.cards.length, 0)
+
   return (
     <div className="h-full flex flex-col page-enter">
       {/* Header */}
@@ -95,8 +159,47 @@ export function KanbanPage() {
         </div>
         <div className="flex-1 min-w-0">
           <h1 className="text-lg font-semibold text-white font-display">{kanban.name}</h1>
-          {kanban.description && <p className="text-xs text-gray-400 truncate">{kanban.description}</p>}
+          <p className="text-xs text-gray-500 truncate">
+            {searchQuery || onlyMine
+              ? `${filteredCards} de ${totalCards} cards`
+              : `${totalCards} cards no funil`}
+          </p>
         </div>
+
+        {/* Busca rápida no Kanban */}
+        <div className="relative w-64">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar nesta fase (nome, telefone)..."
+            className="w-full pl-8 pr-8 py-1.5 text-xs bg-dark-900/60 border border-dark-700/50 rounded-lg text-gray-200 placeholder-gray-500 focus:outline-none focus:border-gold-500/40"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Toggle "só meus" */}
+        <button
+          onClick={() => setOnlyMine(!onlyMine)}
+          title="Mostrar apenas cards atribuídos a mim"
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition border ${
+            onlyMine
+              ? 'bg-gold-500/15 border-gold-500/40 text-gold-300'
+              : 'bg-dark-900/40 border-dark-700/50 text-gray-400 hover:text-gray-200'
+          }`}
+        >
+          <Filter className="w-3.5 h-3.5" />
+          Só meus
+        </button>
+
         {isAdmin && (
           <button
             onClick={() => setPhasesEditorOpen(true)}
@@ -112,9 +215,10 @@ export function KanbanPage() {
       {/* Kanban Board */}
       <div className="flex-1 overflow-x-auto p-4">
         <div className="flex gap-4 h-full" style={{ minWidth: 'max-content' }}>
-          {kanban.phases?.map((phase: Phase & { cards?: Card[]; _count?: { cards: number } }) => {
-            const phaseCards = (phase as any).cards || []
-            const phaseCount = phase._count?.cards ?? phaseCards.length
+          {filteredPhases.map((phase: any) => {
+            const phaseCards = phase.cards || []
+            const phaseCount = phase._count?.cards ?? phase.cards?.length ?? 0
+            const visibleCount = phase._filteredCount ?? phaseCards.length
             return (
             <div
               key={phase.id}
@@ -137,7 +241,9 @@ export function KanbanPage() {
                   </button>
                 </div>
                 <p className="text-[10px] text-gray-500">
-                  {phaseCount} {phaseCount === 1 ? 'lead' : 'leads'}
+                  {searchQuery || onlyMine
+                    ? `${visibleCount} de ${phaseCount} ${phaseCount === 1 ? 'lead' : 'leads'}`
+                    : `${phaseCount} ${phaseCount === 1 ? 'lead' : 'leads'}`}
                 </p>
               </div>
 
@@ -176,9 +282,18 @@ export function KanbanPage() {
 
               {/* Cards */}
               <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                {phaseCards.map((card: Card) => {
-                  const created = new Date(card.createdAt)
-                  const dateStr = created.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+                {phaseCards.length === 0 && (searchQuery || onlyMine) ? (
+                  <p className="text-center text-[11px] text-gray-600 py-4">Sem resultados</p>
+                ) : null}
+                {phaseCards.map((card: any) => {
+                  const lead = card.lead
+                  const phone = lead?.whatsapp || lead?.telefone
+                  const phoneFmt = formatPhone(phone)
+                  // Idade na fase ≈ updatedAt do card (proxy: última movimentação)
+                  const ageRef = card.updatedAt || card.createdAt
+                  const tasksPending = card.tasksPending || 0
+                  const lastMsgAt = card.lastMessageAt
+                  const recentMsg = lastMsgAt && (Date.now() - new Date(lastMsgAt).getTime()) < 1000 * 60 * 60 * 24
                   return (
                   <div
                     key={card.id}
@@ -187,41 +302,96 @@ export function KanbanPage() {
                     onClick={() => setSelectedCardId(card.id)}
                     className="bg-dark-800/60 border border-dark-700/40 hover:border-gold-500/30 hover:bg-dark-800 rounded-lg p-2.5 cursor-pointer transition-all group relative shadow-sm"
                   >
+                    {/* Linha 1: nome + tempo na fase */}
                     <div className="flex items-start justify-between gap-2 mb-1">
                       <p className="text-xs font-semibold text-white truncate flex-1">{card.title}</p>
-                      <span className="text-[10px] text-gray-500 flex-shrink-0">{dateStr}</span>
+                      <span
+                        title={`Última atualização: ${new Date(ageRef).toLocaleString('pt-BR')}`}
+                        className={`text-[9px] px-1.5 py-0.5 rounded border flex-shrink-0 ${ageColor(ageRef)}`}
+                      >
+                        {timeAgoCompact(ageRef)}
+                      </span>
                     </div>
-                    {card.description && (
-                      <p className="text-[10px] text-gray-500 line-clamp-1 mb-1.5">
-                        {card.description}
-                      </p>
-                    )}
-                    {card.assignedTo && (
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-4 h-4 rounded-full bg-gold-500/10 border border-gold-500/30 text-gold-400 text-[9px] font-semibold flex items-center justify-center flex-shrink-0">
-                          {(card.assignedTo as any).firstName?.charAt(0)}
-                        </div>
-                        <span className="text-[10px] text-gray-400 truncate">
-                          {(card.assignedTo as any).firstName} {(card.assignedTo as any).lastName}
-                        </span>
+
+                    {/* Linha 2: telefone (se tem) */}
+                    {phone && (
+                      <div className="flex items-center gap-1 text-[10px] text-gray-400 mb-1.5">
+                        <Phone className="w-2.5 h-2.5" />
+                        <span className="truncate">{phoneFmt}</span>
                       </div>
                     )}
-                    {/* Botões hover: Mover de fase + Transferir de funil */}
-                    <div className="absolute top-1 right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setMoveCardId(card.id === moveCardId ? null : card.id) }}
-                        title="Mover pra outra fase"
-                        className="p-1 rounded text-gray-500 hover:text-gold-400 hover:bg-dark-700/60"
-                      >
-                        <MoveRight className="w-3 h-3" />
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setTransferCardId(card.id) }}
-                        title="Transferir pra outro funil"
-                        className="p-1 rounded text-gray-500 hover:text-gold-400 hover:bg-dark-700/60"
-                      >
-                        <ArrowRightLeft className="w-3 h-3" />
-                      </button>
+
+                    {/* Linha 3: badges + assignedTo */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1 min-w-0">
+                        {card.assignedTo ? (
+                          <div
+                            title={`${card.assignedTo.firstName || ''} ${card.assignedTo.lastName || ''}`.trim()}
+                            className="w-4 h-4 rounded-full bg-gold-500/10 border border-gold-500/30 text-gold-400 text-[9px] font-semibold flex items-center justify-center flex-shrink-0"
+                          >
+                            {(card.assignedTo.firstName || '?').charAt(0)}
+                          </div>
+                        ) : null}
+                        {/* Badge tarefa pendente */}
+                        {tasksPending > 0 && (
+                          <span
+                            title={`${tasksPending} tarefa${tasksPending > 1 ? 's' : ''} pendente${tasksPending > 1 ? 's' : ''}`}
+                            className="inline-flex items-center gap-0.5 text-[9px] text-amber-300 bg-amber-500/10 border border-amber-500/30 px-1 py-px rounded"
+                          >
+                            <Bell className="w-2.5 h-2.5" />
+                            {tasksPending}
+                          </span>
+                        )}
+                        {/* Badge mensagem recente */}
+                        {recentMsg && (
+                          <span
+                            title={`Última msg: ${new Date(lastMsgAt).toLocaleString('pt-BR')}`}
+                            className="inline-flex items-center text-[9px] text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 px-1 py-px rounded gap-0.5"
+                          >
+                            <MessageCircle className="w-2.5 h-2.5" />
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Ações rápidas (visíveis só no hover) */}
+                      <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition">
+                        {phone && (
+                          <a
+                            href={`https://wa.me/${phone.replace(/\D/g, '')}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            title="Abrir WhatsApp Web"
+                            className="p-1 rounded text-gray-500 hover:text-emerald-400 hover:bg-dark-700/60"
+                          >
+                            <MessageCircle className="w-3 h-3" />
+                          </a>
+                        )}
+                        {phone && (
+                          <a
+                            href={`tel:+${phone.replace(/\D/g, '')}`}
+                            onClick={(e) => e.stopPropagation()}
+                            title="Ligar"
+                            className="p-1 rounded text-gray-500 hover:text-blue-400 hover:bg-dark-700/60"
+                          >
+                            <Phone className="w-3 h-3" />
+                          </a>
+                        )}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setMoveCardId(card.id === moveCardId ? null : card.id) }}
+                          title="Mover pra outra fase"
+                          className="p-1 rounded text-gray-500 hover:text-gold-400 hover:bg-dark-700/60"
+                        >
+                          <MoveRight className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setTransferCardId(card.id) }}
+                          title="Transferir pra outro funil"
+                          className="p-1 rounded text-gray-500 hover:text-gold-400 hover:bg-dark-700/60"
+                        >
+                          <ArrowRightLeft className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
 
                     {/* Dropdown "Mover pra fase X" */}

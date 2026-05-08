@@ -187,6 +187,30 @@ export async function pipesRoutes(fastify: FastifyInstance) {
     handler: pipesController.getCard.bind(pipesController),
   })
 
+  fastify.patch('/cards/:cardId', {
+    schema: {
+      description: 'Atualizar dados básicos do card (titulo, descricao, responsavel, due, status)',
+      tags: ['Cards'],
+      security: [{ bearerAuth: [] }],
+      body: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', minLength: 1 },
+          description: { type: 'string', nullable: true },
+          assignedToId: { type: 'string', nullable: true },
+          dueDate: { type: 'string', nullable: true },
+          status: { type: 'string', enum: ['active', 'archived', 'done'] },
+        },
+      },
+    },
+    handler: pipesController.updateCard.bind(pipesController),
+  })
+
+  fastify.delete('/cards/:cardId', {
+    schema: { description: 'Arquivar card', tags: ['Cards'], security: [{ bearerAuth: [] }] },
+    handler: pipesController.deleteCard.bind(pipesController),
+  })
+
   fastify.patch('/cards/:cardId/move', {
     schema: {
       description: 'Mover card para outra fase',

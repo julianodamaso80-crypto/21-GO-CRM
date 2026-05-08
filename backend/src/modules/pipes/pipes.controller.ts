@@ -108,6 +108,21 @@ export class PipesController {
     return reply.status(201).send(card)
   }
 
+  async updateCard(request: FastifyRequest, reply: FastifyReply) {
+    const user = (request as any).user
+    const { cardId } = request.params as { cardId: string }
+    const data = request.body as any
+    const card = await pipesService.updateCard(cardId, user.companyId, data)
+    return reply.send(card)
+  }
+
+  async deleteCard(request: FastifyRequest, reply: FastifyReply) {
+    const user = (request as any).user
+    const { cardId } = request.params as { cardId: string }
+    const result = await pipesService.deleteCard(cardId, user.companyId)
+    return reply.send(result)
+  }
+
   async moveCard(request: FastifyRequest, reply: FastifyReply) {
     const user = (request as any).user
     const { cardId } = request.params as { cardId: string }

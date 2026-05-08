@@ -203,6 +203,35 @@ export function useMoveCard(pipeId: string) {
   })
 }
 
+export function useUpdateCard(pipeId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ cardId, data }: { cardId: string; data: { title?: string; description?: string; assignedToId?: string | null; dueDate?: string | null; status?: 'active' | 'archived' | 'done' } }) =>
+      pipesService.updateCard(cardId, data),
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['kanban', pipeId] })
+      queryClient.invalidateQueries({ queryKey: ['cards', 'detail', vars.cardId] })
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Erro ao atualizar card')
+    },
+  })
+}
+
+export function useDeleteCard(pipeId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (cardId: string) => pipesService.deleteCard(cardId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['kanban', pipeId] })
+      toast.success('Card removido!')
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Erro ao remover card')
+    },
+  })
+}
+
 export function useTransferCard(currentPipeId: string) {
   const queryClient = useQueryClient()
   return useMutation({

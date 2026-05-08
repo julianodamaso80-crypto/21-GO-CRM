@@ -103,9 +103,17 @@ export const pipesService = {
   },
 
   async moveCard(cardId: string, data: MoveCardRequest & { pipeId?: string }): Promise<Card> {
-    const pipeId = (data as any).pipeId
-    if (!pipeId) throw new Error('moveCard requires pipeId')
-    const response = await api.patch<Card>(`/pipes/${pipeId}/cards`, { cardId, phaseId: data.phaseId })
+    const response = await api.patch<Card>(`/pipes/cards/${cardId}/move`, { phaseId: data.phaseId })
+    return response.data
+  },
+
+  async updateCard(cardId: string, data: { title?: string; description?: string; assignedToId?: string | null; dueDate?: string | null; status?: 'active' | 'archived' | 'done' }): Promise<Card> {
+    const response = await api.patch<Card>(`/pipes/cards/${cardId}`, data)
+    return response.data
+  },
+
+  async deleteCard(cardId: string): Promise<{ success: boolean }> {
+    const response = await api.delete(`/pipes/cards/${cardId}`)
     return response.data
   },
 

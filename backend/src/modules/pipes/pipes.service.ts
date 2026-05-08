@@ -223,6 +223,47 @@ export class PipesService {
       },
     })
     if (!pipe) throw new AppError('Pipe nao encontrado', 404, 'NOT_FOUND')
+
+    // Enriquecimento: pra cada card, anexa telefone do lead, lastMessageAt e tasksPending.
+    // Faço isso em batch pra não cair em N+1.
+    const allCards = pipe.phases.flatMap(p => p.cards)
+    if (allCards.length === 0) return pipe
+
+    const titles = [...new Set(allCards.map(c => c.title).filter(Boolean))]
+
+    const [leads, conversations, taskAgg] = await Promise.all([
+      prisma.lead.findMany({
+        where: { companyId, nome: { in: titles } },
+        select: { id: true, nome: true, telefone: true, whatsapp: true, email: true, origem: true },
+      }),
+      // Pego o lastMessageAt de todas as conversations linkadas a esses leads
+      // Vou indexar depois.
+      prisma.conversation.findMany({
+        where: { companyId, lead: { nome: { in: titles } } },
+        select: { id: true, leadId: true, lastMessageAt: true, lead: { select: { nome: true } } },
+      }),
+      prisma.task.groupBy({
+        by: ['leadId'],
+        where: { companyId, status: 'pendente', leadId: { not: null } },
+        _count: { _all: true },
+      }),
+    ])
+
+    const leadByName = new Map(leads.map(l => [l.nome, l]))
+    const convByLeadId = new Map(conversations.map(c => [c.leadId, c]))
+    const tasksByLeadId = new Map(taskAgg.map(t => [t.leadId!, t._count._all]))
+
+    for (const phase of pipe.phases) {
+      for (const card of phase.cards) {
+        const lead = leadByName.get(card.title)
+        const conv = lead ? convByLeadId.get(lead.id) : null
+        const tasksPending = lead ? (tasksByLeadId.get(lead.id) || 0) : 0
+        ;(card as any).lead = lead || null
+        ;(card as any).lastMessageAt = conv?.lastMessageAt || null
+        ;(card as any).tasksPending = tasksPending
+      }
+    }
+
     return pipe
   }
 
@@ -240,11 +281,24 @@ export class PipesService {
     if (!card) throw new AppError('Card nao encontrado', 404, 'NOT_FOUND')
 
     // Tenta achar Lead/Conversation vinculados pelo titulo (que copiamos do nome do lead)
-    // Heuristica: card title === lead nome ou phone do desc bate com whatsapp do lead
-    const lead = await prisma.lead.findFirst({
+    // Se card description bate com "Lead do WhatsApp — <fone>" também usa o fone como fallback.
+    let lead = await prisma.lead.findFirst({
       where: { companyId, nome: card.title },
       select: { id: true, nome: true, telefone: true, whatsapp: true, email: true, origem: true, etapaFunil: true },
     })
+
+    if (!lead && card.description) {
+      const phoneMatch = card.description.match(/\b(\d{10,13})\b/)
+      if (phoneMatch) {
+        lead = await prisma.lead.findFirst({
+          where: {
+            companyId,
+            OR: [{ whatsapp: phoneMatch[1] }, { telefone: phoneMatch[1] }],
+          },
+          select: { id: true, nome: true, telefone: true, whatsapp: true, email: true, origem: true, etapaFunil: true },
+        })
+      }
+    }
 
     let conversation: any = null
     if (lead) {
@@ -306,6 +360,37 @@ export class PipesService {
 
       return card
     })
+  }
+
+  async updateCard(
+    cardId: string,
+    companyId: string,
+    data: { title?: string; description?: string; assignedToId?: string | null; dueDate?: string | null; status?: string },
+  ) {
+    const card = await prisma.card.findFirst({ where: { id: cardId, companyId } })
+    if (!card) throw new AppError('Card nao encontrado', 404, 'NOT_FOUND')
+
+    const update: any = {}
+    if (typeof data.title === 'string') {
+      if (!data.title.trim()) throw new AppError('title nao pode ser vazio', 400, 'BAD_REQUEST')
+      update.title = data.title.trim()
+    }
+    if (data.description !== undefined) update.description = data.description
+    if (data.assignedToId !== undefined) update.assignedToId = data.assignedToId
+    if (data.dueDate !== undefined) update.dueDate = data.dueDate ? new Date(data.dueDate) : null
+    if (data.status && ['active', 'archived', 'done'].includes(data.status)) {
+      update.status = data.status
+      if (data.status === 'done') update.completedAt = new Date()
+    }
+
+    return prisma.card.update({ where: { id: cardId }, data: update, include: { currentPhase: true } })
+  }
+
+  async deleteCard(cardId: string, companyId: string) {
+    const card = await prisma.card.findFirst({ where: { id: cardId, companyId } })
+    if (!card) throw new AppError('Card nao encontrado', 404, 'NOT_FOUND')
+    await prisma.card.update({ where: { id: cardId }, data: { status: 'archived' } })
+    return { success: true }
   }
 
   async moveCard(cardId: string, companyId: string, phaseId: string, userId: string) {

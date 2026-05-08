@@ -2,9 +2,10 @@
 import { useState, useRef, useEffect } from 'react'
 import {
   X, Loader2, Send, MessageSquare, Phone, Mail, User2, Calendar,
-  ArrowRightLeft, Tag, CheckSquare, Clock, Plus,
+  ArrowRightLeft, Tag, CheckSquare, Clock, Plus, Pencil, Check,
+  Trash2, Trophy, XCircle, MessageCircle,
 } from 'lucide-react'
-import { useCard, useTransferCard, usePipes } from '../../hooks/usePipes'
+import { useCard, useTransferCard, usePipes, useUpdateCard, useDeleteCard } from '../../hooks/usePipes'
 import { useTasksByLead, useCompleteTask } from '../../hooks/useTasks'
 import { KommoTaskModal } from '../tarefas/KommoTaskModal'
 import { api } from '../../lib/api'
@@ -27,17 +28,57 @@ export function CardDrawer({ cardId, pipeId, onClose }: CardDrawerProps) {
   const { data: card, isLoading, refetch } = useCard(cardId)
   const { data: allPipes } = usePipes()
   const transferCard = useTransferCard(pipeId)
+  const updateCard = useUpdateCard(pipeId)
+  const deleteCard = useDeleteCard(pipeId)
 
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const [transferOpen, setTransferOpen] = useState(false)
   const [taskModalOpen, setTaskModalOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<'chat' | 'tarefas'>('chat')
+  const [titleEdit, setTitleEdit] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const conversation = (card as any)?.conversation
   const lead = (card as any)?.lead
   const messages = conversation?.messages || []
+  const phoneDigits = (lead?.whatsapp || lead?.telefone || '').replace(/\D/g, '')
+
+  const handleSaveTitle = () => {
+    const t = (titleEdit || '').trim()
+    if (!t || t === card?.title) { setTitleEdit(null); return }
+    updateCard.mutate(
+      { cardId, data: { title: t } },
+      {
+        onSuccess: () => { toast.success('Título atualizado'); setTitleEdit(null); refetch() },
+      },
+    )
+  }
+
+  const handleMarkDone = (kind: 'won' | 'lost') => {
+    // Procura primeira fase isWon ou isLost
+    const target = (card?.pipe?.phases || allPipes || [])
+    // Vou usar o approach mais simples: chama updateCard com status='done'
+    updateCard.mutate(
+      { cardId, data: { status: 'done' } },
+      {
+        onSuccess: () => {
+          toast.success(kind === 'won' ? 'Card marcado como ganho!' : 'Card marcado como perdido')
+          onClose()
+        },
+      },
+    )
+  }
+
+  const handleDelete = () => {
+    deleteCard.mutate(cardId, {
+      onSuccess: () => {
+        toast.success('Card removido')
+        onClose()
+      },
+    })
+  }
 
   const { data: tasksData, refetch: refetchTasks } = useTasksByLead(lead?.id || '')
   const completeTask = useCompleteTask()
@@ -87,12 +128,43 @@ export function CardDrawer({ cardId, pipeId, onClose }: CardDrawerProps) {
           <>
             {/* Header */}
             <div className="px-6 py-4 border-b border-dark-700/40 flex items-center justify-between gap-4 bg-dark-800/60">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-gold-500/10 border border-gold-500/30 flex items-center justify-center text-sm font-semibold text-gold-400">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="w-10 h-10 rounded-xl bg-gold-500/10 border border-gold-500/30 flex items-center justify-center text-sm font-semibold text-gold-400 flex-shrink-0">
                   {(card.title || '?').slice(0, 2).toUpperCase()}
                 </div>
-                <div className="min-w-0">
-                  <h2 className="text-lg font-display font-semibold text-white truncate">{card.title}</h2>
+                <div className="min-w-0 flex-1">
+                  {titleEdit !== null ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        autoFocus
+                        type="text"
+                        value={titleEdit}
+                        onChange={(e) => setTitleEdit(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveTitle()
+                          if (e.key === 'Escape') setTitleEdit(null)
+                        }}
+                        className="flex-1 px-2 py-1 text-lg font-display font-semibold text-white bg-dark-700/50 border border-gold-500/40 rounded focus:outline-none"
+                      />
+                      <button onClick={handleSaveTitle} disabled={updateCard.isPending} className="p-1.5 text-emerald-400 hover:bg-emerald-500/10 rounded">
+                        {updateCard.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                      </button>
+                      <button onClick={() => setTitleEdit(null)} className="p-1.5 text-gray-500 hover:bg-dark-700/40 rounded">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 group">
+                      <h2 className="text-lg font-display font-semibold text-white truncate">{card.title}</h2>
+                      <button
+                        onClick={() => setTitleEdit(card.title)}
+                        title="Editar título"
+                        className="p-1 text-gray-500 hover:text-gold-400 opacity-0 group-hover:opacity-100 transition"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
                   <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
                     {card.pipe?.name && (
                       <>
@@ -109,7 +181,7 @@ export function CardDrawer({ cardId, pipeId, onClose }: CardDrawerProps) {
                   </div>
                 </div>
               </div>
-              <button onClick={onClose} className="p-2 text-gray-500 hover:text-gray-300 hover:bg-dark-700/40 rounded-lg transition">
+              <button onClick={onClose} className="p-2 text-gray-500 hover:text-gray-300 hover:bg-dark-700/40 rounded-lg transition flex-shrink-0">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -152,9 +224,49 @@ export function CardDrawer({ cardId, pipeId, onClose }: CardDrawerProps) {
                   </div>
                 </div>
 
+                {/* Ações rápidas (ligar / wa / etc) */}
+                {phoneDigits && (
+                  <div className="px-5 pt-4 pb-2 grid grid-cols-2 gap-2">
+                    <a
+                      href={`https://wa.me/${phoneDigits}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20 text-xs font-medium transition"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      WhatsApp
+                    </a>
+                    <a
+                      href={`tel:+${phoneDigits}`}
+                      className="inline-flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-300 hover:bg-blue-500/20 text-xs font-medium transition"
+                    >
+                      <Phone className="w-3.5 h-3.5" />
+                      Ligar
+                    </a>
+                  </div>
+                )}
+
                 {/* Ações */}
                 <div className="p-5 space-y-2">
                   <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-2">Ações</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => handleMarkDone('won')}
+                      disabled={updateCard.isPending || card.status === 'done'}
+                      className="inline-flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20 text-xs font-medium transition disabled:opacity-50"
+                    >
+                      <Trophy className="w-3.5 h-3.5" />
+                      Ganhei
+                    </button>
+                    <button
+                      onClick={() => handleMarkDone('lost')}
+                      disabled={updateCard.isPending || card.status === 'done'}
+                      className="inline-flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 hover:bg-red-500/20 text-xs font-medium transition disabled:opacity-50"
+                    >
+                      <XCircle className="w-3.5 h-3.5" />
+                      Perdi
+                    </button>
+                  </div>
                   <button
                     onClick={() => setTransferOpen(true)}
                     className="w-full inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-dark-800/60 border border-dark-700/40 text-sm text-gray-300 hover:bg-dark-700/40 hover:border-gold-500/30 transition"
@@ -162,6 +274,34 @@ export function CardDrawer({ cardId, pipeId, onClose }: CardDrawerProps) {
                     <ArrowRightLeft className="w-4 h-4 text-gold-400" />
                     Transferir pra outro funil
                   </button>
+                  {confirmDelete ? (
+                    <div className="p-3 rounded-lg bg-red-500/5 border border-red-500/30">
+                      <p className="text-xs text-red-300 mb-2">Tem certeza? O card vai pra arquivo.</p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleDelete}
+                          disabled={deleteCard.isPending}
+                          className="flex-1 px-2 py-1.5 rounded text-xs font-medium bg-red-500 text-white hover:bg-red-600 disabled:opacity-50"
+                        >
+                          {deleteCard.isPending ? 'Removendo...' : 'Sim, remover'}
+                        </button>
+                        <button
+                          onClick={() => setConfirmDelete(false)}
+                          className="px-2 py-1.5 rounded text-xs text-gray-400 hover:bg-dark-700/40"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmDelete(true)}
+                      className="w-full inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-dark-800/60 border border-dark-700/40 text-sm text-gray-400 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-300 transition"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Remover card
+                    </button>
+                  )}
                 </div>
 
                 {/* Description */}
