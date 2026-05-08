@@ -18,6 +18,7 @@ type SearchResult = {
     placaInteresse: string | null
     origem: string | null
     etapaFunil: string | null
+    card?: { id: string; title: string; pipeId: string; currentPhaseId: string } | null
   }>
   associados: Array<{
     id: string
@@ -171,7 +172,14 @@ export function GlobalSearch() {
                   {results.leads.map((l) => (
                     <button
                       key={l.id}
-                      onClick={() => goTo(`/leads`)}
+                      onClick={() => {
+                        // Se tem card no Kanban, abre direto o card. Senao, vai pra /leads
+                        if (l.card?.pipeId && l.card?.id) {
+                          goTo(`/pipes/${l.card.pipeId}/kanban?card=${l.card.id}`)
+                        } else {
+                          goTo(`/leads`)
+                        }
+                      }}
                       className="w-full flex items-start gap-3 px-4 py-2.5 hover:bg-dark-700/40 text-left transition"
                     >
                       <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/30 flex items-center justify-center flex-shrink-0">

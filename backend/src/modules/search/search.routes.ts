@@ -22,7 +22,7 @@ export async function searchRoutes(fastify: FastifyInstance) {
     const onlyDigits = q.replace(/\D/g, '')
     const limit = 8
 
-    const [leads, associados, vehicles] = await Promise.all([
+    const [leadsRaw, associados, vehicles] = await Promise.all([
       prisma.lead.findMany({
         where: {
           companyId,
@@ -83,6 +83,20 @@ export async function searchRoutes(fastify: FastifyInstance) {
         take: limit,
       }),
     ])
+
+    // Pra cada lead, tenta achar card vinculado no Kanban (match por title === nome)
+    const leadNames = leadsRaw.map(l => l.nome).filter(Boolean)
+    const cards = leadNames.length
+      ? await prisma.card.findMany({
+          where: { companyId, title: { in: leadNames }, status: { not: 'archived' } },
+          select: { id: true, title: true, pipeId: true, currentPhaseId: true },
+        })
+      : []
+    const cardByName = new Map(cards.map(c => [c.title, c]))
+    const leads = leadsRaw.map(l => ({
+      ...l,
+      card: cardByName.get(l.nome) || null,
+    }))
 
     return reply.send({ leads, associados, vehicles })
   })

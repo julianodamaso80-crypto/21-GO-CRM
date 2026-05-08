@@ -1,5 +1,6 @@
 import { prisma } from '../../config/database'
 import { AppError } from '../../utils/app-error'
+import { getEvolutionClient } from '../../lib/evolution-client'
 
 export interface ListConversationsQuery {
   status?: string
@@ -134,10 +135,50 @@ export class InboxService {
   async sendMessage(conversationId: string, companyId: string, userId: string, data: SendMessageDTO) {
     const conversation = await prisma.conversation.findFirst({
       where: { id: conversationId, companyId },
+      include: {
+        lead: { select: { id: true, telefone: true, whatsapp: true } },
+        associado: { select: { id: true, telefone: true, whatsapp: true } },
+      },
     })
 
     if (!conversation) {
       throw new AppError('Conversation not found', 404, 'NOT_FOUND')
+    }
+
+    // Resolve telefone do destinatário (lead OU associado)
+    const phone =
+      conversation.lead?.whatsapp || conversation.lead?.telefone ||
+      conversation.associado?.whatsapp || conversation.associado?.telefone
+
+    let evolutionMessageId: string | null = null
+    let sendError: string | null = null
+
+    // Envia de fato pelo WhatsApp via Evolution se for canal whatsapp e tiver telefone
+    if (conversation.channel === 'whatsapp' && phone) {
+      // Pega instancia do user (vendedor que conectou WhatsApp)
+      const instance = await prisma.whatsappInstance.findFirst({
+        where: { userId, companyId, status: 'CONNECTED' },
+      })
+      if (!instance || !instance.evolutionApiKey) {
+        throw new AppError(
+          'Voce nao tem WhatsApp conectado. Conecte em /whatsapp antes de responder.',
+          400,
+          'NO_WHATSAPP',
+        )
+      }
+      try {
+        const evolution = getEvolutionClient()
+        const sent: any = await evolution.sendText({
+          instanceName: instance.evolutionName,
+          instanceKey: instance.evolutionApiKey,
+          number: phone,
+          text: data.content,
+        })
+        evolutionMessageId = sent?.key?.id || sent?.id || null
+      } catch (err: any) {
+        sendError = err?.message || 'Falha ao enviar pelo WhatsApp'
+        throw new AppError(`Erro ao enviar pelo WhatsApp: ${sendError}`, 502, 'EVOLUTION_FAIL')
+      }
     }
 
     const message = await prisma.message.create({
@@ -147,6 +188,9 @@ export class InboxService {
         content: data.content,
         sender: 'vendedor',
         senderId: userId,
+        direction: 'outbound',
+        messageType: 'text',
+        whatsappMessageId: evolutionMessageId,
       },
       include: {
         senderUser: {
@@ -157,7 +201,7 @@ export class InboxService {
 
     await prisma.conversation.update({
       where: { id: conversationId },
-      data: { lastMessageAt: new Date() },
+      data: { lastMessageAt: new Date(), status: 'assigned', assignedToId: userId },
     })
 
     return message

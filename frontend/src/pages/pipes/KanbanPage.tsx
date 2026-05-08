@@ -1,7 +1,7 @@
 // @ts-nocheck
-import { useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, Plus, Loader2, GripVertical, Settings2, ArrowRightLeft, X } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useParams, Link, useSearchParams } from 'react-router-dom'
+import { ArrowLeft, Plus, Loader2, GripVertical, Settings2, ArrowRightLeft, X, MoveRight } from 'lucide-react'
 import { useKanban, useCreateCard, useMoveCard, useTransferCard, usePipes } from '../../hooks/usePipes'
 import { CardDrawer } from './CardDrawer'
 import { PhasesEditorDrawer } from './PhasesEditorDrawer'
@@ -10,17 +10,27 @@ import type { Card, Phase } from '../../../../shared/types'
 
 export function KanbanPage() {
   const { pipeId } = useParams<{ pipeId: string }>()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { data: kanban, isLoading } = useKanban(pipeId || '')
   const { data: allPipes } = usePipes()
   const createCard = useCreateCard(pipeId || '')
   const moveCard = useMoveCard(pipeId || '')
   const transferCard = useTransferCard(pipeId || '')
-  const [selectedCardId, setSelectedCardId] = useState<string | null>(null)
+  const focusCardFromUrl = searchParams.get('card')
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(focusCardFromUrl)
+
+  // Sincroniza query param ?card= com state (busca global manda pra cá)
+  useEffect(() => {
+    if (focusCardFromUrl && focusCardFromUrl !== selectedCardId) {
+      setSelectedCardId(focusCardFromUrl)
+    }
+  }, [focusCardFromUrl])
   const [newCardPhaseId, setNewCardPhaseId] = useState<string | null>(null)
   const [newCardTitle, setNewCardTitle] = useState('')
   const [draggedCardId, setDraggedCardId] = useState<string | null>(null)
   const [phasesEditorOpen, setPhasesEditorOpen] = useState(false)
   const [transferCardId, setTransferCardId] = useState<string | null>(null)
+  const [moveCardId, setMoveCardId] = useState<string | null>(null)
   const me = useAuthStore((s) => s.user)
   const isAdmin = me?.role?.name === 'admin'
 
@@ -196,14 +206,46 @@ export function KanbanPage() {
                         </span>
                       </div>
                     )}
-                    {/* Botão transferir (hover) */}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setTransferCardId(card.id) }}
-                      title="Transferir pra outro funil"
-                      className="absolute top-1 right-1 p-1 rounded text-gray-500 hover:text-gold-400 hover:bg-dark-700/60 opacity-0 group-hover:opacity-100 transition"
-                    >
-                      <ArrowRightLeft className="w-3 h-3" />
-                    </button>
+                    {/* Botões hover: Mover de fase + Transferir de funil */}
+                    <div className="absolute top-1 right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setMoveCardId(card.id === moveCardId ? null : card.id) }}
+                        title="Mover pra outra fase"
+                        className="p-1 rounded text-gray-500 hover:text-gold-400 hover:bg-dark-700/60"
+                      >
+                        <MoveRight className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setTransferCardId(card.id) }}
+                        title="Transferir pra outro funil"
+                        className="p-1 rounded text-gray-500 hover:text-gold-400 hover:bg-dark-700/60"
+                      >
+                        <ArrowRightLeft className="w-3 h-3" />
+                      </button>
+                    </div>
+
+                    {/* Dropdown "Mover pra fase X" */}
+                    {moveCardId === card.id && (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute top-7 right-1 w-52 bg-dark-800 border border-dark-700/60 rounded-lg shadow-2xl z-30 py-1 max-h-64 overflow-y-auto"
+                      >
+                        <p className="px-3 py-1 text-[10px] uppercase text-gray-500 tracking-wider">Mover pra…</p>
+                        {kanban.phases?.map((p: any) => p.id !== phase.id && (
+                          <button
+                            key={p.id}
+                            onClick={() => {
+                              moveCard.mutate({ cardId: card.id, data: { phaseId: p.id } })
+                              setMoveCardId(null)
+                            }}
+                            className="w-full text-left px-3 py-1.5 text-xs text-gray-200 hover:bg-dark-700/60 flex items-center gap-2"
+                          >
+                            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
+                            {p.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   )
                 })}
@@ -219,7 +261,15 @@ export function KanbanPage() {
         <CardDrawer
           cardId={selectedCardId}
           pipeId={pipeId}
-          onClose={() => setSelectedCardId(null)}
+          onClose={() => {
+            setSelectedCardId(null)
+            // Limpa query param ao fechar
+            if (searchParams.get('card')) {
+              const next = new URLSearchParams(searchParams)
+              next.delete('card')
+              setSearchParams(next, { replace: true })
+            }
+          }}
         />
       )}
 
