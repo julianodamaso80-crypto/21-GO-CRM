@@ -65,6 +65,7 @@ export function KanbanPage() {
   const [newCardPhaseId, setNewCardPhaseId] = useState<string | null>(null)
   const [newCardTitle, setNewCardTitle] = useState('')
   const [draggedCardId, setDraggedCardId] = useState<string | null>(null)
+  const [dragOverPhaseId, setDragOverPhaseId] = useState<string | null>(null)
   const [phasesEditorOpen, setPhasesEditorOpen] = useState(false)
   const [transferCardId, setTransferCardId] = useState<string | null>(null)
   const [moveCardId, setMoveCardId] = useState<string | null>(null)
@@ -110,17 +111,36 @@ export function KanbanPage() {
   const handleDragStart = (e: React.DragEvent, cardId: string) => {
     setDraggedCardId(cardId)
     e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', cardId)
   }
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragEnd = () => {
+    setDraggedCardId(null)
+    setDragOverPhaseId(null)
+  }
+
+  const handleDragOver = (e: React.DragEvent, phaseId: string) => {
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
+    if (dragOverPhaseId !== phaseId) setDragOverPhaseId(phaseId)
+  }
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    // Só limpa se saiu pra fora do container, não pra um filho
+    const related = e.relatedTarget as Node | null
+    if (related && (e.currentTarget as Node).contains(related)) return
+    setDragOverPhaseId(null)
   }
 
   const handleDrop = (e: React.DragEvent, phaseId: string) => {
     e.preventDefault()
-    if (!draggedCardId) return
-    moveCard.mutate({ cardId: draggedCardId, data: { phaseId } })
+    setDragOverPhaseId(null)
+    const cardId = draggedCardId || e.dataTransfer.getData('text/plain')
+    if (!cardId) return
+    // Não move se for a mesma fase
+    const currentPhase = kanban?.phases?.find((p: any) => (p.cards || []).some((c: any) => c.id === cardId))
+    if (currentPhase?.id === phaseId) { setDraggedCardId(null); return }
+    moveCard.mutate({ cardId, data: { phaseId } })
     setDraggedCardId(null)
   }
 
@@ -222,8 +242,13 @@ export function KanbanPage() {
             return (
             <div
               key={phase.id}
-              className="flex flex-col w-72 flex-shrink-0 bg-dark-900 rounded-lg"
-              onDragOver={handleDragOver}
+              className={`flex flex-col w-72 flex-shrink-0 rounded-lg transition-all ${
+                dragOverPhaseId === phase.id
+                  ? 'bg-gold-500/10 ring-2 ring-gold-500/50'
+                  : 'bg-dark-900'
+              }`}
+              onDragOver={(e) => handleDragOver(e, phase.id)}
+              onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, phase.id)}
             >
               {/* Phase Header — estilo Kommo */}
@@ -299,8 +324,11 @@ export function KanbanPage() {
                     key={card.id}
                     draggable
                     onDragStart={(e) => handleDragStart(e, card.id)}
+                    onDragEnd={handleDragEnd}
                     onClick={() => setSelectedCardId(card.id)}
-                    className="bg-dark-800/60 border border-dark-700/40 hover:border-gold-500/30 hover:bg-dark-800 rounded-lg p-2.5 cursor-pointer transition-all group relative shadow-sm"
+                    className={`bg-dark-800/60 border border-dark-700/40 hover:border-gold-500/30 hover:bg-dark-800 rounded-lg p-2.5 cursor-grab active:cursor-grabbing transition-all group relative shadow-sm ${
+                      draggedCardId === card.id ? 'opacity-40 scale-95 ring-2 ring-gold-500/40' : ''
+                    }`}
                   >
                     {/* Linha 1: nome + tempo na fase */}
                     <div className="flex items-start justify-between gap-2 mb-1">

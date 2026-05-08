@@ -3,9 +3,9 @@ import { useState, useRef, useEffect } from 'react'
 import {
   X, Loader2, Send, MessageSquare, Phone, Mail, User2, Calendar,
   ArrowRightLeft, Tag, CheckSquare, Clock, Plus, Pencil, Check,
-  Trash2, Trophy, XCircle, MessageCircle,
+  Trash2, Trophy, XCircle, MessageCircle, MoveRight, ChevronDown,
 } from 'lucide-react'
-import { useCard, useTransferCard, usePipes, useUpdateCard, useDeleteCard } from '../../hooks/usePipes'
+import { useCard, useTransferCard, usePipes, useUpdateCard, useDeleteCard, useKanban, useMoveCard } from '../../hooks/usePipes'
 import { useTasksByLead, useCompleteTask } from '../../hooks/useTasks'
 import { KommoTaskModal } from '../tarefas/KommoTaskModal'
 import { api } from '../../lib/api'
@@ -30,6 +30,9 @@ export function CardDrawer({ cardId, pipeId, onClose }: CardDrawerProps) {
   const transferCard = useTransferCard(pipeId)
   const updateCard = useUpdateCard(pipeId)
   const deleteCard = useDeleteCard(pipeId)
+  const moveCard = useMoveCard(pipeId)
+  const { data: kanbanData } = useKanban(pipeId)
+  const phases = (kanbanData as any)?.phases || []
 
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
@@ -38,6 +41,7 @@ export function CardDrawer({ cardId, pipeId, onClose }: CardDrawerProps) {
   const [activeTab, setActiveTab] = useState<'chat' | 'tarefas'>('chat')
   const [titleEdit, setTitleEdit] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [phasePickerOpen, setPhasePickerOpen] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const conversation = (card as any)?.conversation
@@ -165,7 +169,7 @@ export function CardDrawer({ cardId, pipeId, onClose }: CardDrawerProps) {
                       </button>
                     </div>
                   )}
-                  <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+                  <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5 relative">
                     {card.pipe?.name && (
                       <>
                         <span>{card.pipe.name}</span>
@@ -173,10 +177,55 @@ export function CardDrawer({ cardId, pipeId, onClose }: CardDrawerProps) {
                       </>
                     )}
                     {card.currentPhase && (
-                      <span className="flex items-center gap-1">
+                      <button
+                        onClick={() => setPhasePickerOpen(!phasePickerOpen)}
+                        title="Clique pra mover pra outra fase"
+                        className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-dark-700/50 hover:bg-dark-700 text-gray-300 hover:text-white border border-dark-600/40 hover:border-gold-500/40 transition group"
+                      >
                         <span className="w-2 h-2 rounded-full" style={{ backgroundColor: card.currentPhase.color }} />
-                        {card.currentPhase.name}
-                      </span>
+                        <span>{card.currentPhase.name}</span>
+                        <ChevronDown className={`w-3 h-3 transition ${phasePickerOpen ? 'rotate-180' : ''} text-gray-500 group-hover:text-gold-400`} />
+                      </button>
+                    )}
+
+                    {/* Dropdown: trocar de fase */}
+                    {phasePickerOpen && phases.length > 0 && (
+                      <>
+                        <div className="fixed inset-0 z-30" onClick={() => setPhasePickerOpen(false)} />
+                        <div className="absolute top-7 left-0 z-40 w-64 bg-dark-800 border border-dark-700/60 rounded-lg shadow-2xl py-1 max-h-72 overflow-y-auto">
+                          <p className="px-3 pt-2 pb-1 text-[10px] uppercase text-gray-500 tracking-wider">Mover pra fase…</p>
+                          {phases.map((p: any) => {
+                            const isCurrent = p.id === card.currentPhaseId
+                            return (
+                              <button
+                                key={p.id}
+                                disabled={isCurrent || moveCard.isPending}
+                                onClick={() => {
+                                  moveCard.mutate(
+                                    { cardId, data: { phaseId: p.id } },
+                                    {
+                                      onSuccess: () => {
+                                        toast.success(`Movido pra "${p.name}"`)
+                                        setPhasePickerOpen(false)
+                                        refetch()
+                                      },
+                                    },
+                                  )
+                                }}
+                                className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition ${
+                                  isCurrent
+                                    ? 'bg-gold-500/10 text-gold-300 cursor-default'
+                                    : 'text-gray-200 hover:bg-dark-700/60'
+                                }`}
+                              >
+                                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
+                                <span className="flex-1">{p.name}</span>
+                                {isCurrent && <Check className="w-3 h-3 text-gold-400" />}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </>
                     )}
                   </div>
                 </div>
@@ -267,6 +316,13 @@ export function CardDrawer({ cardId, pipeId, onClose }: CardDrawerProps) {
                       Perdi
                     </button>
                   </div>
+                  <button
+                    onClick={() => setPhasePickerOpen(true)}
+                    className="w-full inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-dark-800/60 border border-dark-700/40 text-sm text-gray-300 hover:bg-dark-700/40 hover:border-gold-500/30 transition"
+                  >
+                    <MoveRight className="w-4 h-4 text-gold-400" />
+                    Mover pra outra fase
+                  </button>
                   <button
                     onClick={() => setTransferOpen(true)}
                     className="w-full inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-dark-800/60 border border-dark-700/40 text-sm text-gray-300 hover:bg-dark-700/40 hover:border-gold-500/30 transition"
