@@ -140,6 +140,15 @@ export class InboxService {
   }
 
   async sendMessage(conversationId: string, companyId: string, userId: string, data: SendMessageDTO) {
+    // IMPORTANTE: nunca lançamos AppError com statusCode 5xx aqui.
+    // O Traefik (proxy do Easypanel) intercepta 5xx e substitui o body
+    // pela pagina HTML de erro generica — o frontend perderia a mensagem
+    // util e mostraria so "Request failed with status code 502". Por isso
+    // usamos 400 (cliente nao conseguiu enviar) com codigo no campo `code`
+    // pra preservar a semantica.
+    const log = (msg: string, data?: any) =>
+      console.log(`[sendMessage] ${msg}`, data ? JSON.stringify(data) : '')
+
     const conversation = await prisma.conversation.findFirst({
       where: { id: conversationId, companyId },
       include: {
@@ -149,20 +158,16 @@ export class InboxService {
     })
 
     if (!conversation) {
-      throw new AppError('Conversation not found', 404, 'NOT_FOUND')
+      throw new AppError('Conversa nao encontrada', 404, 'NOT_FOUND')
     }
 
-    // Resolve telefone do destinatário (lead OU associado)
     const phone =
       conversation.lead?.whatsapp || conversation.lead?.telefone ||
       conversation.associado?.whatsapp || conversation.associado?.telefone
 
     let evolutionMessageId: string | null = null
-    let sendError: string | null = null
 
-    // Envia de fato pelo WhatsApp via Evolution se for canal whatsapp e tiver telefone
     if (conversation.channel === 'whatsapp' && phone) {
-      // Pega instancia do user (vendedor que conectou WhatsApp)
       const instance = await prisma.whatsappInstance.findFirst({
         where: { userId, companyId, status: 'CONNECTED' },
       })
@@ -181,13 +186,26 @@ export class InboxService {
         number: phone,
         text: data.content,
       })
+
+      const extractMsg = (err: any): string => {
+        const r = err?.response?.data
+        return (
+          r?.response?.message ||
+          (Array.isArray(r?.message) ? r.message.join(', ') : r?.message) ||
+          err?.message ||
+          'Falha ao enviar pelo WhatsApp'
+        )
+      }
+
       try {
         const sent: any = await trySend(activeKey)
         evolutionMessageId = sent?.key?.id || sent?.id || null
+        log('Evolution OK', { id: evolutionMessageId })
       } catch (err: any) {
         const status = err?.response?.status
-        // Auto-heal: 401/403 = apikey stale (instancia recriada na Evolution).
-        // Refetch da apikey via globalKey, atualiza no banco e refaz o envio.
+        log('Evolution falhou', { status, msg: extractMsg(err) })
+
+        // Auto-heal: 401/403 = apikey stale.
         if (status === 401 || status === 403) {
           const freshKey = await evolution.fetchInstanceApiKey(instance.evolutionName)
           if (freshKey && freshKey !== activeKey) {
@@ -199,50 +217,73 @@ export class InboxService {
             try {
               const sent: any = await trySend(activeKey)
               evolutionMessageId = sent?.key?.id || sent?.id || null
+              log('Evolution OK depois de re-sync da apikey')
             } catch (err2: any) {
-              const msg = err2?.response?.data?.response?.message || err2?.response?.data?.message || err2?.message
-              throw new AppError(`Erro ao enviar pelo WhatsApp: ${msg}`, 502, 'EVOLUTION_FAIL')
+              throw new AppError(
+                `Erro ao enviar pelo WhatsApp: ${extractMsg(err2)}`,
+                400,
+                'EVOLUTION_FAIL',
+              )
             }
           } else {
             throw new AppError(
               'Sessao do WhatsApp invalida. Reconecte em /whatsapp (escaneie o QR de novo).',
-              401,
+              400,
               'EVOLUTION_UNAUTHORIZED',
             )
           }
         } else {
-          const msg = err?.response?.data?.response?.message || err?.response?.data?.message || err?.message || 'Falha ao enviar pelo WhatsApp'
-          sendError = msg
-          throw new AppError(`Erro ao enviar pelo WhatsApp: ${sendError}`, 502, 'EVOLUTION_FAIL')
+          // Numero invalido, instancia caiu, rate limit, etc — tudo cai aqui
+          throw new AppError(
+            `Erro ao enviar pelo WhatsApp: ${extractMsg(err)}`,
+            400,
+            'EVOLUTION_FAIL',
+          )
         }
       }
     }
 
-    const message = await prisma.message.create({
-      data: {
-        companyId,
-        conversationId,
-        content: data.content,
-        sender: 'vendedor',
-        senderId: userId,
-        direction: 'outbound',
-        messageType: 'text',
-        whatsappMessageId: evolutionMessageId,
-      },
-      include: {
-        senderUser: {
-          select: { id: true, firstName: true, lastName: true, avatar: true },
+    // A partir daqui, qualquer falha de banco/socket nao deve gerar 502 no proxy
+    let message: any
+    try {
+      message = await prisma.message.create({
+        data: {
+          companyId,
+          conversationId,
+          content: data.content,
+          sender: 'vendedor',
+          senderId: userId,
+          direction: 'outbound',
+          messageType: 'text',
+          whatsappMessageId: evolutionMessageId,
         },
-      },
-    })
+        include: {
+          senderUser: {
+            select: { id: true, firstName: true, lastName: true, avatar: true },
+          },
+        },
+      })
+    } catch (err: any) {
+      log('prisma.message.create FAIL', { err: err?.message })
+      // Mensagem foi enviada pelo WhatsApp mas nao salvou no banco — ainda
+      // assim devolvemos sucesso parcial pro user nao re-enviar pro cliente.
+      // Erro mostra o que aconteceu sem matar o fluxo.
+      throw new AppError(
+        `Mensagem enviada mas nao gravada no historico: ${err?.message || 'erro de banco'}`,
+        400,
+        'DB_WRITE_FAIL',
+      )
+    }
 
-    await prisma.conversation.update({
-      where: { id: conversationId },
-      data: { lastMessageAt: new Date(), status: 'assigned', assignedToId: userId },
-    })
+    try {
+      await prisma.conversation.update({
+        where: { id: conversationId },
+        data: { lastMessageAt: new Date(), status: 'assigned', assignedToId: userId },
+      })
+    } catch (err) {
+      console.warn('[sendMessage] update conversation failed:', (err as Error).message)
+    }
 
-    // Real-time: emite pra todas as abas/usuários da empresa
-    // (mesmo evento que o webhook de RECEBIMENTO emite — UI já sabe ouvir)
     try {
       socketService.emitToCompany(companyId, 'inbox:new_message', {
         conversationId,
@@ -250,7 +291,7 @@ export class InboxService {
         channel: { type: conversation.channel || 'whatsapp', name: 'WhatsApp' },
       })
     } catch (err) {
-      console.warn('[Inbox] socket emit failed:', (err as Error).message)
+      console.warn('[sendMessage] socket emit failed:', (err as Error).message)
     }
 
     return message
