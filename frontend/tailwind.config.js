@@ -39,19 +39,19 @@ export default {
           500: '#E07620',
           600: '#C46218',
         },
-        // Dark palette — backgrounds sofisticados (tema dark do CRM)
+        // Dark palette — backgrounds sofisticados (tema dark/light via CSS vars)
         dark: {
-          50: '#E8E8EE',
-          100: '#C5C5D2',
-          200: '#9D9DB5',
-          300: '#757598',
-          400: '#55557A',
-          500: '#3D3D5C',
-          600: '#2A2A42',
-          700: '#1A1F35',
-          800: '#111827',
-          900: '#0B1120',
-          950: '#060A14',
+          50: 'rgb(var(--color-dark-50) / <alpha-value>)',
+          100: 'rgb(var(--color-dark-100) / <alpha-value>)',
+          200: 'rgb(var(--color-dark-200) / <alpha-value>)',
+          300: 'rgb(var(--color-dark-300) / <alpha-value>)',
+          400: 'rgb(var(--color-dark-400) / <alpha-value>)',
+          500: 'rgb(var(--color-dark-500) / <alpha-value>)',
+          600: 'rgb(var(--color-dark-600) / <alpha-value>)',
+          700: 'rgb(var(--color-dark-700) / <alpha-value>)',
+          800: 'rgb(var(--color-dark-800) / <alpha-value>)',
+          900: 'rgb(var(--color-dark-900) / <alpha-value>)',
+          950: 'rgb(var(--color-dark-950) / <alpha-value>)',
         },
         // Accent — para destaques secundarios
         accent: {

@@ -4,12 +4,13 @@ import {
   LayoutGrid, LogOut, Webhook, Zap, CreditCard, BarChart3,
   SmilePlus, Car, FileText, AlertTriangle, Gift, Link2,
   Search, Bell, ChevronDown, ChevronRight, ClipboardList, Settings,
-  Shield, Wrench, UserCog, Loader2, ListChecks,
+  Shield, Wrench, UserCog, Loader2, ListChecks, Sun, Moon,
 } from 'lucide-react'
 import { useAuthStore, type UserRole } from '../../store/auth-store'
 import { useState } from 'react'
 import { usePipes } from '../../hooks/usePipes'
 import { GlobalSearch } from '../GlobalSearch'
+import { useTheme } from '../../contexts'
 
 type NavItem = {
   path: string
@@ -100,6 +101,7 @@ export function AppLayout() {
   const clearAuth = useAuthStore((s) => s.clearAuth)
   const [searchFocused, setSearchFocused] = useState(false)
   const [roleMenuOpen, setRoleMenuOpen] = useState(false)
+  const { theme, toggleTheme } = useTheme()
 
   const currentRole = (user?.role?.name as UserRole) || 'admin'
 
@@ -256,6 +258,15 @@ export function AppLayout() {
             </div>
 
             <div className="w-px h-6 bg-dark-700/40 mx-1" />
+
+            <button
+              onClick={toggleTheme}
+              title={theme === 'light' ? 'Mudar para escuro' : 'Mudar para claro'}
+              aria-label="Alternar tema"
+              className="p-2 rounded-xl text-gray-400 hover:text-gray-200 hover:bg-dark-700/40 transition-colors"
+            >
+              {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+            </button>
 
             <button className="relative p-2 rounded-xl text-gray-400 hover:text-gray-200 hover:bg-dark-700/40 transition-colors">
               <Bell size={18} />

@@ -4,6 +4,54 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ══════════════════════════════════════════
+   THEME TOKENS — CSS variables consumidas pelo Tailwind (dark.*)
+   Default: tema CLARO. data-theme="dark" inverte para escuro.
+   Formato: triplet R G B (sem virgula) pra suportar /<alpha-value>.
+   ══════════════════════════════════════════ */
+:root {
+  /* tema CLARO (default) — invertido em relacao ao escuro */
+  --color-dark-950: 248 250 252; /* slate-50  — page bg */
+  --color-dark-900: 255 255 255; /* white     — sidebar/header */
+  --color-dark-800: 241 245 249; /* slate-100 — cards */
+  --color-dark-700: 226 232 240; /* slate-200 — borders/raised */
+  --color-dark-600: 203 213 225; /* slate-300 — borders */
+  --color-dark-500: 148 163 184; /* slate-400 — separators */
+  --color-dark-400: 100 116 139; /* slate-500 — muted text */
+  --color-dark-300: 71  85  105; /* slate-600 */
+  --color-dark-200: 51  65  85;  /* slate-700 */
+  --color-dark-100: 30  41  59;  /* slate-800 */
+  --color-dark-50:  15  23  42;  /* slate-900 — high-contrast text */
+
+  --bg-radial-1: rgba(27, 77, 161, 0.05);
+  --bg-radial-2: rgba(224, 118, 32, 0.04);
+  --scrollbar-thumb: rgba(27, 77, 161, 0.25);
+  --scrollbar-thumb-hover: rgba(27, 77, 161, 0.45);
+  --selection-bg: rgba(61, 114, 222, 0.25);
+  --selection-fg: #0B1120;
+}
+
+[data-theme="dark"] {
+  --color-dark-50:  232 232 238;
+  --color-dark-100: 197 197 210;
+  --color-dark-200: 157 157 181;
+  --color-dark-300: 117 117 152;
+  --color-dark-400: 85  85  122;
+  --color-dark-500: 61  61  92;
+  --color-dark-600: 42  42  66;
+  --color-dark-700: 26  31  53;
+  --color-dark-800: 17  24  39;
+  --color-dark-900: 11  17  32;
+  --color-dark-950: 6   10  20;
+
+  --bg-radial-1: rgba(27, 77, 161, 0.04);
+  --bg-radial-2: rgba(224, 118, 32, 0.02);
+  --scrollbar-thumb: rgba(27, 77, 161, 0.3);
+  --scrollbar-thumb-hover: rgba(27, 77, 161, 0.5);
+  --selection-bg: rgba(61, 114, 222, 0.3);
+  --selection-fg: #EBF0FA;
+}
+
 @layer base {
   html {
     @apply scroll-smooth;
@@ -12,9 +60,44 @@
   body {
     @apply bg-dark-950 text-gray-200 font-sans antialiased;
     background-image:
-      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(27, 77, 161, 0.04), transparent),
-      radial-gradient(ellipse 60% 40% at 80% 100%, rgba(224, 118, 32, 0.02), transparent);
+      radial-gradient(ellipse 80% 50% at 50% -20%, var(--bg-radial-1), transparent),
+      radial-gradient(ellipse 60% 40% at 80% 100%, var(--bg-radial-2), transparent);
   }
+
+  /* ──────────────────────────────────────────
+     Override de cores de texto Tailwind no tema CLARO
+     (text-gray-* e text-white sao da paleta default do Tailwind,
+      entao precisam de override explicito quando o fundo inverte)
+     ────────────────────────────────────────── */
+  :root .text-white          { color: #0F172A; }
+  :root .text-gray-100       { color: #0F172A; }
+  :root .text-gray-200       { color: #1E293B; }
+  :root .text-gray-300       { color: #334155; }
+  :root .text-gray-400       { color: #475569; }
+  :root .text-gray-500       { color: #64748B; }
+  :root .text-gray-600       { color: #94A3B8; }
+
+  :root .placeholder-gray-500::placeholder { color: #94A3B8; }
+  :root .placeholder-gray-400::placeholder { color: #64748B; }
+
+  /* No claro, evita "preto sobre preto" em hovers escuros pre-existentes */
+  :root .hover\:text-gray-200:hover { color: #1E293B; }
+  :root .hover\:text-gray-300:hover { color: #334155; }
+  :root .hover\:text-white:hover    { color: #0F172A; }
+
+  /* Restaura no escuro (precedencia maior) */
+  [data-theme="dark"] .text-white    { color: #fff; }
+  [data-theme="dark"] .text-gray-100 { color: #f3f4f6; }
+  [data-theme="dark"] .text-gray-200 { color: #e5e7eb; }
+  [data-theme="dark"] .text-gray-300 { color: #d1d5db; }
+  [data-theme="dark"] .text-gray-400 { color: #9ca3af; }
+  [data-theme="dark"] .text-gray-500 { color: #6b7280; }
+  [data-theme="dark"] .text-gray-600 { color: #4b5563; }
+  [data-theme="dark"] .placeholder-gray-500::placeholder { color: #6b7280; }
+  [data-theme="dark"] .placeholder-gray-400::placeholder { color: #9ca3af; }
+  [data-theme="dark"] .hover\:text-gray-200:hover { color: #e5e7eb; }
+  [data-theme="dark"] .hover\:text-gray-300:hover { color: #d1d5db; }
+  [data-theme="dark"] .hover\:text-white:hover    { color: #fff; }
 
   h1, h2, h3, h4, h5, h6 {
     @apply font-display;
@@ -29,17 +112,17 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: rgba(27, 77, 161, 0.3);
+    background: var(--scrollbar-thumb);
     border-radius: 10px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(27, 77, 161, 0.5);
+    background: var(--scrollbar-thumb-hover);
   }
 
   /* Selection */
   ::selection {
-    background: rgba(61, 114, 222, 0.3);
-    color: #EBF0FA;
+    background: var(--selection-bg);
+    color: var(--selection-fg);
   }
 }
 

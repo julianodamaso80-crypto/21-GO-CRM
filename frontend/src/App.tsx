@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { Router } from './Router'
-import { SocketProvider, NotificationProvider } from './contexts'
+import { SocketProvider, NotificationProvider, ThemeProvider } from './contexts'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -16,14 +16,16 @@ const queryClient = new QueryClient({
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <SocketProvider>
-          <NotificationProvider>
-            <Router />
-            <Toaster position="top-right" richColors />
-          </NotificationProvider>
-        </SocketProvider>
-      </BrowserRouter>
+      <ThemeProvider>
+        <BrowserRouter>
+          <SocketProvider>
+            <NotificationProvider>
+              <Router />
+              <Toaster position="top-right" richColors />
+            </NotificationProvider>
+          </SocketProvider>
+        </BrowserRouter>
+      </ThemeProvider>
     </QueryClientProvider>
   )
 }
