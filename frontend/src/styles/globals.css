@@ -1,55 +1,76 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ══════════════════════════════════════════
+/* ══════════════════════════════════════════════════════════════
    THEME TOKENS — CSS variables consumidas pelo Tailwind (dark.*)
-   Default: tema CLARO. data-theme="dark" inverte para escuro.
-   Formato: triplet R G B (sem virgula) pra suportar /<alpha-value>.
-   ══════════════════════════════════════════ */
+   ─────────────────────────────────────────────────────────────
+   Tier system Xan-style aplicado ao manual 21Go:
+     950 = Base background (mais profundo)
+     900 = Panel background (sidebar/header)
+     800 = Card background
+     700 = Elevated / hover / input
+     600 = Border-strong
+     500 = Hairline subtle
+     400 = Muted text
+     300-50 = Texto progressivamente mais alto contraste
+   Default: tema CLARO. data-theme="dark" inverte.
+   ══════════════════════════════════════════════════════════════ */
 :root {
-  /* tema CLARO (default) — invertido em relacao ao escuro */
+  /* tema CLARO — paleta neutra slate */
   --color-dark-950: 248 250 252; /* slate-50  — page bg */
   --color-dark-900: 255 255 255; /* white     — sidebar/header */
-  --color-dark-800: 241 245 249; /* slate-100 — cards */
-  --color-dark-700: 226 232 240; /* slate-200 — borders/raised */
-  --color-dark-600: 203 213 225; /* slate-300 — borders */
-  --color-dark-500: 148 163 184; /* slate-400 — separators */
+  --color-dark-800: 247 248 252; /* slate-50  — cards */
+  --color-dark-700: 241 245 249; /* slate-100 — elevated/hover */
+  --color-dark-600: 226 232 240; /* slate-200 — border-strong */
+  --color-dark-500: 203 213 225; /* slate-300 — hairline */
   --color-dark-400: 100 116 139; /* slate-500 — muted text */
   --color-dark-300: 71  85  105; /* slate-600 */
   --color-dark-200: 51  65  85;  /* slate-700 */
   --color-dark-100: 30  41  59;  /* slate-800 */
   --color-dark-50:  15  23  42;  /* slate-900 — high-contrast text */
 
-  --bg-radial-1: rgba(27, 77, 161, 0.05);
-  --bg-radial-2: rgba(224, 118, 32, 0.04);
-  --scrollbar-thumb: rgba(27, 77, 161, 0.25);
-  --scrollbar-thumb-hover: rgba(27, 77, 161, 0.45);
-  --selection-bg: rgba(61, 114, 222, 0.25);
-  --selection-fg: #0B1120;
+  /* hairline = bordas Xan (mais sutis que toda a paleta dark) */
+  --color-hairline:        226 232 240; /* claro: slate-200 */
+  --color-hairline-strong: 203 213 225; /* claro: slate-300 */
+
+  /* ambient backgrounds (usados em radial gradients no body) */
+  --bg-radial-1: rgba(41, 60, 130, 0.05);
+  --bg-radial-2: rgba(242, 145, 29, 0.04);
+  --scrollbar-thumb: rgba(41, 60, 130, 0.25);
+  --scrollbar-thumb-hover: rgba(41, 60, 130, 0.45);
+  --selection-bg: rgba(68, 93, 168, 0.25);
+  --selection-fg: #0C1228;
 }
 
 [data-theme="dark"] {
-  --color-dark-50:  232 232 238;
-  --color-dark-100: 197 197 210;
-  --color-dark-200: 157 157 181;
-  --color-dark-300: 117 117 152;
-  --color-dark-400: 85  85  122;
-  --color-dark-500: 61  61  92;
-  --color-dark-600: 42  42  66;
-  --color-dark-700: 26  31  53;
-  --color-dark-800: 17  24  39;
-  --color-dark-900: 11  17  32;
-  --color-dark-950: 6   10  20;
+  /* tema ESCURO — paleta azul profunda do manual oficial 21Go (#293C82 = azul institucional)
+     Os tons 950→700 são derivados do azul institucional pra dar coesão de marca,
+     não cinzas neutros. Isso reforça a identidade nos backgrounds. */
+  --color-dark-950: 7   11  26;  /* #070B1A — Base (mais profundo) */
+  --color-dark-900: 12  18  40;  /* #0C1228 — Panel (sidebar/header) */
+  --color-dark-800: 17  23  46;  /* #11172E — Card bg */
+  --color-dark-700: 22  30  60;  /* #161E3C — Elevated / hover / input */
+  --color-dark-600: 34  50  108; /* #22326C — Border-strong */
+  --color-dark-500: 68  93  168; /* #445DA8 — Acento azul */
+  --color-dark-400: 158 174 215; /* texto muted */
+  --color-dark-300: 188 199 226;
+  --color-dark-200: 211 219 235;
+  --color-dark-100: 232 237 246;
+  --color-dark-50:  246 248 252; /* texto principal */
 
-  --bg-radial-1: rgba(27, 77, 161, 0.04);
-  --bg-radial-2: rgba(224, 118, 32, 0.02);
-  --scrollbar-thumb: rgba(27, 77, 161, 0.3);
-  --scrollbar-thumb-hover: rgba(27, 77, 161, 0.5);
-  --selection-bg: rgba(61, 114, 222, 0.3);
-  --selection-fg: #EBF0FA;
+  /* hairline escuro: bordas Xan-style #222 mas com leve tom azul */
+  --color-hairline:        28  35  64;  /* #1C2340 — borda padrão */
+  --color-hairline-strong: 41  52  90;  /* #29345A — borda destaque */
+
+  --bg-radial-1: rgba(41, 60, 130, 0.10);
+  --bg-radial-2: rgba(242, 145, 29, 0.04);
+  --scrollbar-thumb: rgba(68, 93, 168, 0.3);
+  --scrollbar-thumb-hover: rgba(68, 93, 168, 0.55);
+  --selection-bg: rgba(68, 93, 168, 0.35);
+  --selection-fg: #EBEEF7;
 }
 
 @layer base {
@@ -58,16 +79,17 @@
   }
 
   body {
-    @apply bg-dark-950 text-gray-200 font-sans antialiased;
+    @apply bg-dark-950 text-dark-100 font-sans antialiased;
+    font-feature-settings: 'cv11', 'ss01', 'ss03'; /* Inter: numerais alternativos + variants */
     background-image:
       radial-gradient(ellipse 80% 50% at 50% -20%, var(--bg-radial-1), transparent),
       radial-gradient(ellipse 60% 40% at 80% 100%, var(--bg-radial-2), transparent);
   }
 
   /* ──────────────────────────────────────────
-     Override de cores de texto Tailwind no tema CLARO
-     (text-gray-* e text-white sao da paleta default do Tailwind,
-      entao precisam de override explicito quando o fundo inverte)
+     Override de cores Tailwind padrão no tema CLARO
+     (text-gray-* e text-white são da paleta default do Tailwind,
+      precisam de override quando o fundo inverte)
      ────────────────────────────────────────── */
   :root .text-white          { color: #0F172A; }
   :root .text-gray-100       { color: #0F172A; }
@@ -80,12 +102,11 @@
   :root .placeholder-gray-500::placeholder { color: #94A3B8; }
   :root .placeholder-gray-400::placeholder { color: #64748B; }
 
-  /* No claro, evita "preto sobre preto" em hovers escuros pre-existentes */
   :root .hover\:text-gray-200:hover { color: #1E293B; }
   :root .hover\:text-gray-300:hover { color: #334155; }
   :root .hover\:text-white:hover    { color: #0F172A; }
 
-  /* Restaura no escuro (precedencia maior) */
+  /* Restaura no escuro (precedência maior) */
   [data-theme="dark"] .text-white    { color: #fff; }
   [data-theme="dark"] .text-gray-100 { color: #f3f4f6; }
   [data-theme="dark"] .text-gray-200 { color: #e5e7eb; }
@@ -100,13 +121,19 @@
   [data-theme="dark"] .hover\:text-white:hover    { color: #fff; }
 
   h1, h2, h3, h4, h5, h6 {
-    @apply font-display;
+    @apply font-display tracking-tight;
+    letter-spacing: -0.01em;
+  }
+
+  /* Numerais tabulares em tudo que for monoespaçado (financeiro, KPIs, IDs) */
+  .font-mono {
+    font-feature-settings: 'tnum', 'zero';
   }
 
   /* Scrollbar sofisticada */
   ::-webkit-scrollbar {
-    width: 5px;
-    height: 5px;
+    width: 6px;
+    height: 6px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
@@ -119,7 +146,6 @@
     background: var(--scrollbar-thumb-hover);
   }
 
-  /* Selection */
   ::selection {
     background: var(--selection-bg);
     color: var(--selection-fg);
@@ -127,115 +153,146 @@
 }
 
 @layer components {
-  /* ══════════════════════════════════════════
-     BUTTONS
-     ══════════════════════════════════════════ */
+  /* ══════════════════════════════════════════════════════════════
+     BUTTONS — Xan-style (transição smooth, glow no primário)
+     ══════════════════════════════════════════════════════════════ */
   .btn {
-    @apply px-4 py-2 rounded-xl font-medium text-sm transition-all duration-200 ease-smooth
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl
+           font-semibold text-sm transition-all duration-200 ease-smooth
            focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-dark-950
-           active:scale-[0.98];
+           active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
   }
 
+  /* Primário: azul institucional do manual com glow */
   .btn-primary {
-    @apply btn bg-gradient-to-r from-gold-500 to-gold-400 text-dark-900 font-semibold
-           hover:from-gold-400 hover:to-gold-300 focus:ring-gold-500
-           shadow-glow-gold hover:shadow-glow-gold-lg;
+    @apply btn bg-blue-500 text-white
+           hover:bg-blue-400 focus:ring-blue-500
+           shadow-cta-blue;
+  }
+
+  /* CTA: laranja oficial (#F2911D) com glow */
+  .btn-cta {
+    @apply btn bg-orange-500 text-white
+           hover:bg-orange-400 focus:ring-orange-500
+           shadow-cta-orange;
   }
 
   .btn-secondary {
-    @apply btn bg-dark-700/60 text-gray-200 border border-dark-600/50
-           hover:bg-dark-600/60 hover:border-dark-500/50 focus:ring-dark-500
-           backdrop-blur-sm;
+    @apply btn bg-dark-700 text-dark-100 border border-hairline
+           hover:bg-dark-600 hover:border-hairline-strong focus:ring-dark-500;
   }
 
   .btn-ghost {
-    @apply btn text-gray-400 hover:text-gray-200 hover:bg-dark-700/40;
+    @apply btn text-dark-300 hover:text-dark-50 hover:bg-dark-700;
   }
 
   .btn-danger {
-    @apply btn bg-red-500/15 text-red-400 border border-red-500/20
-           hover:bg-red-500/25 hover:border-red-500/30 focus:ring-red-500;
+    @apply btn bg-error/15 text-error border border-error/25
+           hover:bg-error/25 hover:border-error/40 focus:ring-error;
   }
 
-  /* ══════════════════════════════════════════
-     CARDS
-     ══════════════════════════════════════════ */
+  /* ══════════════════════════════════════════════════════════════
+     CARDS — Tier system Xan: panel discreto, hover elevado
+     ══════════════════════════════════════════════════════════════ */
   .card {
-    @apply bg-dark-800/60 rounded-2xl border border-dark-700/50 p-6
-           backdrop-blur-sm shadow-card transition-all duration-300;
+    @apply bg-dark-800 rounded-2xl border border-hairline p-6
+           shadow-card transition-all duration-300 ease-smooth;
   }
 
   .card-hover {
-    @apply card hover:border-gold-500/20 hover:shadow-card-hover
-           hover:bg-dark-800/80;
+    @apply card hover:border-hairline-strong hover:shadow-card-hover hover:-translate-y-0.5;
   }
 
   .card-glass {
-    @apply bg-dark-800/40 rounded-2xl border border-dark-700/30 p-6
+    @apply bg-dark-800/70 rounded-2xl border border-hairline p-6
            backdrop-blur-md shadow-glass;
   }
 
-  .card-gold {
-    @apply bg-gradient-gold-subtle rounded-2xl border border-gold-500/15 p-6
-           shadow-glow-gold;
+  /* Card com gradiente azul institucional (destaque hero) */
+  .card-blue {
+    @apply rounded-2xl border border-blue-500/30 p-6
+           shadow-glow-blue;
+    background: linear-gradient(135deg, #293C82, #22326C);
   }
 
-  /* ══════════════════════════════════════════
-     INPUTS
-     ══════════════════════════════════════════ */
+  /* Card laranja sutil (CTA destacado) */
+  .card-orange {
+    @apply bg-gradient-orange-subtle rounded-2xl border border-orange-500/20 p-6
+           shadow-glow-orange;
+  }
+
+  /* Alias legado pra compatibilidade */
+  .card-gold {
+    @apply card-orange;
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     INPUTS — Xan-style: bg dedicado pra input, focus em azul
+     ══════════════════════════════════════════════════════════════ */
   .input {
-    @apply w-full px-3.5 py-2.5 bg-dark-800/60 border border-dark-600/50 rounded-xl
-           text-gray-200 placeholder-gray-500 text-sm
-           focus:outline-none focus:ring-2 focus:ring-gold-500/30 focus:border-gold-500/50
-           transition-all duration-200 backdrop-blur-sm;
+    @apply w-full px-3.5 py-2.5 bg-dark-700 border border-hairline rounded-xl
+           text-dark-50 placeholder-dark-400 text-sm
+           focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/60
+           transition-all duration-200 ease-smooth;
   }
 
   .label {
-    @apply block text-sm font-medium text-gray-300 mb-1.5;
+    @apply block text-xs font-semibold text-dark-300 mb-1.5 uppercase tracking-wider;
   }
 
   select.input {
     @apply appearance-none cursor-pointer;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239D9DB5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 12px center;
     padding-right: 36px;
   }
 
-  /* ══════════════════════════════════════════
-     BADGES
-     ══════════════════════════════════════════ */
+  /* ══════════════════════════════════════════════════════════════
+     BADGES — pill-shaped, 10% bg opacity da cor (Xan)
+     ══════════════════════════════════════════════════════════════ */
   .badge {
-    @apply inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold tracking-wide;
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
+           text-[10px] font-bold tracking-wider uppercase;
   }
 
+  .badge-blue {
+    @apply badge bg-blue-500/15 text-blue-400 border border-blue-500/25;
+  }
+
+  .badge-orange,
   .badge-gold {
-    @apply badge bg-gold-500/15 text-gold-400 border border-gold-500/20;
+    @apply badge bg-orange-500/15 text-orange-400 border border-orange-500/25;
   }
 
   .badge-success {
-    @apply badge bg-emerald-500/12 text-emerald-400 border border-emerald-500/15;
+    @apply badge bg-success/15 text-success border border-success/25;
   }
 
   .badge-warning {
-    @apply badge bg-amber-500/12 text-amber-400 border border-amber-500/15;
+    @apply badge bg-warning/15 text-warning border border-warning/25;
   }
 
   .badge-danger {
-    @apply badge bg-red-500/12 text-red-400 border border-red-500/15;
+    @apply badge bg-error/15 text-error border border-error/25;
   }
 
   .badge-info {
-    @apply badge bg-blue-500/12 text-blue-400 border border-blue-500/15;
+    @apply badge bg-info/15 text-info border border-info/25;
   }
 
   .badge-neutral {
-    @apply badge bg-dark-600/50 text-gray-400 border border-dark-500/30;
+    @apply badge bg-dark-700 text-dark-300 border border-hairline;
   }
 
-  /* ══════════════════════════════════════════
+  /* Pulse dot — bolinha animada dentro de badges de status */
+  .badge-dot {
+    @apply w-1.5 h-1.5 rounded-full bg-current animate-dot-pulse;
+  }
+
+  /* ══════════════════════════════════════════════════════════════
      PAGE ANIMATIONS
-     ══════════════════════════════════════════ */
+     ══════════════════════════════════════════════════════════════ */
   .page-enter {
     @apply animate-fade-in-up;
   }
@@ -246,71 +303,136 @@
   .stagger-children > *:nth-child(4) { @apply opacity-0 animate-stagger-4; }
   .stagger-children > *:nth-child(5) { @apply opacity-0 animate-stagger-5; }
 
-  /* ══════════════════════════════════════════
-     TABLE
-     ══════════════════════════════════════════ */
+  /* ══════════════════════════════════════════════════════════════
+     TABLE — Xan-style: header em mono uppercase, hover sutil
+     ══════════════════════════════════════════════════════════════ */
   .table-container {
-    @apply bg-dark-800/60 rounded-2xl border border-dark-700/50 overflow-hidden
-           backdrop-blur-sm;
+    @apply bg-dark-800 rounded-2xl border border-hairline overflow-hidden;
   }
 
   .table-header {
-    @apply bg-dark-800/80;
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  [data-theme="light"] .table-header,
+  :root .table-header {
+    background: rgba(0, 0, 0, 0.02);
   }
 
   .table-header th {
-    @apply px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider;
+    @apply px-5 py-3.5 text-left font-mono text-[10px] font-bold uppercase
+           text-dark-400 tracking-[0.15em];
   }
 
   .table-row {
-    @apply border-t border-dark-700/30 transition-colors duration-150
-           hover:bg-dark-700/30;
+    @apply border-t border-hairline transition-colors duration-150 ease-smooth;
+    height: 56px; /* Xan: row height fixa pra ritmo visual */
+  }
+
+  .table-row:hover {
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  [data-theme="light"] .table-row:hover,
+  :root .table-row:hover {
+    background: rgba(0, 0, 0, 0.02);
   }
 
   .table-row td {
-    @apply px-5 py-4 text-sm;
+    @apply px-5 py-4 text-sm text-dark-100;
   }
 
-  /* ══════════════════════════════════════════
-     SIDEBAR
-     ══════════════════════════════════════════ */
+  /* ══════════════════════════════════════════════════════════════
+     SIDEBAR — Xan-style: sub-headers em mono, ativo com indicador
+     ══════════════════════════════════════════════════════════════ */
   .sidebar-link {
     @apply flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
            transition-all duration-200 ease-smooth;
   }
 
   .sidebar-link-active {
-    @apply sidebar-link bg-blue-500/10 text-blue-400 border border-blue-500/20;
+    @apply sidebar-link text-dark-50 font-semibold;
+    background: rgba(68, 93, 168, 0.10);
   }
 
   .sidebar-link-inactive {
-    @apply sidebar-link text-gray-400 hover:bg-dark-700/40 hover:text-gray-200;
+    @apply sidebar-link text-dark-300 hover:text-dark-50 hover:bg-dark-700;
   }
 
-  /* ══════════════════════════════════════════
-     STAT CARD (KPI)
-     ══════════════════════════════════════════ */
+  /* Sub-headers de seção da sidebar (Xan: mono uppercase tracking largo) */
+  .sidebar-section-label {
+    @apply font-mono text-[10px] font-bold uppercase text-dark-400
+           tracking-[0.2em] pt-5 pb-2 px-3;
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     STAT CARD (KPI) — valores grandes em mono, label em sans
+     ══════════════════════════════════════════════════════════════ */
   .stat-card {
     @apply card-hover cursor-default;
   }
 
   .stat-card .stat-icon {
     @apply w-11 h-11 rounded-xl flex items-center justify-center
-           transition-transform duration-300 group-hover:scale-110;
+           transition-transform duration-300 ease-smooth group-hover:scale-110;
   }
 
-  /* ══════════════════════════════════════════
+  .stat-value {
+    @apply font-mono text-2xl font-bold text-dark-50 tabular-nums;
+  }
+
+  .stat-label {
+    @apply font-mono text-[10px] font-bold uppercase text-dark-400
+           tracking-wider;
+  }
+
+  /* ══════════════════════════════════════════════════════════════
      DRAWER / MODAL OVERLAY
-     ══════════════════════════════════════════ */
+     ══════════════════════════════════════════════════════════════ */
   .drawer-overlay {
-    @apply fixed inset-0 z-50 bg-black/50 backdrop-blur-sm
-           animate-fade-in;
+    @apply fixed inset-0 z-50 bg-black/60 backdrop-blur-sm animate-fade-in;
   }
 
   .drawer-panel {
-    @apply fixed right-0 top-0 h-full bg-dark-800 border-l border-dark-700/50
+    @apply fixed right-0 top-0 h-full bg-dark-900 border-l border-hairline
            shadow-glass-lg animate-slide-in-right overflow-y-auto
            z-[60] w-full max-w-md flex flex-col;
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     SPOTLIGHT CARD — efeito assinatura Xan (radial seguindo cursor)
+     Card consome --mouse-x e --mouse-y atualizadas via JS no onMouseMove.
+     Usar com <SpotlightCard> ou aplicar a classe .spotlight-card direto.
+     ══════════════════════════════════════════════════════════════ */
+  .spotlight-card {
+    @apply card relative overflow-hidden;
+  }
+
+  .spotlight-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 300ms cubic-bezier(0.16, 1, 0.3, 1);
+    background: radial-gradient(
+      circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+      rgba(68, 93, 168, 0.12) 0%,
+      transparent 60%
+    );
+  }
+
+  .spotlight-card:hover::before {
+    opacity: 1;
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     BULK ACTIONS BAR — barra flutuante (Xan)
+     ══════════════════════════════════════════════════════════════ */
+  .bulk-actions-bar {
+    @apply flex items-center justify-between gap-4 px-5 py-3 rounded-xl
+           border border-blue-500 text-sm;
+    background: rgba(68, 93, 168, 0.10);
   }
 }
 
@@ -324,15 +446,25 @@
     display: none;
   }
 
-  .text-gradient-gold {
+  /* Gradientes de texto */
+  .text-gradient-orange {
     @apply bg-gradient-to-r from-orange-400 via-orange-300 to-orange-500 bg-clip-text text-transparent;
   }
 
-  .border-gradient-gold {
-    border-image: linear-gradient(135deg, rgba(201, 168, 76, 0.3), rgba(201, 168, 76, 0.1)) 1;
+  .text-gradient-gold {
+    @apply text-gradient-orange;
+  }
+
+  .text-gradient-blue {
+    @apply bg-gradient-to-r from-blue-300 via-blue-200 to-blue-400 bg-clip-text text-transparent;
   }
 
   .glass-effect {
-    @apply bg-dark-800/40 backdrop-blur-md border border-dark-700/30;
+    @apply bg-dark-800/60 backdrop-blur-md border border-hairline;
+  }
+
+  /* Numerais tabulares (financeiro/KPIs alinham coluna de números) */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
   }
 }

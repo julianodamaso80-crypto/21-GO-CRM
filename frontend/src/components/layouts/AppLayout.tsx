@@ -130,17 +130,21 @@ export function AppLayout() {
 
   return (
     <div className="flex h-screen bg-dark-950">
-      {/* Sidebar */}
-      <aside className="w-[260px] bg-dark-900/80 border-r border-dark-700/40 flex flex-col backdrop-blur-md shadow-sidebar">
-        {/* Logo */}
-        <div className="h-16 flex items-center px-5 border-b border-dark-700/30">
+      {/* Sidebar — Xan-style: 260px, panel bg, hairline 1px direita */}
+      <aside className="w-[260px] bg-dark-900 border-r border-hairline flex flex-col shadow-sidebar">
+        {/* Logo — usa PNG oficial da marca (manual de identidade visual) */}
+        <div className="h-16 flex items-center px-5 border-b border-hairline">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-gold flex items-center justify-center shadow-glow-gold">
-              <span className="text-dark-900 font-display font-bold text-sm">21</span>
-            </div>
-            <div>
-              <h1 className="text-base font-display font-bold text-white tracking-tight">21Go</h1>
-              <p className="text-[10px] text-gold-500/70 font-medium tracking-widest uppercase">CRM Platform</p>
+            <img
+              src="/logo21go.png"
+              alt="21Go Proteção Patrimonial"
+              className="w-10 h-10 rounded-xl object-contain shadow-glow-blue"
+            />
+            <div className="leading-tight">
+              <h1 className="text-base font-display font-extrabold text-dark-50 tracking-tight">21Go</h1>
+              <p className="text-[9px] font-mono font-bold text-orange-500 tracking-[0.2em] uppercase">
+                Proteção Patrimonial
+              </p>
             </div>
           </div>
         </div>
@@ -150,9 +154,7 @@ export function AppLayout() {
           {NAV_SECTIONS.filter(canSeeSection).map((section, si) => (
             <div key={si}>
               {section.label && (
-                <p className="text-[10px] font-semibold text-dark-400 uppercase tracking-[0.15em] pt-5 pb-2 px-3">
-                  {section.label}
-                </p>
+                <p className="sidebar-section-label">{section.label}</p>
               )}
               {section.label === 'Comercial' && ['admin', 'gestor', 'vendedor'].includes(currentRole) && (
                 <>
@@ -169,10 +171,10 @@ export function AppLayout() {
                     to={item.path}
                     className={active ? 'sidebar-link-active' : 'sidebar-link-inactive'}
                   >
-                    <Icon size={18} className={active ? 'text-gold-400' : ''} />
+                    <Icon size={18} className={active ? 'text-blue-400' : ''} />
                     <span>{item.label}</span>
                     {active && (
-                      <div className="ml-auto w-1.5 h-1.5 rounded-full bg-gold-400" />
+                      <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400 animate-dot-pulse" />
                     )}
                   </Link>
                 )
@@ -182,12 +184,12 @@ export function AppLayout() {
 
           {/* Financeiro — admin/gestor only */}
           {['admin', 'gestor'].includes(currentRole) && (
-            <div className="border-t border-dark-700/30 mt-4 pt-4">
+            <div className="border-t border-hairline mt-4 pt-4">
               <Link
                 to="/billing"
                 className={isActive('/billing') ? 'sidebar-link-active' : 'sidebar-link-inactive'}
               >
-                <CreditCard size={18} className={isActive('/billing') ? 'text-gold-400' : ''} />
+                <CreditCard size={18} className={isActive('/billing') ? 'text-blue-400' : ''} />
                 <span>Financeiro</span>
               </Link>
             </div>
@@ -195,19 +197,19 @@ export function AppLayout() {
         </nav>
 
         {/* User Profile */}
-        <div className="px-3 py-3 border-t border-dark-700/30">
-          <div className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-dark-700/30 transition-colors group">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-gold-500/20 to-gold-600/10 border border-gold-500/20 flex items-center justify-center text-xs font-semibold text-gold-400 flex-shrink-0">
+        <div className="px-3 py-3 border-t border-hairline">
+          <div className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-dark-700 transition-colors duration-200 ease-smooth group">
+            <div className="w-9 h-9 rounded-xl bg-gradient-orange-subtle border border-orange-500/30 flex items-center justify-center text-xs font-bold text-orange-400 flex-shrink-0">
               {user?.firstName?.[0]}{user?.lastName?.[0]}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-gray-200 truncate">{user?.firstName} {user?.lastName}</p>
-              <p className="text-[11px] text-gray-500 truncate">{user?.email}</p>
+              <p className="text-sm font-semibold text-dark-50 truncate">{user?.firstName} {user?.lastName}</p>
+              <p className="text-[11px] text-dark-400 truncate">{user?.email}</p>
             </div>
             <button
               onClick={handleLogout}
               title="Sair"
-              className="p-1.5 text-gray-500 hover:text-red-400 rounded-lg hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100"
+              className="p-1.5 text-dark-400 hover:text-error rounded-lg hover:bg-error/10 transition-all duration-200 ease-smooth opacity-0 group-hover:opacity-100"
             >
               <LogOut size={15} />
             </button>
@@ -217,8 +219,8 @@ export function AppLayout() {
 
       {/* Main Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <header className="h-14 border-b border-dark-700/30 bg-dark-900/40 backdrop-blur-md flex items-center justify-between px-6 flex-shrink-0">
+        {/* Header — Xan-style: 64px, sticky, search à esquerda + ações à direita */}
+        <header className="h-16 border-b border-hairline bg-dark-900 flex items-center justify-between px-6 flex-shrink-0">
           {/* Global Search */}
           <GlobalSearch />
 
@@ -228,29 +230,29 @@ export function AppLayout() {
             <div className="relative">
               <button
                 onClick={() => setRoleMenuOpen(!roleMenuOpen)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-dark-800/60 border border-dark-700/40 hover:border-dark-600 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-dark-700 border border-hairline hover:border-hairline-strong transition-all duration-200 ease-smooth"
               >
                 <Shield size={14} className={ROLE_LABELS[currentRole].color} />
-                <span className={`text-xs font-medium ${ROLE_LABELS[currentRole].color}`}>
+                <span className={`text-[11px] font-bold uppercase tracking-wider ${ROLE_LABELS[currentRole].color}`}>
                   {ROLE_LABELS[currentRole].label}
                 </span>
-                <ChevronDown size={12} className="text-gray-500" />
+                <ChevronDown size={12} className="text-dark-400" />
               </button>
               {roleMenuOpen && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setRoleMenuOpen(false)} />
-                  <div className="absolute right-0 mt-1 w-40 bg-dark-800 border border-dark-700/40 rounded-xl shadow-lg z-20 py-1">
+                  <div className="absolute right-0 mt-2 w-44 bg-dark-800 border border-hairline rounded-xl shadow-glass z-20 py-1 animate-fade-in-down">
                     {(Object.keys(ROLE_LABELS) as UserRole[]).map((role) => (
                       <button
                         key={role}
                         onClick={() => handleRoleChange(role)}
-                        className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-dark-700/50 transition-colors ${
-                          currentRole === role ? 'text-gold-400' : 'text-gray-300'
+                        className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-dark-700 transition-colors duration-150 ease-smooth ${
+                          currentRole === role ? 'text-blue-400 font-semibold' : 'text-dark-200'
                         }`}
                       >
                         <Shield size={14} className={ROLE_LABELS[role].color} />
                         {ROLE_LABELS[role].label}
-                        {currentRole === role && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-gold-400" />}
+                        {currentRole === role && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400 animate-dot-pulse" />}
                       </button>
                     ))}
                   </div>
@@ -258,31 +260,31 @@ export function AppLayout() {
               )}
             </div>
 
-            <div className="w-px h-6 bg-dark-700/40 mx-1" />
+            <div className="w-px h-6 bg-hairline mx-1" />
 
             <button
               onClick={toggleTheme}
               title={theme === 'light' ? 'Mudar para escuro' : 'Mudar para claro'}
               aria-label="Alternar tema"
-              className="p-2 rounded-xl text-gray-400 hover:text-gray-200 hover:bg-dark-700/40 transition-colors"
+              className="p-2 rounded-xl text-dark-400 hover:text-dark-50 hover:bg-dark-700 transition-all duration-200 ease-smooth"
             >
               {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
             </button>
 
-            <button className="relative p-2 rounded-xl text-gray-400 hover:text-gray-200 hover:bg-dark-700/40 transition-colors">
+            <button className="relative p-2 rounded-xl text-dark-400 hover:text-dark-50 hover:bg-dark-700 transition-all duration-200 ease-smooth">
               <Bell size={18} />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-gold-500 rounded-full" />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-orange-500 rounded-full animate-dot-pulse" />
             </button>
-            <button className="relative p-2 rounded-xl text-gray-400 hover:text-gray-200 hover:bg-dark-700/40 transition-colors">
+            <button className="relative p-2 rounded-xl text-dark-400 hover:text-dark-50 hover:bg-dark-700 transition-all duration-200 ease-smooth">
               <Settings size={18} />
             </button>
-            <div className="w-px h-6 bg-dark-700/40 mx-1" />
-            <button className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl hover:bg-dark-700/40 transition-colors">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-gold-500/20 to-gold-600/10 border border-gold-500/20 flex items-center justify-center text-[11px] font-semibold text-gold-400">
+            <div className="w-px h-6 bg-hairline mx-1" />
+            <button className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl hover:bg-dark-700 transition-all duration-200 ease-smooth">
+              <div className="w-7 h-7 rounded-lg bg-gradient-orange-subtle border border-orange-500/30 flex items-center justify-center text-[11px] font-bold text-orange-400">
                 {user?.firstName?.[0]}{user?.lastName?.[0]}
               </div>
-              <span className="text-sm text-gray-300 font-medium">{user?.firstName}</span>
-              <ChevronDown size={14} className="text-gray-500" />
+              <span className="text-sm text-dark-100 font-semibold">{user?.firstName}</span>
+              <ChevronDown size={14} className="text-dark-400" />
             </button>
           </div>
         </header>
@@ -319,9 +321,9 @@ function FunilLink({
       className={active ? 'sidebar-link-active' : 'sidebar-link-inactive'}
       title={pipe ? '' : 'Funil ainda nao criado — clique pra gerenciar'}
     >
-      <LayoutGrid size={18} className={active ? 'text-gold-400' : ''} />
+      <LayoutGrid size={18} className={active ? 'text-blue-400' : ''} />
       <span>{label}</span>
-      {active && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-gold-400" />}
+      {active && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400 animate-dot-pulse" />}
     </Link>
   )
 }

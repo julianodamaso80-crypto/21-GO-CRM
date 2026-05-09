@@ -4,42 +4,60 @@ export default {
   theme: {
     extend: {
       colors: {
-        // 21Go Blue — cor primaria da marca (ver brand-guide.md)
+        // 21Go Blue — Azul Institucional #293C82 (manual oficial v1.0 abr/2026)
+        // Escala recentrada com 500 = #293C82 (cor principal da marca)
         blue: {
-          50: '#EBF0FA',
-          100: '#D1DFFA',
-          200: '#A3BEF5',
-          300: '#6B96EB',
-          400: '#3D72DE',
-          500: '#1B4DA1',
-          600: '#164087',
-          700: '#11336D',
-          800: '#0D2653',
-          900: '#081A3A',
-          950: '#050F24',
+          50: '#EBEEF7',
+          100: '#CFD6EB',
+          200: '#9FAED7',
+          300: '#6E85C2',
+          400: '#445DA8',
+          500: '#293C82',
+          600: '#22326C',
+          700: '#1B2856',
+          800: '#141E40',
+          900: '#0C1228',
+          950: '#070B1A',
         },
-        // 21Go Orange — cor secundaria, CTAs, logo
+        // 21Go Orange — Laranja 21Go #F2911D (manual oficial v1.0 abr/2026)
+        // Cor de ação: CTAs, ícones, energia
         orange: {
-          50: '#FFF4EB',
-          100: '#FFE4CC',
-          200: '#FFC999',
-          300: '#FFAA61',
-          400: '#F08C28',
-          500: '#E07620',
-          600: '#C46218',
-          700: '#9C4E14',
-          800: '#743A0F',
-          900: '#4D260A',
-          950: '#2E1706',
+          50: '#FEF4E7',
+          100: '#FCE2BD',
+          200: '#FACA88',
+          300: '#F8B154',
+          400: '#F5A039',
+          500: '#F2911D',
+          600: '#D97A0F',
+          700: '#B5630B',
+          800: '#8E4D08',
+          900: '#5C3205',
+          950: '#331C03',
         },
-        // gold mapeado para orange (paleta oficial da marca 21Go)
+        // 21Go Lime — Verde Localização #C7D301 (manual oficial)
+        // Cor de apoio: pin, acentos, destaques positivos discretos
+        lime: {
+          50: '#FAFCE5',
+          100: '#F4FACC',
+          200: '#E8F394',
+          300: '#DCEC5C',
+          400: '#D2E230',
+          500: '#C7D301',
+          600: '#A3AE01',
+          700: '#7C8401',
+          800: '#555B01',
+          900: '#2E3100',
+          950: '#181A00',
+        },
+        // gold — alias legado mapeado pra orange (compatibilidade com componentes existentes)
         gold: {
-          300: '#FFAA61',
-          400: '#F08C28',
-          500: '#E07620',
-          600: '#C46218',
+          300: '#F8B154',
+          400: '#F5A039',
+          500: '#F2911D',
+          600: '#D97A0F',
         },
-        // Dark palette — backgrounds sofisticados (tema dark/light via CSS vars)
+        // Dark palette — tier system tipo Xan (Base / Panel / Elevated / Input)
+        // Continua via CSS vars pra suportar light/dark theme
         dark: {
           50: 'rgb(var(--color-dark-50) / <alpha-value>)',
           100: 'rgb(var(--color-dark-100) / <alpha-value>)',
@@ -53,16 +71,21 @@ export default {
           900: 'rgb(var(--color-dark-900) / <alpha-value>)',
           950: 'rgb(var(--color-dark-950) / <alpha-value>)',
         },
-        // Accent — para destaques secundarios
+        // Borda padrão (Xan-style: 1px sólido, mais sutil que a paleta dark)
+        hairline: {
+          DEFAULT: 'rgb(var(--color-hairline) / <alpha-value>)',
+          strong: 'rgb(var(--color-hairline-strong) / <alpha-value>)',
+        },
+        // Accent — destaques semânticos (alinhados ao manual + Xan)
         accent: {
           purple: '#A78BFA',
           emerald: '#34D399',
           rose: '#FB7185',
           amber: '#FBBF24',
           cyan: '#22D3EE',
-          lime: '#A3E635',
+          lime: '#C7D301',
         },
-        // Semantic — feedback e status (ver brand-guide.md)
+        // Semantic — feedback e status
         success: {
           DEFAULT: '#34D399',
           subtle: '#065F46',
@@ -76,39 +99,57 @@ export default {
           subtle: '#881337',
         },
         info: {
-          DEFAULT: '#60A5FA',
-          subtle: '#1E3A5F',
+          DEFAULT: '#445DA8',
+          subtle: '#1B2856',
         },
       },
       fontFamily: {
-        display: ['Outfit', 'system-ui', 'sans-serif'],
-        sans: ['DM Sans', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono', 'monospace'],
+        // Inter como fonte oficial (alternativa web da DIN Next LT Pro do manual)
+        // Usada pra display E body — ganho de consistência tipográfica
+        display: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
       },
       borderRadius: {
-        '2xl': '1rem',
-        '3xl': '1.5rem',
+        'xl': '0.75rem',   // 12px — botões, inputs
+        '2xl': '1rem',     // 16px — cards
+        '3xl': '1.5rem',   // 24px — modais/destaques
       },
       boxShadow: {
-        'glow-blue': '0 0 20px rgba(27, 77, 161, 0.15)',
-        'glow-blue-lg': '0 0 40px rgba(27, 77, 161, 0.2)',
-        'glow-orange': '0 0 20px rgba(224, 118, 32, 0.15)',
-        'glow-gold': '0 0 20px rgba(224, 118, 32, 0.15)',
-        'glow-gold-lg': '0 0 40px rgba(224, 118, 32, 0.2)',
-        'glass': '0 8px 32px rgba(0, 0, 0, 0.3)',
-        'glass-lg': '0 16px 48px rgba(0, 0, 0, 0.4)',
-        'card': '0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2)',
-        'card-hover': '0 4px 12px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3)',
-        'sidebar': '4px 0 24px rgba(0, 0, 0, 0.3)',
+        // Glow azul (cor primária do manual)
+        'glow-blue': '0 0 20px rgba(41, 60, 130, 0.25)',
+        'glow-blue-lg': '0 0 40px rgba(41, 60, 130, 0.35)',
+        // Glow laranja (CTA)
+        'glow-orange': '0 0 20px rgba(242, 145, 29, 0.25)',
+        'glow-orange-lg': '0 0 40px rgba(242, 145, 29, 0.4)',
+        // Aliases gold legados
+        'glow-gold': '0 0 20px rgba(242, 145, 29, 0.25)',
+        'glow-gold-lg': '0 0 40px rgba(242, 145, 29, 0.4)',
+        // Glass (modais, drawers)
+        'glass': '0 8px 32px rgba(0, 0, 0, 0.35)',
+        'glass-lg': '0 16px 48px rgba(0, 0, 0, 0.45)',
+        // Cards Xan-style: sombra discreta em repouso, mais firme em hover
+        'card': '0 1px 2px rgba(0, 0, 0, 0.25), 0 1px 3px rgba(0, 0, 0, 0.18)',
+        'card-hover': '0 4px 16px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3)',
+        'sidebar': '4px 0 24px rgba(0, 0, 0, 0.35)',
+        // CTA com glow azul/laranja inline (Xan: shadow no botão primário)
+        'cta-blue': '0 0 20px rgba(41, 60, 130, 0.4)',
+        'cta-orange': '0 0 20px rgba(242, 145, 29, 0.4)',
       },
       backgroundImage: {
-        'gradient-gold': 'linear-gradient(135deg, #E07620, #F08C28, #FFAA61)',
-        'gradient-gold-subtle': 'linear-gradient(135deg, rgba(224, 118, 32, 0.1), rgba(224, 118, 32, 0.05))',
-        'gradient-blue': 'linear-gradient(135deg, #1B4DA1, #3D72DE)',
-        'gradient-blue-dark': 'linear-gradient(180deg, #111827, #0B1120)',
-        'gradient-orange': 'linear-gradient(135deg, #E07620, #F08C28, #FFAA61)',
-        'gradient-orange-subtle': 'linear-gradient(135deg, rgba(224, 118, 32, 0.1), rgba(224, 118, 32, 0.05))',
-        'gradient-card': 'linear-gradient(135deg, rgba(26, 31, 53, 0.8), rgba(17, 24, 39, 0.9))',
+        // Gradientes oficiais (cores do manual)
+        'gradient-blue': 'linear-gradient(135deg, #293C82, #445DA8)',
+        'gradient-blue-deep': 'linear-gradient(180deg, #1B2856, #0C1228)',
+        'gradient-orange': 'linear-gradient(135deg, #F2911D, #F5A039, #F8B154)',
+        'gradient-orange-subtle': 'linear-gradient(135deg, rgba(242, 145, 29, 0.12), rgba(242, 145, 29, 0.04))',
+        'gradient-blue-subtle': 'linear-gradient(135deg, rgba(41, 60, 130, 0.12), rgba(41, 60, 130, 0.04))',
+        'gradient-card': 'linear-gradient(135deg, rgba(20, 30, 64, 0.7), rgba(12, 18, 40, 0.85))',
+        // Aliases gold legados (mapeiam pra laranja oficial)
+        'gradient-gold': 'linear-gradient(135deg, #F2911D, #F5A039, #F8B154)',
+        'gradient-gold-subtle': 'linear-gradient(135deg, rgba(242, 145, 29, 0.12), rgba(242, 145, 29, 0.04))',
+        // Spotlight Xan: radial seguindo --mouse-x/y (consumido em SpotlightCard)
+        'spotlight-blue': 'radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(68, 93, 168, 0.12) 0%, transparent 60%)',
+        // Noise sutil pra textura em backgrounds grandes
         'noise': "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E\")",
       },
       animation: {
@@ -120,6 +161,8 @@ export default {
         'scale-in': 'scaleIn 0.2s ease-out forwards',
         'glow-pulse': 'glowPulse 2s ease-in-out infinite',
         'shimmer': 'shimmer 2s linear infinite',
+        // Pulse dot (Xan): status badge com bolinha que pulsa
+        'dot-pulse': 'dotPulse 2s ease-in-out infinite',
         'stagger-1': 'fadeInUp 0.5s ease-out 0.05s forwards',
         'stagger-2': 'fadeInUp 0.5s ease-out 0.1s forwards',
         'stagger-3': 'fadeInUp 0.5s ease-out 0.15s forwards',
@@ -152,16 +195,21 @@ export default {
           '100%': { opacity: '1', transform: 'scale(1)' },
         },
         glowPulse: {
-          '0%, 100%': { boxShadow: '0 0 15px rgba(27, 77, 161, 0.1)' },
-          '50%': { boxShadow: '0 0 25px rgba(27, 77, 161, 0.25)' },
+          '0%, 100%': { boxShadow: '0 0 15px rgba(41, 60, 130, 0.15)' },
+          '50%': { boxShadow: '0 0 30px rgba(41, 60, 130, 0.35)' },
         },
         shimmer: {
           '0%': { backgroundPosition: '-200% 0' },
           '100%': { backgroundPosition: '200% 0' },
         },
+        dotPulse: {
+          '0%, 100%': { opacity: '1', transform: 'scale(1)' },
+          '50%': { opacity: '0.5', transform: 'scale(1.15)' },
+        },
       },
       transitionTimingFunction: {
-        'smooth': 'cubic-bezier(0.4, 0, 0.2, 1)',
+        // Easing Xan-style (assinatura do design): bem mais fluido que ease-smooth padrão
+        'smooth': 'cubic-bezier(0.16, 1, 0.3, 1)',
       },
     },
   },
