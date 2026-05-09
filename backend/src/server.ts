@@ -247,6 +247,18 @@ async function bootstrap() {
       console.warn('[WebSocket] Failed to initialize:', err)
     }
 
+    // Aviso de segurança: webhook Evolution sem secret em produção
+    if (env.NODE_ENV === 'production' && !process.env.EVOLUTION_WEBHOOK_SECRET) {
+      console.warn(
+        '[JAPAO][security] EVOLUTION_WEBHOOK_SECRET ausente em PRODUÇÃO — webhook /api/webhook/evolution está aberto. Configure no Easypanel.',
+      )
+    }
+    if (env.NODE_ENV === 'production' && !process.env.PUBLIC_WEBHOOK_URL) {
+      console.warn(
+        '[JAPAO][config] PUBLIC_WEBHOOK_URL ausente — instâncias WhatsApp novas serão criadas com URL de webhook errada.',
+      )
+    }
+
     // Worker de reengajamento: a cada 60s, busca leads que receberam follow-up
     // há mais de 5 min, não clicaram em "Contratar pelo WhatsApp" e não responderam.
     try {

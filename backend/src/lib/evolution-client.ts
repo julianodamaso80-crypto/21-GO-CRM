@@ -49,15 +49,18 @@ export class EvolutionClient {
     }
 
     if (params.webhookUrl) {
+      const secret = process.env.EVOLUTION_WEBHOOK_SECRET
       body.webhook = {
         url: params.webhookUrl,
         byEvents: false,
         base64: true,
+        ...(secret ? { headers: { 'x-evolution-secret': secret } } : {}),
         events: [
           'QRCODE_UPDATED',
           'CONNECTION_UPDATE',
           'MESSAGES_UPSERT',
           'MESSAGES_UPDATE',
+          'MESSAGES_DELETE',
           'SEND_MESSAGE',
         ],
       }
@@ -168,17 +171,20 @@ export class EvolutionClient {
     instanceKey: string
     webhookUrl: string
   }): Promise<any> {
+    const secret = process.env.EVOLUTION_WEBHOOK_SECRET
     const body = {
       webhook: {
         enabled: true,
         url: params.webhookUrl,
         byEvents: false,
         base64: true,
+        ...(secret ? { headers: { 'x-evolution-secret': secret } } : {}),
         events: [
           'QRCODE_UPDATED',
           'CONNECTION_UPDATE',
           'MESSAGES_UPSERT',
           'MESSAGES_UPDATE',
+          'MESSAGES_DELETE',
           'SEND_MESSAGE',
         ],
       },
