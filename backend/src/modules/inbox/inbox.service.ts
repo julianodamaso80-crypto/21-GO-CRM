@@ -42,10 +42,10 @@ export class InboxService {
       where,
       include: {
         associado: {
-          select: { id: true, nome: true, email: true, telefone: true },
+          select: { id: true, nome: true, email: true, telefone: true, whatsapp: true },
         },
         lead: {
-          select: { id: true, nome: true, email: true, telefone: true },
+          select: { id: true, nome: true, email: true, telefone: true, whatsapp: true },
         },
         assignedTo: {
           select: { id: true, firstName: true, lastName: true },
@@ -61,12 +61,13 @@ export class InboxService {
       orderBy: { lastMessageAt: { sort: 'desc', nulls: 'last' } },
     })
 
-    // Transform to match frontend expectations
+    // Transform to match frontend expectations.
+    // phone: whatsapp tem prioridade — leads vindos do webhook costumam ter só esse campo.
     return conversations.map(c => {
       const source = c.associado
-        ? { id: c.associado.id, fullName: c.associado.nome, email: c.associado.email, phone: c.associado.telefone }
+        ? { id: c.associado.id, fullName: c.associado.nome, email: c.associado.email, phone: c.associado.whatsapp || c.associado.telefone }
         : c.lead
-          ? { id: c.lead.id, fullName: c.lead.nome, email: c.lead.email, phone: c.lead.telefone }
+          ? { id: c.lead.id, fullName: c.lead.nome, email: c.lead.email, phone: c.lead.whatsapp || c.lead.telefone }
           : null
       return {
         ...c,
@@ -90,10 +91,10 @@ export class InboxService {
       where: { id, companyId },
       include: {
         associado: {
-          select: { id: true, nome: true, email: true, telefone: true },
+          select: { id: true, nome: true, email: true, telefone: true, whatsapp: true },
         },
         lead: {
-          select: { id: true, nome: true, email: true, telefone: true },
+          select: { id: true, nome: true, email: true, telefone: true, whatsapp: true },
         },
         assignedTo: {
           select: { id: true, firstName: true, lastName: true },
@@ -109,9 +110,9 @@ export class InboxService {
       ...conversation,
       channel: { type: conversation.channel, name: conversation.channel },
       contact: conversation.associado
-        ? { id: conversation.associado.id, fullName: conversation.associado.nome, email: conversation.associado.email, phone: conversation.associado.telefone, avatar: null }
+        ? { id: conversation.associado.id, fullName: conversation.associado.nome, email: conversation.associado.email, phone: conversation.associado.whatsapp || conversation.associado.telefone, avatar: null }
         : conversation.lead
-          ? { id: conversation.lead.id, fullName: conversation.lead.nome, email: conversation.lead.email, phone: conversation.lead.telefone, avatar: null }
+          ? { id: conversation.lead.id, fullName: conversation.lead.nome, email: conversation.lead.email, phone: conversation.lead.whatsapp || conversation.lead.telefone, avatar: null }
           : null,
     }
   }

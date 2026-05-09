@@ -172,9 +172,11 @@ function ConversationsLayout() {
   const filtered = (conversations || []).filter((c) => {
     if (!searchTerm) return true
     const s = searchTerm.toLowerCase()
+    const phoneDigits = (c.contact?.phone || '').replace(/\D/g, '')
     return (
       c.contact?.fullName?.toLowerCase().includes(s) ||
       c.contact?.firstName?.toLowerCase().includes(s) ||
+      phoneDigits.includes(s.replace(/\D/g, '')) ||
       (c as any).lastMessagePreview?.toLowerCase().includes(s)
     )
   })
@@ -259,14 +261,19 @@ function ConversationsLayout() {
                     {conv.contact?.lastName?.[0] || ''}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <span className={`text-sm font-medium ${conv.isUnread ? 'text-white' : 'text-gray-300'}`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={`text-sm font-medium truncate ${conv.isUnread ? 'text-white' : 'text-gray-300'}`}>
                         {conv.contact?.fullName || conv.contact?.firstName || 'Contato'}
                       </span>
                       <span className="text-[10px] text-gray-500 whitespace-nowrap">
                         {formatTimeAgo(conv.lastMessageAt || conv.createdAt)}
                       </span>
                     </div>
+                    {conv.contact?.phone && (
+                      <p className="text-[11px] font-mono text-gold-400/80 truncate mt-0.5">
+                        {formatBrPhone(conv.contact.phone)}
+                      </p>
+                    )}
                     <p className={`text-xs truncate mt-0.5 ${conv.isUnread ? 'text-gray-100 font-medium' : 'text-gray-400'}`}>
                       {(conv as any).lastMessagePreview || 'Sem mensagens'}
                     </p>
@@ -345,9 +352,15 @@ function ChatPanel({
             </div>
             <div className="min-w-0">
               <p className="text-sm font-semibold text-white truncate">
-                {conversation.contact?.fullName || conversation.contact?.firstName}
+                {conversation.contact?.fullName || conversation.contact?.firstName || 'Contato'}
               </p>
-              <div className="flex items-center gap-2 text-xs text-gray-500">
+              <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
+                {conversation.contact?.phone && (
+                  <span className="font-mono text-gold-400/90">
+                    {formatBrPhone(conversation.contact.phone)}
+                  </span>
+                )}
+                <span>•</span>
                 <span>WhatsApp</span>
                 {conversation.isBotActive && (
                   <span className="flex items-center gap-0.5 text-purple-400">
@@ -548,6 +561,12 @@ function FunilOption({
 // ─────────────────────────────────────────────────────────────────────
 function MessageBubble({ message }: { message: Message }) {
   const isOutbound = message.direction === 'outbound'
+  // Backend retorna `senderUser` (relacao Prisma com User). O campo `sender` no
+  // Prisma e' string ('vendedor'|'cliente'|'sistema'|'bot') — nao um objeto.
+  const senderUser = (message as any).senderUser as { firstName?: string } | undefined
+  const senderLabel = message.isFromBot
+    ? 'IA'
+    : senderUser?.firstName || 'Voce'
   return (
     <div className={`flex ${isOutbound ? 'justify-end' : 'justify-start'}`}>
       <div
@@ -564,9 +583,7 @@ function MessageBubble({ message }: { message: Message }) {
             ) : (
               <User className="w-3 h-3 text-blue-200" />
             )}
-            <span className="text-[10px] text-blue-200">
-              {message.isFromBot ? 'IA' : message.sender ? `${message.sender.firstName}` : 'Voce'}
-            </span>
+            <span className="text-[10px] text-blue-200">{senderLabel}</span>
           </div>
         )}
         <p className="text-sm whitespace-pre-wrap">{message.content}</p>
@@ -579,6 +596,23 @@ function MessageBubble({ message }: { message: Message }) {
       </div>
     </div>
   )
+}
+
+// Formata telefone BR pra exibição. Aceita "5521999998888", "21999998888",
+// "+55 (21) 99999-8888" etc. Se não conseguir formatar, devolve o original.
+function formatBrPhone(raw: string): string {
+  const digits = (raw || '').replace(/\D/g, '')
+  if (!digits) return raw
+  // Tira o "55" do começo se houver (DDI Brasil)
+  const noCC = digits.startsWith('55') && digits.length >= 12 ? digits.slice(2) : digits
+  if (noCC.length === 11) {
+    return `(${noCC.slice(0, 2)}) ${noCC.slice(2, 7)}-${noCC.slice(7)}`
+  }
+  if (noCC.length === 10) {
+    return `(${noCC.slice(0, 2)}) ${noCC.slice(2, 6)}-${noCC.slice(6)}`
+  }
+  // Fora do padrão BR — devolve o original (pode ser número internacional)
+  return raw
 }
 
 function formatTimeAgo(dateStr: string): string {

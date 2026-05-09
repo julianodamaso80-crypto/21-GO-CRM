@@ -30,8 +30,9 @@ export function useSendMessage() {
       queryClient.invalidateQueries({ queryKey: ['messages', variables.conversationId] })
       queryClient.invalidateQueries({ queryKey: ['conversations'] })
     },
-    onError: () => {
-      toast.error('Erro ao enviar mensagem')
+    onError: (e: any) => {
+      const msg = e?.response?.data?.message || e?.message || 'Erro ao enviar mensagem'
+      toast.error(msg)
     },
   })
 }
