@@ -259,7 +259,16 @@ export class InboxService {
   async updateConversationStatus(id: string, companyId: string, status: string) {
     const conversation = await prisma.conversation.findFirst({ where: { id, companyId } })
     if (!conversation) throw new AppError('Conversation not found', 404, 'NOT_FOUND')
-    return prisma.conversation.update({ where: { id }, data: { status: status as any } })
+    const updated = await prisma.conversation.update({ where: { id }, data: { status: status as any } })
+    try {
+      socketService.emitToCompany(companyId, 'conversation:updated', {
+        conversationId: id,
+        status,
+      })
+    } catch (err) {
+      console.warn('[Inbox] socket emit (status) failed:', (err as Error).message)
+    }
+    return updated
   }
 
   async markAsRead(id: string, companyId: string) {
@@ -283,6 +292,19 @@ export class InboxService {
       where: { id },
       data: { assignedToId: userId, status: 'assigned' },
     })
+
+    try {
+      socketService.emitToCompany(companyId, 'conversation:assigned', {
+        conversationId: id,
+        assignedToId: userId,
+      })
+      socketService.emitToUser(userId, 'conversation:assigned', {
+        conversationId: id,
+        assignedToId: userId,
+      })
+    } catch (err) {
+      console.warn('[Inbox] socket emit (assign) failed:', (err as Error).message)
+    }
 
     return updated
   }

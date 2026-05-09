@@ -155,13 +155,51 @@ class SocketService {
   ): void {
     try {
       const { room, metadata } = data
+      const { companyId, userId } = socket.data
+
+      // Cross-tenant guard (Projeto Japão Fase 5):
+      // rooms tenant-scoped (`company:*`, `inbox:*`, `dashboard:*`, `appointments:*`)
+      // só podem ser joinadas pra o próprio companyId.
+      const tenantPrefixes = ['company:', 'inbox:', 'dashboard:', 'appointments:']
+      const matchedPrefix = tenantPrefixes.find((p) => room.startsWith(p))
+      if (matchedPrefix) {
+        const targetCompany = room.slice(matchedPrefix.length)
+        if (targetCompany !== companyId) {
+          logger.warn(
+            { socketId: socket.id, userId, requested: room, actualCompany: companyId },
+            '[JAPAO][socket] tentativa de join cross-tenant bloqueada'
+          )
+          callback?.({
+            success: false,
+            room,
+            error: 'cross-tenant join denied',
+          })
+          return
+        }
+      }
+      // Rooms `user:*` só podem ser joinadas pra próprio userId
+      if (room.startsWith('user:')) {
+        const targetUser = room.slice('user:'.length)
+        if (targetUser !== userId) {
+          logger.warn(
+            { socketId: socket.id, userId, requested: room },
+            '[JAPAO][socket] tentativa de join em room de outro user bloqueada'
+          )
+          callback?.({
+            success: false,
+            room,
+            error: 'user room mismatch',
+          })
+          return
+        }
+      }
 
       socket.join(room)
 
       logger.info(
         {
           socketId: socket.id,
-          userId: socket.data.userId,
+          userId,
           room,
           metadata,
         },

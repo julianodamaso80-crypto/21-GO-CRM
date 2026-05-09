@@ -14,6 +14,8 @@ export interface ServerToClientEvents {
   'inbox:message_read': (data: InboxMessageReadPayload) => void
   'inbox:typing': (data: InboxTypingPayload) => void
   'inbox:conversation_assigned': (data: InboxConversationAssignedPayload) => void
+  'conversation:updated': (data: ConversationUpdatedPayload) => void
+  'conversation:assigned': (data: ConversationAssignedPayload) => void
 
   // Notifications
   'notification:new': (data: NotificationPayload) => void
@@ -116,6 +118,18 @@ export interface InboxConversationAssignedPayload {
     lastName: string
   }
   timestamp: string
+}
+
+// Eventos simplificados pra UI invalidar query (Projeto Japão Fase 5)
+export interface ConversationUpdatedPayload {
+  conversationId: string
+  status?: string
+  [key: string]: any
+}
+
+export interface ConversationAssignedPayload {
+  conversationId: string
+  assignedToId: string
 }
 
 export interface NotificationPayload {
