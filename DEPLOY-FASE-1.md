@@ -54,12 +54,20 @@ Copia o valor (64 caracteres hex). Guarda — vai colar no Easypanel no passo 2.
 ### 2.5. Validar pós-deploy
 
 ```bash
-# Healthcheck
-curl https://crm21go.site/api/health
-# esperado: 200 com { "status": "ok" } ou similar
+# Healthcheck (path correto: /health, sem /api)
+curl https://crm21go.site/health
+# esperado: 200 com { "status":"ok", "uptime": <segundos desde o boot> }
+# Se uptime for baixo (< 60s), o deploy SUBIU AGORA. Se for alto (> 600s), deploy ainda não chegou.
 
-# Verificar versão do build (se houver endpoint de version)
-curl https://crm21go.site/api/auth/me -H "Authorization: Bearer <token-valido>"
+# Confirma que o código novo está vivo (endpoints da Fase 2 e 4):
+curl https://crm21go.site/api/health/queue
+# esperado: 200 com { "enabled": false, "state": "disabled", "reason": "ENABLE_FOLLOWUP_QUEUE != true; REDIS_URL/HOST ausente" }
+
+curl https://crm21go.site/api/webhook/evolution
+# esperado: 200 com { "secretConfigured": true } (depois de setar EVOLUTION_WEBHOOK_SECRET)
+
+curl https://crm21go.site/api/webhook/evolution/stats
+# esperado: 200 com { "accepted": 0, "rejected": 0, ... }
 ```
 
 **Teste manual no navegador:**
