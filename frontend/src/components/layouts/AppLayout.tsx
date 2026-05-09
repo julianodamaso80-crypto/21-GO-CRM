@@ -1,10 +1,10 @@
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom'
 import {
-  LayoutDashboard, Users, MessageSquare, UserCircle2, Brain,
+  LayoutDashboard, Users, MessageSquare, Brain,
   LayoutGrid, LogOut, Webhook, Zap, CreditCard, BarChart3,
   SmilePlus, Car, FileText, AlertTriangle, Gift, Link2,
-  Search, Bell, ChevronDown, ChevronRight, ClipboardList, Settings,
-  Shield, Wrench, UserCog, Loader2, ListChecks, Sun, Moon,
+  Bell, ChevronDown, ClipboardList, Settings,
+  Shield, Wrench, UserCog, ListChecks, Sun, Moon,
 } from 'lucide-react'
 import { useAuthStore, type UserRole } from '../../store/auth-store'
 import { useState } from 'react'
@@ -46,7 +46,6 @@ const NAV_SECTIONS: NavSection[] = [
     label: 'Comercial',
     roles: ['admin', 'gestor', 'vendedor'],
     items: [
-      { path: '/leads', icon: UserCircle2, label: 'Leads' },
       { path: '/tarefas', icon: ListChecks, label: 'Tarefas' },
       { path: '/cotacoes', icon: FileText, label: 'Cotacoes', roles: ['admin', 'gestor'] },
       { path: '/analytics', icon: BarChart3, label: 'Analytics', roles: ['admin', 'gestor'] },
@@ -99,7 +98,6 @@ export function AppLayout() {
   const user = useAuthStore((s) => s.user)
   const updateUser = useAuthStore((s) => s.updateUser)
   const clearAuth = useAuthStore((s) => s.clearAuth)
-  const [searchFocused, setSearchFocused] = useState(false)
   const [roleMenuOpen, setRoleMenuOpen] = useState(false)
   const { theme, toggleTheme } = useTheme()
 
@@ -157,7 +155,10 @@ export function AppLayout() {
                 </p>
               )}
               {section.label === 'Comercial' && ['admin', 'gestor', 'vendedor'].includes(currentRole) && (
-                <PipesNavItem isActive={isActive} />
+                <>
+                  <FunilLink keyword="consultor" label="Funil dos Consultores" isActive={isActive} />
+                  <FunilLink keyword="associado" label="Funil dos Associados" isActive={isActive} />
+                </>
               )}
               {section.items.filter(canSeeItem).map((item) => {
                 const Icon = item.icon
@@ -295,70 +296,32 @@ export function AppLayout() {
   )
 }
 
-function PipesNavItem({ isActive }: { isActive: (path: string) => boolean }) {
-  const location = useLocation()
-  const { data: pipes, isLoading } = usePipes()
-  const isOnPipesArea = location.pathname.startsWith('/pipes')
-  const [expanded, setExpanded] = useState(isOnPipesArea)
-
-  const headerActive = isActive('/pipes')
-  const activePipes = pipes || []
+// Link direto pro kanban de um funil especifico, identificado por palavra-chave
+// no nome do pipe (ex: 'consultor' acha "Funil de Consultores"). Se o pipe nao
+// existir ainda, leva pra /pipes pra criar.
+function FunilLink({
+  keyword,
+  label,
+  isActive,
+}: {
+  keyword: string
+  label: string
+  isActive: (path: string) => boolean
+}) {
+  const { data: pipes } = usePipes()
+  const pipe = (pipes || []).find((p) => p.name.toLowerCase().includes(keyword))
+  const path = pipe ? `/pipes/${pipe.id}/kanban` : '/pipes'
+  const active = isActive(path) || (!!pipe && isActive(`/pipes/${pipe.id}`))
 
   return (
-    <div>
-      <div className="flex items-center">
-        <Link
-          to="/pipes"
-          className={`flex-1 ${headerActive && location.pathname === '/pipes' ? 'sidebar-link-active' : 'sidebar-link-inactive'}`}
-        >
-          <LayoutGrid size={18} className={headerActive ? 'text-gold-400' : ''} />
-          <span>Funil de Vendas</span>
-        </Link>
-        <button
-          type="button"
-          onClick={() => setExpanded(!expanded)}
-          className="p-2 text-gray-500 hover:text-gold-400 transition-colors"
-          aria-label={expanded ? 'Recolher' : 'Expandir'}
-        >
-          {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        </button>
-      </div>
-
-      {expanded && (
-        <div className="ml-7 mt-1 space-y-0.5 border-l border-dark-700/30 pl-3">
-          {isLoading && (
-            <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-gray-500">
-              <Loader2 size={12} className="animate-spin" /> carregando...
-            </div>
-          )}
-          {!isLoading && activePipes.length === 0 && (
-            <p className="px-3 py-1.5 text-xs text-gray-500 italic">Nenhum funil ainda</p>
-          )}
-          {activePipes.map((pipe) => {
-            const path = `/pipes/${pipe.id}/kanban`
-            const active = location.pathname === path
-            return (
-              <Link
-                key={pipe.id}
-                to={path}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs transition-colors ${
-                  active ? 'bg-gold-500/10 text-gold-400 font-medium' : 'text-gray-400 hover:text-gray-200 hover:bg-dark-700/30'
-                }`}
-              >
-                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: pipe.color }} />
-                <span className="truncate">{pipe.name}</span>
-              </Link>
-            )
-          })}
-          <Link
-            to="/pipes"
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-gray-500 hover:text-gold-400 transition-colors"
-          >
-            <span className="w-2 h-2 rounded-full border border-gray-500 flex-shrink-0" />
-            <span>Gerenciar funis...</span>
-          </Link>
-        </div>
-      )}
-    </div>
+    <Link
+      to={path}
+      className={active ? 'sidebar-link-active' : 'sidebar-link-inactive'}
+      title={pipe ? '' : 'Funil ainda nao criado — clique pra gerenciar'}
+    >
+      <LayoutGrid size={18} className={active ? 'text-gold-400' : ''} />
+      <span>{label}</span>
+      {active && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-gold-400" />}
+    </Link>
   )
 }
