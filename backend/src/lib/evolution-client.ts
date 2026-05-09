@@ -113,6 +113,23 @@ export class EvolutionClient {
     }
   }
 
+  /**
+   * Pega a apikey REAL de uma instância na Evolution usando a globalKey.
+   * Util quando a key salva no banco ficou stale (instancia recriada na
+   * Evolution sem o CRM saber → 401 em todas as chamadas).
+   */
+  async fetchInstanceApiKey(instanceName: string): Promise<string | null> {
+    try {
+      const { data } = await this.http.get('/instance/fetchInstances', this.withKey(this.globalKey))
+      const arr = Array.isArray(data) ? data : [data]
+      const item = arr.find((it: any) => (it?.instance?.instanceName || it?.name) === instanceName)
+      if (!item) return null
+      return item.hash || item.token || item.instance?.token || null
+    } catch {
+      return null
+    }
+  }
+
   async fetchInstanceInfo(
     instanceName: string,
     instanceKey: string,

@@ -173,18 +173,48 @@ export class InboxService {
           'NO_WHATSAPP',
         )
       }
+      const evolution = getEvolutionClient()
+      let activeKey = instance.evolutionApiKey
+      const trySend = async (apiKey: string) => evolution.sendText({
+        instanceName: instance.evolutionName,
+        instanceKey: apiKey,
+        number: phone,
+        text: data.content,
+      })
       try {
-        const evolution = getEvolutionClient()
-        const sent: any = await evolution.sendText({
-          instanceName: instance.evolutionName,
-          instanceKey: instance.evolutionApiKey,
-          number: phone,
-          text: data.content,
-        })
+        const sent: any = await trySend(activeKey)
         evolutionMessageId = sent?.key?.id || sent?.id || null
       } catch (err: any) {
-        sendError = err?.message || 'Falha ao enviar pelo WhatsApp'
-        throw new AppError(`Erro ao enviar pelo WhatsApp: ${sendError}`, 502, 'EVOLUTION_FAIL')
+        const status = err?.response?.status
+        // Auto-heal: 401/403 = apikey stale (instancia recriada na Evolution).
+        // Refetch da apikey via globalKey, atualiza no banco e refaz o envio.
+        if (status === 401 || status === 403) {
+          const freshKey = await evolution.fetchInstanceApiKey(instance.evolutionName)
+          if (freshKey && freshKey !== activeKey) {
+            await prisma.whatsappInstance.update({
+              where: { id: instance.id },
+              data: { evolutionApiKey: freshKey },
+            })
+            activeKey = freshKey
+            try {
+              const sent: any = await trySend(activeKey)
+              evolutionMessageId = sent?.key?.id || sent?.id || null
+            } catch (err2: any) {
+              const msg = err2?.response?.data?.response?.message || err2?.response?.data?.message || err2?.message
+              throw new AppError(`Erro ao enviar pelo WhatsApp: ${msg}`, 502, 'EVOLUTION_FAIL')
+            }
+          } else {
+            throw new AppError(
+              'Sessao do WhatsApp invalida. Reconecte em /whatsapp (escaneie o QR de novo).',
+              401,
+              'EVOLUTION_UNAUTHORIZED',
+            )
+          }
+        } else {
+          const msg = err?.response?.data?.response?.message || err?.response?.data?.message || err?.message || 'Falha ao enviar pelo WhatsApp'
+          sendError = msg
+          throw new AppError(`Erro ao enviar pelo WhatsApp: ${sendError}`, 502, 'EVOLUTION_FAIL')
+        }
       }
     }
 

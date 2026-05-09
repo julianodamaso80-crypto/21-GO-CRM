@@ -108,7 +108,7 @@ export class WhatsappService {
     const inst = await prisma.whatsappInstance.findFirst({
       where: { userId, companyId },
     })
-    if (!inst || !inst.evolutionApiKey) {
+    if (!inst) {
       throw new AppError('WhatsApp não conectado', 404, 'NO_INSTANCE')
     }
 
@@ -119,18 +119,35 @@ export class WhatsappService {
     const webhookUrl = `${base}/api/webhook/evolution`
 
     const evolution = getEvolutionClient()
+
+    // Defensive: ressincroniza a apikey via globalKey antes de operar.
+    // Cobre o caso da instancia ter sido recriada na Evolution sem o CRM saber
+    // (apikey antiga retorna 401 em todas as chamadas).
+    const freshKey = await evolution.fetchInstanceApiKey(inst.evolutionName)
+    let activeKey = inst.evolutionApiKey
+    if (freshKey && freshKey !== inst.evolutionApiKey) {
+      await prisma.whatsappInstance.update({
+        where: { id: inst.id },
+        data: { evolutionApiKey: freshKey },
+      })
+      activeKey = freshKey
+    }
+    if (!activeKey) {
+      throw new AppError('apikey da instancia nao disponivel', 404, 'NO_API_KEY')
+    }
+
     await evolution.setWebhook({
       instanceName: inst.evolutionName,
-      instanceKey: inst.evolutionApiKey,
+      instanceKey: activeKey,
       webhookUrl,
     })
 
     const current = await evolution.findWebhook({
       instanceName: inst.evolutionName,
-      instanceKey: inst.evolutionApiKey,
+      instanceKey: activeKey,
     })
 
-    return { webhookUrl, current }
+    return { webhookUrl, current, keyResynced: freshKey !== inst.evolutionApiKey }
   }
 
   /** GET /whatsapp/status — polling: estado + QR atualizado */
