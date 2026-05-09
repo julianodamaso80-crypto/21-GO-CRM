@@ -147,7 +147,12 @@ export function CardDrawer({ cardId, pipeId, onClose }: CardDrawerProps) {
           })
         }
         setText(content)
-        toast.error(e?.response?.data?.message || 'Erro ao enviar')
+        const status = e?.response?.status
+        const data = e?.response?.data
+        const detail = data?.message || data?.error || data?.code || e?.message || 'sem detalhe'
+        const msg = status ? `Erro ao enviar (HTTP ${status}): ${detail}` : `Erro ao enviar: ${detail}`
+        console.error('[CardDrawer] send failed', { status, data, error: e })
+        toast.error(msg, { duration: 8000 })
       })
       .finally(() => setSending(false))
   }
