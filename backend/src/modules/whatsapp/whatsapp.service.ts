@@ -99,6 +99,40 @@ export class WhatsappService {
     return { instance: shape(inst), qrCodeBase64: created.qrCodeBase64 }
   }
 
+  /**
+   * POST /whatsapp/reconfigure-webhook — atualiza a URL do webhook na Evolution
+   * pra instância JÁ conectada. Usado pra consertar instâncias criadas quando
+   * a env PUBLIC_WEBHOOK_URL não estava setada.
+   */
+  async reconfigureWebhook(userId: string, companyId: string, publicUrl: string) {
+    const inst = await prisma.whatsappInstance.findFirst({
+      where: { userId, companyId },
+    })
+    if (!inst || !inst.evolutionApiKey) {
+      throw new AppError('WhatsApp não conectado', 404, 'NO_INSTANCE')
+    }
+
+    const base = (publicUrl || '').replace(/\/$/, '')
+    if (!base.startsWith('http')) {
+      throw new AppError('URL pública inválida', 400, 'INVALID_URL')
+    }
+    const webhookUrl = `${base}/api/webhook/evolution`
+
+    const evolution = getEvolutionClient()
+    await evolution.setWebhook({
+      instanceName: inst.evolutionName,
+      instanceKey: inst.evolutionApiKey,
+      webhookUrl,
+    })
+
+    const current = await evolution.findWebhook({
+      instanceName: inst.evolutionName,
+      instanceKey: inst.evolutionApiKey,
+    })
+
+    return { webhookUrl, current }
+  }
+
   /** GET /whatsapp/status — polling: estado + QR atualizado */
   async status(userId: string, companyId: string) {
     const inst = await prisma.whatsappInstance.findFirst({

@@ -34,4 +34,16 @@ export class WhatsappController {
     const data = await service.logout(user.id, user.companyId)
     return reply.send(data)
   }
+
+  async reconfigureWebhook(request: FastifyRequest, reply: FastifyReply) {
+    const user = (request as any).user
+    const body = (request.body as { publicUrl?: string }) || {}
+    // Prioridade: body > env > host do request
+    const publicUrl =
+      body.publicUrl ||
+      process.env.PUBLIC_WEBHOOK_URL ||
+      `${request.protocol}://${request.headers.host}`
+    const data = await service.reconfigureWebhook(user.id, user.companyId, publicUrl)
+    return reply.send(data)
+  }
 }

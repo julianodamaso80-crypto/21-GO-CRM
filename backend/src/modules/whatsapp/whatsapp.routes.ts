@@ -12,4 +12,5 @@ export async function whatsappRoutes(fastify: FastifyInstance) {
   fastify.get('/status', { handler: controller.status.bind(controller) })
   fastify.delete('/', { handler: controller.delete.bind(controller) })
   fastify.post('/logout', { handler: controller.logout.bind(controller) })
+  fastify.post('/reconfigure-webhook', { handler: controller.reconfigureWebhook.bind(controller) })
 }

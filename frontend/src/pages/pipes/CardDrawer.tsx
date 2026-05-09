@@ -10,6 +10,8 @@ import { useTasksByLead, useCompleteTask } from '../../hooks/useTasks'
 import { KommoTaskModal } from '../tarefas/KommoTaskModal'
 import { api } from '../../lib/api'
 import { toast } from 'sonner'
+import { useQueryClient } from '@tanstack/react-query'
+import { useSocketEvent } from '../../hooks/useSocketEvent'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -25,6 +27,7 @@ interface CardDrawerProps {
  * Direita: chat WhatsApp completo (mensagens + input pra responder).
  */
 export function CardDrawer({ cardId, pipeId, onClose }: CardDrawerProps) {
+  const queryClient = useQueryClient()
   const { data: card, isLoading, refetch } = useCard(cardId)
   const { data: allPipes } = usePipes()
   const transferCard = useTransferCard(pipeId)
@@ -93,19 +96,60 @@ export function CardDrawer({ cardId, pipeId, onClose }: CardDrawerProps) {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages.length])
 
-  const handleSend = async () => {
-    if (!text.trim() || !conversation?.id) return
-    setSending(true)
-    try {
-      await api.post(`/conversations/${conversation.id}/messages`, { content: text.trim() })
-      setText('')
-      await refetch()
-      toast.success('Mensagem enviada!')
-    } catch (e: any) {
-      toast.error(e?.response?.data?.message || 'Erro ao enviar')
-    } finally {
-      setSending(false)
+  // Real-time: nova mensagem (recebida ou enviada de outra aba) refaz o card
+  // Filtra só eventos da CONVERSA aberta — outras conversas atualizam a lista
+  // separadamente via inbox.
+  useSocketEvent('inbox:new_message', (data: any) => {
+    if (!conversation?.id) return
+    if (data?.conversationId !== conversation.id) return
+    refetch()
+  })
+
+  const handleSend = () => {
+    const content = text.trim()
+    if (!content || !conversation?.id) return
+    // Limpa input imediatamente — não espera servidor
+    setText('')
+    // Optimistic: injeta a mensagem no cache pra aparecer no chat na hora
+    const optimisticId = `tmp-${Date.now()}`
+    const optimisticMsg = {
+      id: optimisticId,
+      content,
+      direction: 'out',
+      status: 'sending',
+      createdAt: new Date().toISOString(),
+      _optimistic: true,
     }
+    const cacheKey = ['cards', 'detail', cardId]
+    const prev = queryClient.getQueryData<any>(cacheKey)
+    if (prev?.conversation) {
+      queryClient.setQueryData(cacheKey, {
+        ...prev,
+        conversation: {
+          ...prev.conversation,
+          messages: [...(prev.conversation.messages || []), optimisticMsg],
+        },
+      })
+    }
+    setSending(true)
+    api.post(`/conversations/${conversation.id}/messages`, { content })
+      .then(() => { refetch() })
+      .catch((e: any) => {
+        // Reverte: remove a mensagem otimista do cache e devolve o texto
+        const cur = queryClient.getQueryData<any>(cacheKey)
+        if (cur?.conversation) {
+          queryClient.setQueryData(cacheKey, {
+            ...cur,
+            conversation: {
+              ...cur.conversation,
+              messages: (cur.conversation.messages || []).filter((m: any) => m.id !== optimisticId),
+            },
+          })
+        }
+        setText(content)
+        toast.error(e?.response?.data?.message || 'Erro ao enviar')
+      })
+      .finally(() => setSending(false))
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

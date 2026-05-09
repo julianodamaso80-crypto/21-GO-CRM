@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import {
   MessageSquare, Send, Loader2, Bot, User, Circle, CheckCheck, Search,
-  Smartphone, QrCode, CheckCircle2, XCircle, Sparkles, ChevronRight,
+  Smartphone, QrCode, CheckCircle2, XCircle, Sparkles, ChevronRight, Wifi,
 } from 'lucide-react'
 import {
   useConversations, useMessages, useSendMessage, useUpdateConversationStatus, useMarkAsRead,
@@ -204,6 +204,7 @@ function ConversationsLayout() {
                 {instance?.profileName || 'WhatsApp'}
               </p>
             </div>
+            <ReconfigureWebhookButton />
           </div>
 
           <div className="flex items-center justify-between mb-3">
@@ -592,4 +593,34 @@ function formatTimeAgo(dateStr: string): string {
   const days = Math.floor(hours / 24)
   if (days < 7) return `${days}d`
   return new Date(dateStr).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+}
+
+// Botão "Reconfigurar webhook" — força a Evolution a apontar pra URL pública
+// atual. Necessário quando a instância foi criada antes da env PUBLIC_WEBHOOK_URL
+// existir (mensagens novas não chegam no CRM).
+function ReconfigureWebhookButton() {
+  const [loading, setLoading] = useState(false)
+  const handle = async () => {
+    if (loading) return
+    setLoading(true)
+    try {
+      const publicUrl = window.location.origin
+      const { data } = await api.post('/whatsapp/reconfigure-webhook', { publicUrl })
+      toast.success(`Webhook reconfigurado: ${data.webhookUrl}`)
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || 'Falha ao reconfigurar webhook')
+    } finally {
+      setLoading(false)
+    }
+  }
+  return (
+    <button
+      onClick={handle}
+      disabled={loading}
+      title="Reconfigurar webhook na Evolution (use se mensagens novas não estão chegando)"
+      className="p-1.5 rounded-md text-gray-500 hover:text-gold-400 hover:bg-dark-700/60 disabled:opacity-50"
+    >
+      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wifi className="w-4 h-4" />}
+    </button>
+  )
 }

@@ -49,7 +49,7 @@ export class InboxController {
     const companyId = user.companyId
     const { id } = request.params as { id: string }
 
-    const messages = await inboxService.getMessages(id, companyId)
+    const messages = await inboxService.getConversationMessages(id, companyId)
 
     return reply.send(messages)
   }

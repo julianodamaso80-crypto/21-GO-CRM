@@ -1,6 +1,7 @@
 import { prisma } from '../../config/database'
 import { AppError } from '../../utils/app-error'
 import { getEvolutionClient } from '../../lib/evolution-client'
+import { socketService } from '../../websocket'
 
 export interface ListConversationsQuery {
   status?: string
@@ -27,11 +28,14 @@ export class InboxService {
       where.channel = query.channelType
     }
 
-    // Vendedor sempre ve apenas as conversas atribuidas a ele.
-    // Admin/gestor podem passar scope=all pra ver todas, ou scope=mine pra filtrar.
+    // Vendedor vê: conversas atribuídas a ele + conversas SEM dono (fila aberta).
+    // Quando ele responde, vira dono automaticamente (assigned no sendMessage).
+    // Admin/gestor veem tudo. scope=mine força filtro estrito.
     const isPrivileged = query.userRole === 'admin' || query.userRole === 'gestor'
-    if (!isPrivileged || query.scope === 'mine') {
-      if (query.userId) where.assignedToId = query.userId
+    if (query.scope === 'mine' && query.userId) {
+      where.assignedToId = query.userId
+    } else if (!isPrivileged && query.userId) {
+      where.OR = [{ assignedToId: query.userId }, { assignedToId: null }]
     }
 
     const conversations = await prisma.conversation.findMany({
@@ -52,7 +56,9 @@ export class InboxService {
           select: { id: true, content: true, sender: true, createdAt: true },
         },
       },
-      orderBy: { lastMessageAt: 'desc' },
+      // NULLS LAST: conversas sem mensagem (lead criado pelo webhook mas
+      // sem texto) caem no fim da lista — não bagunçam o topo.
+      orderBy: { lastMessageAt: { sort: 'desc', nulls: 'last' } },
     })
 
     // Transform to match frontend expectations
@@ -204,7 +210,33 @@ export class InboxService {
       data: { lastMessageAt: new Date(), status: 'assigned', assignedToId: userId },
     })
 
+    // Real-time: emite pra todas as abas/usuários da empresa
+    // (mesmo evento que o webhook de RECEBIMENTO emite — UI já sabe ouvir)
+    try {
+      socketService.emitToCompany(companyId, 'inbox:new_message', {
+        conversationId,
+        message: message as any,
+        channel: { type: conversation.channel || 'whatsapp', name: 'WhatsApp' },
+      })
+    } catch (err) {
+      console.warn('[Inbox] socket emit failed:', (err as Error).message)
+    }
+
     return message
+  }
+
+  async updateConversationStatus(id: string, companyId: string, status: string) {
+    const conversation = await prisma.conversation.findFirst({ where: { id, companyId } })
+    if (!conversation) throw new AppError('Conversation not found', 404, 'NOT_FOUND')
+    return prisma.conversation.update({ where: { id }, data: { status: status as any } })
+  }
+
+  async markAsRead(id: string, companyId: string) {
+    // Schema atual não tem campo read na Message — implementação no-op
+    // até decidir como modelar "lido". Por ora só valida acesso.
+    const conversation = await prisma.conversation.findFirst({ where: { id, companyId } })
+    if (!conversation) throw new AppError('Conversation not found', 404, 'NOT_FOUND')
+    return { ok: true }
   }
 
   async assignConversation(id: string, companyId: string, userId: string) {

@@ -191,14 +191,42 @@ export function useCreateCard(pipeId: string) {
 
 export function useMoveCard(pipeId: string) {
   const queryClient = useQueryClient()
+  const queryKey = ['kanban', pipeId]
   return useMutation({
     mutationFn: ({ cardId, data }: { cardId: string; data: MoveCardRequest }) =>
       pipesService.moveCard(cardId, { ...data, pipeId } as any),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['kanban', pipeId] })
+    // Optimistic update: move o card no cache antes do servidor responder
+    // pra UI sentir instantânea (antes demorava ~10s esperando refetch)
+    onMutate: async ({ cardId, data }) => {
+      await queryClient.cancelQueries({ queryKey })
+      const previous = queryClient.getQueryData<any>(queryKey)
+      const targetPhaseId = (data as any)?.phaseId
+      if (previous?.phases && targetPhaseId) {
+        let moved: any = null
+        const stripped = previous.phases.map((ph: any) => {
+          const cards = (ph.cards || []).filter((c: any) => {
+            if (c.id === cardId) { moved = c; return false }
+            return true
+          })
+          return { ...ph, cards }
+        })
+        if (moved) {
+          const next = stripped.map((ph: any) =>
+            ph.id === targetPhaseId
+              ? { ...ph, cards: [{ ...moved, phaseId: targetPhaseId, updatedAt: new Date().toISOString() }, ...(ph.cards || [])] }
+              : ph,
+          )
+          queryClient.setQueryData(queryKey, { ...previous, phases: next })
+        }
+      }
+      return { previous }
     },
-    onError: (error: any) => {
+    onError: (error: any, _vars, context: any) => {
+      if (context?.previous) queryClient.setQueryData(queryKey, context.previous)
       toast.error(error.response?.data?.message || 'Erro ao mover card')
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey })
     },
   })
 }

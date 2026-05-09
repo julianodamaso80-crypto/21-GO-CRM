@@ -142,6 +142,103 @@ export class EvolutionClient {
       .catch(() => undefined)
   }
 
+  /**
+   * Atualiza o webhook de uma instância JÁ EXISTENTE (sem desconectar).
+   * Endpoint Evolution v2: POST /webhook/set/{instance}
+   */
+  async setWebhook(params: {
+    instanceName: string
+    instanceKey: string
+    webhookUrl: string
+  }): Promise<any> {
+    const body = {
+      webhook: {
+        enabled: true,
+        url: params.webhookUrl,
+        byEvents: false,
+        base64: true,
+        events: [
+          'QRCODE_UPDATED',
+          'CONNECTION_UPDATE',
+          'MESSAGES_UPSERT',
+          'MESSAGES_UPDATE',
+          'SEND_MESSAGE',
+        ],
+      },
+    }
+    const { data } = await this.http.post(
+      `/webhook/set/${params.instanceName}`,
+      body,
+      this.withKey(params.instanceKey),
+    )
+    return data
+  }
+
+  /** Lê config atual do webhook (pra diagnóstico) */
+  async findWebhook(params: {
+    instanceName: string
+    instanceKey: string
+  }): Promise<{ url: string | null; enabled: boolean | null; raw: any }> {
+    try {
+      const { data } = await this.http.get(
+        `/webhook/find/${params.instanceName}`,
+        this.withKey(params.instanceKey),
+      )
+      return {
+        url: data?.url ?? data?.webhook?.url ?? null,
+        enabled: data?.enabled ?? data?.webhook?.enabled ?? null,
+        raw: data,
+      }
+    } catch {
+      return { url: null, enabled: null, raw: null }
+    }
+  }
+
+  /**
+   * Busca histórico de mensagens de uma conversa específica (ou de todas).
+   * Endpoint Evolution v2: POST /chat/findMessages/{instance}
+   */
+  async findMessages(params: {
+    instanceName: string
+    instanceKey: string
+    remoteJid?: string
+    limit?: number
+  }): Promise<any[]> {
+    const body: any = {
+      where: params.remoteJid ? { key: { remoteJid: params.remoteJid } } : {},
+      limit: params.limit ?? 200,
+    }
+    try {
+      const { data } = await this.http.post(
+        `/chat/findMessages/${params.instanceName}`,
+        body,
+        this.withKey(params.instanceKey),
+      )
+      // Evolution v2 retorna { messages: { records: [...] } } ou direto array
+      const records = data?.messages?.records || data?.records || (Array.isArray(data) ? data : [])
+      return records
+    } catch (err: any) {
+      throw new Error(`findMessages failed: ${err?.response?.data?.message || err.message}`)
+    }
+  }
+
+  /** Lista todos os chats (conversas) que a instância tem */
+  async findChats(params: {
+    instanceName: string
+    instanceKey: string
+  }): Promise<any[]> {
+    try {
+      const { data } = await this.http.post(
+        `/chat/findChats/${params.instanceName}`,
+        {},
+        this.withKey(params.instanceKey),
+      )
+      return Array.isArray(data) ? data : (data?.records || [])
+    } catch {
+      return []
+    }
+  }
+
   /** Envia mensagem de texto pelo WhatsApp da instância */
   async sendText(params: {
     instanceName: string
