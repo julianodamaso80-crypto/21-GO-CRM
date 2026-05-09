@@ -261,20 +261,23 @@ function ConversationsLayout() {
                     {conv.contact?.lastName?.[0] || ''}
                   </div>
                   <div className="flex-1 min-w-0">
+                    {/* Linha 1: NOME do cliente (destaque) + horario */}
                     <div className="flex items-center justify-between gap-2">
-                      <span className={`text-sm font-medium truncate ${conv.isUnread ? 'text-white' : 'text-gray-300'}`}>
+                      <span className={`text-sm font-semibold truncate ${conv.isUnread ? 'text-dark-50' : 'text-dark-100'}`}>
                         {conv.contact?.fullName || conv.contact?.firstName || 'Contato'}
                       </span>
-                      <span className="text-[10px] text-gray-500 whitespace-nowrap">
+                      <span className="text-[10px] text-dark-400 whitespace-nowrap">
                         {formatTimeAgo(conv.lastMessageAt || conv.createdAt)}
                       </span>
                     </div>
+                    {/* Linha 2: CONTATO (telefone) — sub-info em laranja monoespacada */}
                     {conv.contact?.phone && (
-                      <p className="text-[11px] font-mono text-gold-400/80 truncate mt-0.5">
+                      <p className="text-[11px] font-mono text-orange-500 truncate mt-0.5">
                         {formatBrPhone(conv.contact.phone)}
                       </p>
                     )}
-                    <p className={`text-xs truncate mt-0.5 ${conv.isUnread ? 'text-gray-100 font-medium' : 'text-gray-400'}`}>
+                    {/* Linha 3: ULTIMA MENSAGEM enviada pelo cliente — cinza claro, italico */}
+                    <p className={`text-xs truncate mt-0.5 italic ${conv.isUnread ? 'text-dark-100 font-medium not-italic' : 'text-dark-400'}`}>
                       {(conv as any).lastMessagePreview || 'Sem mensagens'}
                     </p>
                   </div>
