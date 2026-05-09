@@ -46,6 +46,7 @@ import { projectsRoutes } from './modules/projects/projects.routes'
 import { plateLookupRoutes } from './modules/plate-lookup/plate-lookup.routes'
 import { startReengajamentoWorker } from './modules/plate-lookup/lead-followup.service'
 import { webhookEvolutionRoutes } from './modules/webhook-evolution/webhook-evolution.routes'
+import { getQueueHealth } from './modules/plate-lookup/quote-queue'
 
 const port = Number(process.env.PORT) || env.PORT || 3333
 
@@ -153,6 +154,16 @@ async function bootstrap() {
         uptime: process.uptime(),
         database: 'prisma',
       }
+    })
+
+    // Health check da fila de follow-up (Bull/Redis)
+    fastify.get('/api/health/queue', async (_req, reply) => {
+      const health = getQueueHealth()
+      const httpStatus = health.state === 'error' ? 503 : 200
+      return reply.status(httpStatus).send({
+        ...health,
+        timestamp: new Date().toISOString(),
+      })
     })
 
     // ── API Routes ──────────────────────────────────────
