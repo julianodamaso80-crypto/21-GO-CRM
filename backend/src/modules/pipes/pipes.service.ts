@@ -302,13 +302,21 @@ export class PipesService {
 
     let conversation: any = null
     if (lead) {
-      conversation = await prisma.conversation.findFirst({
+      // Conversa: pega só, sem mensagens (mensagens vêm em query separada limitada)
+      const conv = await prisma.conversation.findFirst({
         where: { companyId, leadId: lead.id },
-        include: {
-          messages: { orderBy: { createdAt: 'asc' } },
-        },
         orderBy: { createdAt: 'desc' },
       })
+      if (conv) {
+        // Últimas 100 mensagens em ordem cronológica.
+        // Sem limite, conversas longas (100+ msgs) fazem o refetch demorar 1-3s.
+        const recent = await prisma.message.findMany({
+          where: { conversationId: conv.id },
+          orderBy: { createdAt: 'desc' },
+          take: 100,
+        })
+        conversation = { ...conv, messages: recent.reverse() }
+      }
     }
 
     return { ...card, lead, conversation }

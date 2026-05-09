@@ -96,13 +96,40 @@ export function CardDrawer({ cardId, pipeId, onClose }: CardDrawerProps) {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages.length])
 
-  // Real-time: nova mensagem (recebida ou enviada de outra aba) refaz o card
-  // Filtra só eventos da CONVERSA aberta — outras conversas atualizam a lista
-  // separadamente via inbox.
+  // Real-time: nova mensagem (recebida ou enviada de outra aba) atualiza cache local.
+  // Antes chamava refetch(), mas com 100+ mensagens isso demorava 1-3s. Agora insere
+  // a mensagem direto no cache (instantâneo) e dedupe por whatsappMessageId.
   useSocketEvent('inbox:new_message', (data: any) => {
     if (!conversation?.id) return
     if (data?.conversationId !== conversation.id) return
-    refetch()
+    const newMsg = data?.message
+    if (!newMsg) return
+
+    const cacheKey = ['cards', 'detail', cardId]
+    const cur = queryClient.getQueryData<any>(cacheKey)
+    if (!cur?.conversation) return
+
+    const existing = cur.conversation.messages || []
+    // Dedupe: pula se mensagem já existe (por id real ou whatsappMessageId)
+    const isDup = existing.some((m: any) =>
+      m.id === newMsg.id ||
+      (newMsg.whatsappMessageId && m.whatsappMessageId === newMsg.whatsappMessageId)
+    )
+    if (isDup) return
+
+    // Remove qualquer mensagem otimista com mesmo conteúdo + sender (substitui pela real)
+    const filtered = existing.filter(
+      (m: any) =>
+        !(m._optimistic && m.content === newMsg.content && m.direction === newMsg.direction)
+    )
+
+    queryClient.setQueryData(cacheKey, {
+      ...cur,
+      conversation: {
+        ...cur.conversation,
+        messages: [...filtered, newMsg],
+      },
+    })
   })
 
   const handleSend = () => {

@@ -9,6 +9,7 @@ import {
 import {
   useWhatsappInstance, useCreateWhatsapp, useWhatsappStatus,
 } from '../../hooks/useWhatsapp'
+import { useSocketEvent } from '../../hooks/useSocketEvent'
 import { api } from '../../lib/api'
 import { toast } from 'sonner'
 import type { Conversation, Message, ConversationStatus } from '../../../../shared/types'
@@ -171,13 +172,18 @@ function ConversationsLayout() {
 
   const filtered = (conversations || []).filter((c) => {
     if (!searchTerm) return true
-    const s = searchTerm.toLowerCase()
+    const s = searchTerm.toLowerCase().trim()
+    if (!s) return true
+    // Só casa por telefone se a query tiver pelo menos 1 dígito —
+    // senão "".includes("") devolve true e quebra o filtro de nome.
+    const queryDigits = s.replace(/\D/g, '')
     const phoneDigits = (c.contact?.phone || '').replace(/\D/g, '')
+    const phoneMatch = queryDigits.length >= 2 && phoneDigits.includes(queryDigits)
     return (
-      c.contact?.fullName?.toLowerCase().includes(s) ||
-      c.contact?.firstName?.toLowerCase().includes(s) ||
-      phoneDigits.includes(s.replace(/\D/g, '')) ||
-      (c as any).lastMessagePreview?.toLowerCase().includes(s)
+      !!c.contact?.fullName?.toLowerCase().includes(s) ||
+      !!c.contact?.firstName?.toLowerCase().includes(s) ||
+      phoneMatch ||
+      !!(c as any).lastMessagePreview?.toLowerCase().includes(s)
     )
   })
 
@@ -185,6 +191,11 @@ function ConversationsLayout() {
     setSelectedId(conv.id)
     if (conv.isUnread) markAsRead.mutate(conv.id)
   }
+
+  // Notificação sonora + push browser quando chega mensagem nova.
+  // Não toca pra mensagem do próprio user (outbound) nem se já estiver
+  // com a conversa aberta na tela.
+  useNewMessageNotifier(selectedId)
 
   return (
     <div className="flex h-full page-enter">
@@ -660,4 +671,90 @@ function ReconfigureWebhookButton() {
       {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wifi className="w-4 h-4" />}
     </button>
   )
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Notificação de mensagem nova (som + push do navegador + toast)
+// ─────────────────────────────────────────────────────────────────────
+function useNewMessageNotifier(selectedId: string | null) {
+  // Pede permissão de notificação 1 vez (se ainda não decidida).
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return
+    if (Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {})
+    }
+  }, [])
+
+  // Mantém o id atual atualizado sem recriar o handler
+  const selectedRef = useRef<string | null>(selectedId)
+  useEffect(() => {
+    selectedRef.current = selectedId
+  }, [selectedId])
+
+  useSocketEvent('inbox:new_message', (payload: any) => {
+    const msg = payload?.message
+    if (!msg) return
+    // Só dispara pra mensagens RECEBIDAS — quando o vendedor envia, não toca.
+    if (msg.direction !== 'inbound') return
+    // Se a conversa já está aberta na tela, não polui
+    if (payload.conversationId && payload.conversationId === selectedRef.current) return
+
+    playBeep()
+
+    const title = 'Nova mensagem no WhatsApp'
+    const body = (msg.content || '').toString().slice(0, 140) || 'Você recebeu uma mensagem'
+
+    // Push do navegador (se permitido)
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+      try {
+        const n = new Notification(title, {
+          body,
+          icon: '/favicon.ico',
+          tag: `wa-${payload.conversationId}`, // agrupa pela conversa
+          renotify: true,
+        } as any)
+        n.onclick = () => {
+          window.focus()
+          n.close()
+        }
+      } catch {
+        /* alguns browsers exigem ServiceWorker — silencia */
+      }
+    }
+
+    // Toast como fallback visual (sempre)
+    toast.message(title, { description: body, duration: 4000 })
+  })
+}
+
+// Beep curto via Web Audio API — sem precisar baixar mp3.
+// 2 tons rápidos pra não passar batido mas também não incomodar.
+let _audioCtx: AudioContext | null = null
+function playBeep() {
+  try {
+    if (typeof window === 'undefined') return
+    const Ctx = window.AudioContext || (window as any).webkitAudioContext
+    if (!Ctx) return
+    if (!_audioCtx) _audioCtx = new Ctx()
+    const ctx = _audioCtx
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {})
+
+    const now = ctx.currentTime
+    const tone = (freq: number, start: number, dur = 0.12) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'sine'
+      osc.frequency.value = freq
+      gain.gain.setValueAtTime(0.0001, start)
+      gain.gain.exponentialRampToValueAtTime(0.18, start + 0.01)
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + dur)
+      osc.connect(gain).connect(ctx.destination)
+      osc.start(start)
+      osc.stop(start + dur + 0.02)
+    }
+    tone(880, now)
+    tone(1320, now + 0.13)
+  } catch {
+    /* silencia — som é nice-to-have */
+  }
 }
