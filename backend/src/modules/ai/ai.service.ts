@@ -338,4 +338,53 @@ export class AIService {
     // AIQueryLog not in schema — return empty
     return []
   }
+
+  // === Stubs honestos (Projeto Japão Fase 3) ===
+  // O schema atual de KnowledgeBase/KnowledgeDocument foi simplificado e perdeu
+  // os campos collectionName, chunkCount, processingMeta, sourceContent, sourceUrl.
+  // Os métodos abaixo são chamados pelos endpoints proxy do controller mas precisam
+  // de um schema mais rico pra funcionar de verdade. Por ora ficam como no-op
+  // graciosos pra não quebrar o build nem a UI.
+  // TODO: implementação real do squad IA — fora do escopo Projeto Japão
+
+  async getDocumentForCascade(id: string, _companyId: string): Promise<{
+    id: string
+    collectionName: string
+    chunkCount: number
+  } | null> {
+    console.warn('[JAPAO][ai] getDocumentForCascade stub — schema não suporta cascade de chunks', { id })
+    return null
+  }
+
+  async findKBByCollection(collectionName: string, _companyId: string): Promise<{
+    id: string
+    collectionName: string
+  } | null> {
+    console.warn('[JAPAO][ai] findKBByCollection stub — collectionName não está no schema', { collectionName })
+    return null
+  }
+
+  async findDocumentByHash(kbId: string, _hash: string): Promise<{
+    id: string
+    chunkCount: number
+  } | null> {
+    console.warn('[JAPAO][ai] findDocumentByHash stub — hash idempotente não está no schema', { kbId })
+    return null
+  }
+
+  async updateDocumentStatus(
+    id: string,
+    status: string,
+    _chunks?: number,
+    _errorMessage?: string,
+  ): Promise<void> {
+    try {
+      await prisma.knowledgeDocument.update({
+        where: { id },
+        data: { status },
+      })
+    } catch (err: any) {
+      console.warn('[JAPAO][ai] updateDocumentStatus failed', { id, status, err: err.message })
+    }
+  }
 }

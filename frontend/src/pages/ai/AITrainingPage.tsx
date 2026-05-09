@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Brain, Database, Bot, MessageSquare, BarChart3, Loader2, Wand2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAIStats } from '../../hooks/useAI'
+import { ErrorBoundary } from '../../components/ErrorBoundary'
 import { KnowledgeBaseTab } from './KnowledgeBaseTab'
 import { AgentsTab } from './AgentsTab'
 import { ChatTestTab } from './ChatTestTab'
@@ -91,10 +92,12 @@ export function AITrainingPage() {
       </div>
 
       {/* Tab Content */}
-      {activeTab === 'knowledge' && <KnowledgeBaseTab />}
-      {activeTab === 'agents' && <AgentsTab />}
-      {activeTab === 'chat' && <ChatTestTab />}
-      {activeTab === 'analytics' && <AnalyticsTab />}
+      <ErrorBoundary>
+        {activeTab === 'knowledge' && <KnowledgeBaseTab />}
+        {activeTab === 'agents' && <AgentsTab />}
+        {activeTab === 'chat' && <ChatTestTab />}
+        {activeTab === 'analytics' && <AnalyticsTab />}
+      </ErrorBoundary>
     </div>
   )
 }

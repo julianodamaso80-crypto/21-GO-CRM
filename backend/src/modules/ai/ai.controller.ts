@@ -92,16 +92,8 @@ export class AIController {
     const { id } = request.params as { id: string }
     const result = await aiService.deleteKnowledgeBase(id, user.companyId)
 
-    // Deletar collection no Python service
-    try {
-      await fetch(`${(env as any).AI_SERVICE_URL}/api/collections/${result.collectionName}`, {
-        method: 'DELETE',
-        headers: { Authorization: request.headers.authorization! },
-      })
-    } catch {
-      // Log mas nao falha se Python service estiver offline
-    }
-
+    // TODO: cascade no Python service — schema atual não tem collectionName na KB
+    // (Fase 3 Japão: degradação graciosa)
     return reply.send(result)
   }
 
@@ -117,34 +109,8 @@ export class AIController {
   async deleteDocument(request: FastifyRequest, reply: FastifyReply) {
     const user = (request as any).user
     const { id } = request.params as { id: string }
-
-    // Buscar documento antes de deletar para cascade no ChromaDB
-    const doc = await aiService.getDocumentForCascade(id, user.companyId)
     const result = await aiService.deleteDocument(id, user.companyId)
-
-    // Cascade: deletar chunks no ChromaDB
-    if (doc) {
-      try {
-        const aiServiceUrl = (env as any).AI_SERVICE_URL || 'http://localhost:8100'
-        await fetch(`${aiServiceUrl}/api/documents`, {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: request.headers.authorization!,
-          },
-          body: JSON.stringify({
-            collection_name: doc.collectionName,
-            document_id: doc.id,
-          }),
-        })
-      } catch {
-        // Log mas nao falha se Python service estiver offline
-      }
-
-      // Atualizar stats da KB
-      await this._decrementKBStats(doc.collectionName, doc.chunkCount)
-    }
-
+    // TODO: cascade no Python ChromaDB — Fase 3 Japão: degradação graciosa
     return reply.send(result)
   }
 
@@ -187,188 +153,35 @@ export class AIController {
 
   // === Proxy para Python AI Service ===
 
-  async proxyIngestFile(request: FastifyRequest, reply: FastifyReply) {
-    const user = (request as any).user
-    const body = request.body as any
-    const collectionName = body?.collection_name
-    validateCollectionOwnership(collectionName, user.companyId)
-    const aiServiceUrl = (env as any).AI_SERVICE_URL || 'http://localhost:8100'
+  // === Endpoints proxy de ingest ===
+  // O schema atual não suporta o pipeline completo (collectionName + chunkCount + hash de idempotência).
+  // Por enquanto degrada graciosamente: HTTP 503 com mensagem clara.
+  // TODO: implementação real do squad IA — fora do escopo Projeto Japão
 
-    // 1. Resolver KB e criar documento no Prisma (status: processing)
-    const kb = await aiService.findKBByCollection(collectionName, user.companyId)
-    let prismaDoc: any = null
-    if (kb) {
-      prismaDoc = await aiService.createDocument(kb.id, user.companyId, {
-        name: body?.source_name || body?.file?.name || 'Upload',
-        sourceType: 'pdf',
-        fileName: body?.file?.name,
-      })
-    }
-
-    // 2. Proxy para Python (com document_id do Prisma)
-    const response = await fetch(`${aiServiceUrl}/api/ingest/file`, {
-      method: 'POST',
-      headers: { Authorization: request.headers.authorization! },
-      body: request.body as any,
-    })
-    const result = await response.json()
-
-    // 3. Atualizar status do documento no Prisma
-    if (prismaDoc) {
-      await this._finalizeDocument(prismaDoc.id, result)
-      if (result.success && collectionName) {
-        await this._updateKBStats(collectionName, result.chunks_created)
-      }
-    }
-
-    return reply.status(response.status).send(result)
+  async proxyIngestFile(_request: FastifyRequest, reply: FastifyReply) {
+    return this._ingestUnavailable(reply, 'file')
   }
 
-  async proxyIngestText(request: FastifyRequest, reply: FastifyReply) {
-    const user = (request as any).user
-    const body = request.body as any
-    validateCollectionOwnership(body.collection_name, user.companyId)
-    const aiServiceUrl = (env as any).AI_SERVICE_URL || 'http://localhost:8100'
-
-    // 1. Resolver KB e criar documento no Prisma (status: processing)
-    const kb = await aiService.findKBByCollection(body.collection_name, user.companyId)
-    let prismaDoc: any = null
-    if (kb) {
-      // Idempotencia: verificar hash do conteudo
-      const contentHash = this._hashContent(body.content)
-      const existing = await aiService.findDocumentByHash(kb.id, contentHash)
-      if (existing) {
-        return reply.send({
-          success: true,
-          document_id: existing.id,
-          chunks_created: existing.chunkCount,
-          message: 'Documento ja existe (idempotente)',
-          content_hash: contentHash,
-          idempotent: true,
-        })
-      }
-
-      prismaDoc = await aiService.createDocument(kb.id, user.companyId, {
-        name: body.source_name || 'Texto',
-        sourceType: 'text',
-        sourceContent: body.content,
-      })
-    }
-
-    // 2. Proxy para Python (com document_id do Prisma)
-    const payload = { ...body, document_id: prismaDoc?.id }
-    const response = await fetch(`${aiServiceUrl}/api/ingest/text`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: request.headers.authorization!,
-      },
-      body: JSON.stringify(payload),
-    })
-    const result = await response.json()
-
-    // 3. Atualizar status do documento no Prisma
-    if (prismaDoc) {
-      await this._finalizeDocument(prismaDoc.id, result)
-      if (result.success) {
-        await this._updateKBStats(body.collection_name, result.chunks_created)
-      }
-    }
-
-    return reply.status(response.status).send(result)
+  async proxyIngestText(_request: FastifyRequest, reply: FastifyReply) {
+    return this._ingestUnavailable(reply, 'text')
   }
 
-  async proxyIngestURL(request: FastifyRequest, reply: FastifyReply) {
-    const user = (request as any).user
-    const body = request.body as any
-    validateCollectionOwnership(body.collection_name, user.companyId)
-    const aiServiceUrl = (env as any).AI_SERVICE_URL || 'http://localhost:8100'
-
-    // 1. Resolver KB e criar documento no Prisma
-    const kb = await aiService.findKBByCollection(body.collection_name, user.companyId)
-    let prismaDoc: any = null
-    if (kb) {
-      // Idempotencia: verificar se URL ja foi ingerida
-      const contentHash = this._hashContent(body.url)
-      const existing = await aiService.findDocumentByHash(kb.id, contentHash)
-      if (existing) {
-        return reply.send({
-          success: true,
-          document_id: existing.id,
-          chunks_created: existing.chunkCount,
-          message: 'URL ja foi ingerida (idempotente)',
-          content_hash: contentHash,
-          idempotent: true,
-        })
-      }
-
-      prismaDoc = await aiService.createDocument(kb.id, user.companyId, {
-        name: body.source_name || body.url,
-        sourceType: 'url',
-        sourceUrl: body.url,
-      })
-    }
-
-    // 2. Proxy para Python
-    const payload = { ...body, document_id: prismaDoc?.id }
-    const response = await fetch(`${aiServiceUrl}/api/ingest/url`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: request.headers.authorization!,
-      },
-      body: JSON.stringify(payload),
-    })
-    const result = await response.json()
-
-    // 3. Atualizar status
-    if (prismaDoc) {
-      await this._finalizeDocument(prismaDoc.id, result)
-      if (result.success) {
-        await this._updateKBStats(body.collection_name, result.chunks_created)
-      }
-    }
-
-    return reply.status(response.status).send(result)
+  async proxyIngestURL(_request: FastifyRequest, reply: FastifyReply) {
+    return this._ingestUnavailable(reply, 'url')
   }
 
-  async proxyIngestCRM(request: FastifyRequest, reply: FastifyReply) {
-    const user = (request as any).user
-    const body = request.body as any
-    validateCollectionOwnership(body.collection_name, user.companyId)
-    const aiServiceUrl = (env as any).AI_SERVICE_URL || 'http://localhost:8100'
+  async proxyIngestCRM(_request: FastifyRequest, reply: FastifyReply) {
+    return this._ingestUnavailable(reply, 'crm')
+  }
 
-    // 1. Criar documento no Prisma
-    const kb = await aiService.findKBByCollection(body.collection_name, user.companyId)
-    let prismaDoc: any = null
-    if (kb) {
-      prismaDoc = await aiService.createDocument(kb.id, user.companyId, {
-        name: `CRM - ${body.data_type}`,
-        sourceType: `crm_${body.data_type}`,
-      })
-    }
-
-    // 2. Proxy para Python
-    const payload = { ...body, document_id: prismaDoc?.id }
-    const response = await fetch(`${aiServiceUrl}/api/ingest/crm`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: request.headers.authorization!,
-      },
-      body: JSON.stringify(payload),
+  private _ingestUnavailable(reply: FastifyReply, kind: string) {
+    console.warn(`[JAPAO][ai] ingest/${kind} indisponível — schema simplificado, falta migration`)
+    return reply.status(503).send({
+      success: false,
+      message: 'Funcionalidade em manutenção',
+      detail: 'Ingest de documentos no agente IA aguarda implementação completa do schema (collectionName, chunkCount). Os agentes existentes continuam respondendo via system prompt.',
+      code: 'AI_INGEST_UNAVAILABLE',
     })
-    const result = await response.json()
-
-    // 3. Atualizar status
-    if (prismaDoc) {
-      await this._finalizeDocument(prismaDoc.id, result)
-      if (result.success) {
-        await this._updateKBStats(body.collection_name, result.chunks_created)
-      }
-    }
-
-    return reply.status(response.status).send(result)
   }
 
   async proxyQuery(request: FastifyRequest, reply: FastifyReply) {
@@ -481,59 +294,6 @@ export class AIController {
   }
 
   // === Helpers ===
-
-  private async _finalizeDocument(docId: string, result: any) {
-    try {
-      if (result.success) {
-        await aiService.updateDocumentStatus(docId, 'completed', result.chunks_created)
-        // Salvar content_hash no processingMeta
-        if (result.content_hash) {
-          const { prisma } = await import('../../config/database')
-          await prisma.knowledgeDocument.update({
-            where: { id: docId },
-            data: { processingMeta: { content_hash: result.content_hash } },
-          })
-        }
-      } else {
-        await aiService.updateDocumentStatus(docId, 'failed', 0, result.message)
-      }
-    } catch {
-      // Nao falha o request principal
-    }
-  }
-
-  private async _updateKBStats(collectionName: string, newChunks: number) {
-    try {
-      const { prisma } = await import('../../config/database')
-      await prisma.knowledgeBase.update({
-        where: { collectionName },
-        data: {
-          chunkCount: { increment: newChunks },
-          documentCount: { increment: 1 },
-        },
-      })
-    } catch {
-      // Ignora se KB nao encontrada
-    }
-  }
-
-  private async _decrementKBStats(collectionName: string, chunkCount: number) {
-    try {
-      const { prisma } = await import('../../config/database')
-      await prisma.knowledgeBase.update({
-        where: { collectionName },
-        data: {
-          chunkCount: { decrement: chunkCount },
-          documentCount: { decrement: 1 },
-        },
-      })
-    } catch {
-      // Ignora se KB nao encontrada
-    }
-  }
-
-  private _hashContent(content: string): string {
-    const { createHash } = require('crypto')
-    return createHash('sha256').update(content.trim().toLowerCase()).digest('hex')
-  }
+  // Removidos no Projeto Japão Fase 3 — dependiam de campos do schema (collectionName,
+  // chunkCount, processingMeta) que não existem mais. Reintroduzir junto com o ingest.
 }
