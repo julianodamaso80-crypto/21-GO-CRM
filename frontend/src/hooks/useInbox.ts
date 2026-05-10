@@ -17,7 +17,9 @@ import { useSocketEvent } from './useSocketEvent'
 
 const HEARTBEAT_MS = 1000 * 60 // 60s
 
-export function useConversations(params: { status?: string; channelType?: string } = {}) {
+export function useConversations(
+  params: { status?: string; channelType?: string; search?: string } = {},
+) {
   const qc = useQueryClient()
 
   const query = useQuery({

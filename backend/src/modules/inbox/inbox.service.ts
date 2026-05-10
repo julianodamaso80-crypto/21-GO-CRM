@@ -9,6 +9,7 @@ export interface ListConversationsQuery {
   scope?: 'mine' | 'all'
   userId?: string
   userRole?: string
+  search?: string
 }
 
 export interface SendMessageDTO {
@@ -31,11 +32,41 @@ export class InboxService {
     // Vendedor vê: conversas atribuídas a ele + conversas SEM dono (fila aberta).
     // Quando ele responde, vira dono automaticamente (assigned no sendMessage).
     // Admin/gestor veem tudo. scope=mine força filtro estrito.
+    const andConditions: any[] = []
     const isPrivileged = query.userRole === 'admin' || query.userRole === 'gestor'
     if (query.scope === 'mine' && query.userId) {
       where.assignedToId = query.userId
     } else if (!isPrivileged && query.userId) {
-      where.OR = [{ assignedToId: query.userId }, { assignedToId: null }]
+      andConditions.push({
+        OR: [{ assignedToId: query.userId }, { assignedToId: null }],
+      })
+    }
+
+    // Busca server-side por nome OU telefone OU whatsapp do lead/associado.
+    // Casa em qualquer parte da string (ILIKE %term%). Insensível a case.
+    // Pra telefone normaliza pra dígitos puros (remove (), espaços, traços do user).
+    const searchRaw = (query.search || '').trim()
+    if (searchRaw.length > 0) {
+      const text = searchRaw
+      const digits = searchRaw.replace(/\D/g, '')
+      const personMatch: any[] = [
+        { nome: { contains: text, mode: 'insensitive' } },
+      ]
+      if (digits.length >= 3) {
+        // Bate em "5521999998888", "(21) 99999-8888", "21999998888" etc.
+        personMatch.push({ telefone: { contains: digits } })
+        personMatch.push({ whatsapp: { contains: digits } })
+      }
+      andConditions.push({
+        OR: [
+          { lead: { is: { OR: personMatch } } },
+          { associado: { is: { OR: personMatch } } },
+        ],
+      })
+    }
+
+    if (andConditions.length > 0) {
+      where.AND = andConditions
     }
 
     const conversations = await prisma.conversation.findMany({

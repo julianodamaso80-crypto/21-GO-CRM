@@ -167,9 +167,19 @@ function ConversationsLayout() {
   const [searchTerm, setSearchTerm] = useState('')
   const queryClient = useQueryClient()
 
-  const { data: conversations, isLoading } = useConversations(
-    statusFilter ? { status: statusFilter } : {},
-  )
+  // Debounce do searchTerm pra não bombardear o servidor a cada tecla.
+  // 250ms — rápido o bastante pra parecer ao vivo, lento o bastante pra
+  // a digitação completar antes de queryar.
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchTerm.trim()), 250)
+    return () => clearTimeout(t)
+  }, [searchTerm])
+
+  const { data: conversations, isLoading } = useConversations({
+    ...(statusFilter ? { status: statusFilter } : {}),
+    ...(debouncedSearch ? { search: debouncedSearch } : {}),
+  })
   const markAsRead = useMarkAsRead()
 
   // Real-time: nova mensagem chega → invalida lista (atualiza preview, ordem,
@@ -181,22 +191,9 @@ function ConversationsLayout() {
     }
   })
 
-  const filtered = (conversations || []).filter((c) => {
-    if (!searchTerm) return true
-    const s = searchTerm.toLowerCase().trim()
-    if (!s) return true
-    // Só casa por telefone se a query tiver pelo menos 1 dígito —
-    // senão "".includes("") devolve true e quebra o filtro de nome.
-    const queryDigits = s.replace(/\D/g, '')
-    const phoneDigits = (c.contact?.phone || '').replace(/\D/g, '')
-    const phoneMatch = queryDigits.length >= 2 && phoneDigits.includes(queryDigits)
-    return (
-      !!c.contact?.fullName?.toLowerCase().includes(s) ||
-      !!c.contact?.firstName?.toLowerCase().includes(s) ||
-      phoneMatch ||
-      !!(c as any).lastMessagePreview?.toLowerCase().includes(s)
-    )
-  })
+  // Server já filtrou — usa direto a lista. Mantém variável `filtered`
+  // só pra não mexer no resto do JSX.
+  const filtered = conversations || []
 
   const handleSelect = (conv: Conversation) => {
     setSelectedId(conv.id)

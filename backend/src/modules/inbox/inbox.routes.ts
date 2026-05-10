@@ -22,6 +22,8 @@ export async function inboxRoutes(fastify: FastifyInstance) {
             enum: ['open', 'assigned', 'resolved', 'closed'],
           },
           channelType: { type: 'string' },
+          scope: { type: 'string', enum: ['mine', 'all'] },
+          search: { type: 'string' },
         },
       },
     },

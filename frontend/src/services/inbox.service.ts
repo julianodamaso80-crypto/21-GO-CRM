@@ -2,7 +2,9 @@ import { api } from '../lib/api'
 import type { Conversation, Message } from '../../../shared/types'
 
 export const inboxService = {
-  async listConversations(params: { status?: string; channelType?: string } = {}): Promise<Conversation[]> {
+  async listConversations(
+    params: { status?: string; channelType?: string; search?: string } = {},
+  ): Promise<Conversation[]> {
     const response = await api.get<Conversation[]>('/conversations', { params })
     return response.data
   },

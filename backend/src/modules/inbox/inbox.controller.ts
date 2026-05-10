@@ -17,6 +17,7 @@ export class InboxController {
       status: query.status,
       channelType: query.channelType,
       scope: query.scope,
+      search: query.search,
       userId: user.id,
       userRole: user.role,
     }
