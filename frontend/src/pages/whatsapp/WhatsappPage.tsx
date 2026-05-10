@@ -10,6 +10,7 @@ import {
   useWhatsappInstance, useCreateWhatsapp, useWhatsappStatus,
 } from '../../hooks/useWhatsapp'
 import { useSocketEvent } from '../../hooks/useSocketEvent'
+import { useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { toast } from 'sonner'
 import type { Conversation, Message, ConversationStatus } from '../../../../shared/types'
@@ -164,11 +165,21 @@ function ConversationsLayout() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
+  const queryClient = useQueryClient()
 
   const { data: conversations, isLoading } = useConversations(
     statusFilter ? { status: statusFilter } : {},
   )
   const markAsRead = useMarkAsRead()
+
+  // Real-time: nova mensagem chega → invalida lista (atualiza preview, ordem,
+  // contador) e mensagens da conversa ativa. Substitui o polling de 30s.
+  useSocketEvent('inbox:new_message', (data: any) => {
+    queryClient.invalidateQueries({ queryKey: ['conversations'] })
+    if (data?.conversationId) {
+      queryClient.invalidateQueries({ queryKey: ['messages', data.conversationId] })
+    }
+  })
 
   const filtered = (conversations || []).filter((c) => {
     if (!searchTerm) return true
