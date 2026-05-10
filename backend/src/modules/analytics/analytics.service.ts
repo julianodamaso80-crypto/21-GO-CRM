@@ -179,4 +179,34 @@ export class AnalyticsService {
 
     return { metric, data }
   }
+
+  // ---------------------------------------------------------------------------
+  // Aliases pra bater com os nomes que o AnalyticsController chama.
+  // Service tinha nomes descritivos (getLeadsBySource, getCampaignPerformance),
+  // controller chamava getSources/getCampaigns/etc → 500 em produção.
+  // ---------------------------------------------------------------------------
+
+  async getSources(companyId: string, filters: AnalyticsFilters) {
+    return this.getLeadsBySource(companyId, filters)
+  }
+
+  async getCampaigns(companyId: string, filters: AnalyticsFilters) {
+    return this.getCampaignPerformance(companyId, filters)
+  }
+
+  async getFunnel(companyId: string, filters: AnalyticsFilters) {
+    return this.getPipelineAnalytics(companyId, filters)
+  }
+
+  async getLTV(companyId: string, filters: AnalyticsFilters) {
+    return this.getRevenueAnalytics(companyId, filters)
+  }
+
+  async getROI(companyId: string, filters: AnalyticsFilters) {
+    return this.getPlatformROI(companyId, filters)
+  }
+
+  async getTrends(companyId: string, filters: AnalyticsFilters) {
+    return this.getTimeSeries(companyId, filters)
+  }
 }
