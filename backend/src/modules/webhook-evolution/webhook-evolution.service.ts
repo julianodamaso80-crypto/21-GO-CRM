@@ -121,6 +121,13 @@ async function handleMessageUpsert(payload: EvolutionWebhookPayload) {
   const fromMe: boolean = !!data.key?.fromMe
   const whatsappMessageId: string | undefined = data.key?.id
 
+  // Timestamp REAL da mensagem (Evolution manda em segundos Unix).
+  // Sem isso o CRM cravava o tempo do processamento — leads "atrasados"
+  // pareciam ter chegado "agora" e bagunçavam a contagem.
+  const messageTs: Date = data.messageTimestamp
+    ? new Date(Number(data.messageTimestamp) * 1000)
+    : new Date()
+
   if (fromMe) return { ignored: 'from_me' }
   if (isGroup(remoteJid)) return { ignored: 'group' }
 
@@ -273,7 +280,7 @@ async function handleMessageUpsert(payload: EvolutionWebhookPayload) {
     // edge case
   }
 
-  // 5. Persiste a mensagem
+  // 5. Persiste a mensagem com TIMESTAMP REAL da Evolution (não now()).
   const message = await prisma.message.create({
     data: {
       companyId,
@@ -285,12 +292,18 @@ async function handleMessageUpsert(payload: EvolutionWebhookPayload) {
       mediaBase64: base64 || null,
       mediaMimeType: mimetype || null,
       whatsappMessageId: whatsappMessageId || null,
+      createdAt: messageTs,
     },
   })
 
-  await prisma.conversation.update({
-    where: { id: conversation.id },
-    data: { lastMessageAt: new Date() },
+  // lastMessageAt também usa o timestamp real — só atualiza se for mais
+  // recente que o atual (evita regressão se mensagem antiga chegou atrasada).
+  await prisma.conversation.updateMany({
+    where: {
+      id: conversation.id,
+      OR: [{ lastMessageAt: null }, { lastMessageAt: { lt: messageTs } }],
+    },
+    data: { lastMessageAt: messageTs },
   })
 
   // 6. Socket.io
