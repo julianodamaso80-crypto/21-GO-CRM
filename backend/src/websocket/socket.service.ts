@@ -150,11 +150,18 @@ class SocketService {
    */
   private handleJoinRoom(
     socket: TypedSocket,
-    data: JoinRoomPayload,
+    data: JoinRoomPayload | string,
     callback?: (response: RoomResponse) => void
   ): void {
     try {
-      const { room, metadata } = data
+      // Frontend pode mandar { room, metadata } ou só a string do nome.
+      // Aceitar ambos pra não quebrar real-time (ver SocketContext.tsx).
+      const room = typeof data === 'string' ? data : data?.room
+      const metadata = typeof data === 'string' ? undefined : data?.metadata
+      if (!room || typeof room !== 'string') {
+        callback?.({ success: false, room: '', error: 'room name required' })
+        return
+      }
       const { companyId, userId } = socket.data
 
       // Cross-tenant guard (Projeto Japão Fase 5):
@@ -212,10 +219,11 @@ class SocketService {
         message: `Joined room: ${room}`,
       })
     } catch (error) {
-      logger.error({ error, socketId: socket.id, room: data.room }, 'Failed to join room')
+      const room = typeof data === 'string' ? data : data?.room
+      logger.error({ error, socketId: socket.id, room }, 'Failed to join room')
       callback?.({
         success: false,
-        room: data.room,
+        room: room || '',
         error: 'Failed to join room',
       })
     }
@@ -226,11 +234,16 @@ class SocketService {
    */
   private handleLeaveRoom(
     socket: TypedSocket,
-    data: LeaveRoomPayload,
+    data: LeaveRoomPayload | string,
     callback?: (response: RoomResponse) => void
   ): void {
     try {
-      const { room } = data
+      // Mesmo tratamento do handleJoinRoom: aceitar string ou { room }
+      const room = typeof data === 'string' ? data : data?.room
+      if (!room || typeof room !== 'string') {
+        callback?.({ success: false, room: '', error: 'room name required' })
+        return
+      }
 
       socket.leave(room)
 
@@ -249,10 +262,11 @@ class SocketService {
         message: `Left room: ${room}`,
       })
     } catch (error) {
-      logger.error({ error, socketId: socket.id, room: data.room }, 'Failed to leave room')
+      const room = typeof data === 'string' ? data : data?.room
+      logger.error({ error, socketId: socket.id, room }, 'Failed to leave room')
       callback?.({
         success: false,
-        room: data.room,
+        room: room || '',
         error: 'Failed to leave room',
       })
     }
