@@ -15,7 +15,10 @@ import { useSocketEvent } from './useSocketEvent'
  * caia sem o cliente perceber). É 4x menos custoso que o polling antigo.
  */
 
-const HEARTBEAT_MS = 1000 * 60 // 60s
+// 15s — fallback caso socket caia. Não substitui o real-time via socket
+// (esse continua sendo o caminho principal), só garante que se algo travar
+// a UI atualiza em <15s em vez de sentar e esperar o user dar F5.
+const HEARTBEAT_MS = 1000 * 15
 
 export function useConversations(
   params: { status?: string; channelType?: string; search?: string } = {},

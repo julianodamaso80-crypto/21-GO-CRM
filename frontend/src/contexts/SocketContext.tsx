@@ -53,8 +53,12 @@ export function SocketProvider({ children }: SocketProviderProps) {
       auth: {
         token,
       },
+      // Traefik do Easypanel não está fazendo upgrade WebSocket (probe error).
+      // Long-polling funciona estável; deixar ele tentar WS gera reconnection
+      // loop e perdemos eventos no meio. Forçando polling resolve.
+      transports: ['polling'],
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
       timeout: 20000,
