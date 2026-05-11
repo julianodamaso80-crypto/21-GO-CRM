@@ -1,5 +1,6 @@
 import { prisma } from '../../config/database'
 import { socketService } from '../../websocket'
+import { ensureCardForLead } from '../leads/lead-card.helper'
 
 /**
  * Webhook da Evolution API (WhatsApp via Baileys).
@@ -210,46 +211,11 @@ async function handleMessageUpsert(payload: EvolutionWebhookPayload) {
       })
       leadId = novo.id
 
-      // 3b. Auto-cria card em "Vendas de Associados" / 1a fase (default).
-      // Vendedor pode transferir manualmente pra "Vendas de Consultores" se for o caso.
-      try {
-        const pipes = await prisma.pipe.findMany({ where: { companyId } })
-        const pipe = pipes.find(p => p.name.toLowerCase().includes('associad'))
-        if (pipe) {
-          const firstPhase = await prisma.phase.findFirst({
-            where: { pipeId: pipe.id },
-            orderBy: { position: 'asc' },
-          })
-          if (firstPhase) {
-            // Usa o user que conectou WhatsApp como dono do card. Se nao tiver
-            // (instancia orfa), pega qualquer admin da company como fallback.
-            let creatorId = assignedUserId
-            if (!creatorId) {
-              const admin = await prisma.user.findFirst({
-                where: { companyId, role: 'admin' },
-                select: { id: true },
-              })
-              creatorId = admin?.id ?? null
-            }
-            if (creatorId) {
-              await prisma.card.create({
-                data: {
-                  companyId,
-                  pipeId: pipe.id,
-                  currentPhaseId: firstPhase.id,
-                  title: pushName,
-                  description: `Lead do WhatsApp — ${phone}`,
-                  status: 'active',
-                  createdById: creatorId,
-                  assignedToId: assignedUserId,
-                },
-              })
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('[EvolutionWebhook] auto-card failed:', (err as Error).message)
-      }
+      // 3b. Regra absoluta: cria card automático no Kanban (default associado).
+      // Vendedor pode transferir manualmente pra "Vendas de Consultores" depois.
+      await ensureCardForLead(leadId, 'associado').catch((err) =>
+        console.warn('[EvolutionWebhook] ensureCardForLead falhou:', err?.message),
+      )
     }
   }
 

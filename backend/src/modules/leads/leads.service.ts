@@ -1,5 +1,6 @@
 import { prisma } from '../../config/database'
 import { AppError } from '../../utils/app-error'
+import { ensureCardForLead } from './lead-card.helper'
 
 export interface CreateLeadDTO {
   nome: string
@@ -199,6 +200,11 @@ export class LeadsService {
         scoreQualificacao: 0,
       },
     })
+
+    // Regra absoluta: todo lead novo cai num funil do Kanban
+    await ensureCardForLead(lead.id).catch((err) =>
+      console.warn('[createLead] ensureCardForLead falhou:', err?.message),
+    )
 
     return lead
   }

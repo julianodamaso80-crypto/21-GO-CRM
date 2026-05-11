@@ -1,5 +1,6 @@
 import { prisma } from '../../config/database'
 import { sendFollowUp } from './lead-followup.service'
+import { ensureCardForLead, type LeadTipo } from '../leads/lead-card.helper'
 
 interface PublicLeadInput {
   // Dados do formulário
@@ -26,6 +27,11 @@ interface PublicLeadInput {
   // Seguro atual do veiculo (texto livre — ex: "Porto Seguro"). Quando null/undefined,
   // cliente declarou que nao tem seguro ou nao respondeu.
   seguroAtual?: string
+
+  // Classificação pro Kanban: 'consultor' vai pro funil "Vendas de Consultores",
+  // qualquer outro valor (ou ausência) vai pra "Vendas de Associados". Form "Seja
+  // Consultor" do site deve enviar tipo='consultor'.
+  tipo?: LeadTipo
 
   // Tracking
   utmSource?: string
@@ -110,12 +116,14 @@ export async function createPublicLead(input: PublicLeadInput, ip?: string, user
           leilao: input.leilao || null,
           seguroAtual: input.seguroAtual || null,
 
-          qualificadoPor: 'site',
+          qualificadoPor: input.tipo === 'consultor' ? 'site_consultor' : 'site',
           scoreQualificacao: 50,
           etapaFunil: 'cotacao_enviada',
           status: 'lead',
 
-          origem: input.utmSource ? `${input.utmSource}_${input.utmMedium || 'direct'}` : 'site_organico',
+          origem: input.tipo === 'consultor'
+            ? 'seja_consultor'
+            : (input.utmSource ? `${input.utmSource}_${input.utmMedium || 'direct'}` : 'site_organico'),
           utmSource: input.utmSource || null,
           utmMedium: input.utmMedium || null,
           utmCampaign: input.utmCampaign || null,
@@ -133,6 +141,11 @@ export async function createPublicLead(input: PublicLeadInput, ip?: string, user
       leadId = lead.id
       action = 'created'
     }
+
+    // Regra absoluta: todo lead novo cai num funil do Kanban
+    await ensureCardForLead(leadId, input.tipo).catch((err) =>
+      console.warn('[LeadCapture] ensureCardForLead falhou:', err?.message),
+    )
 
     console.log(`[LeadCapture] Lead ${action} id=${leadId} — disparando envio imediato`)
 

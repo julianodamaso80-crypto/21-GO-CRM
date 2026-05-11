@@ -1,6 +1,7 @@
-import { FastifyInstance } from 'fastify'
+import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import { LeadsController } from './leads.controller'
 import { authenticate } from '../../middlewares/authenticate'
+import { backfillCardsForOrphanLeads } from './lead-card.helper'
 
 const leadsController = new LeadsController()
 
@@ -171,5 +172,33 @@ export async function leadsRoutes(fastify: FastifyInstance) {
       },
     },
     handler: leadsController.delete.bind(leadsController),
+  })
+
+  // POST /leads/backfill-cards
+  // Cria card no Kanban pros leads que estão sem card (regra: lead sempre num funil).
+  // Idempotente — pode rodar várias vezes. Só admin/gestor.
+  fastify.post('/backfill-cards', {
+    schema: {
+      description: 'Cria cards faltantes pros leads órfãos (consultor/associado).',
+      tags: ['leads'],
+      security: [{ bearerAuth: [] }],
+      querystring: {
+        type: 'object',
+        properties: {
+          limit: { type: 'integer', minimum: 1, maximum: 5000, default: 500 },
+        },
+      },
+    },
+    handler: async (request: FastifyRequest, reply: FastifyReply) => {
+      const user = (request as any).user
+      const companyId = user.companyId
+      const role = user.role
+      if (role !== 'admin' && role !== 'gestor') {
+        return reply.status(403).send({ error: 'Forbidden', message: 'Apenas admin/gestor' })
+      }
+      const { limit } = request.query as { limit?: number }
+      const stats = await backfillCardsForOrphanLeads(companyId, limit ?? 500)
+      return reply.send({ success: true, ...stats })
+    },
   })
 }
