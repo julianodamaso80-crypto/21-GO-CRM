@@ -30,7 +30,28 @@ type MessageKind =
   | 'document'
   | 'sticker'
   | 'location'
+  | 'reaction'
+  | 'poll'
+  | 'contact'
   | 'unknown'
+
+/**
+ * Desembrulha wrappers comuns do Baileys/WhatsApp que escondem a mensagem real:
+ *  - ephemeralMessage (modo "desaparecimento")
+ *  - viewOnceMessage / viewOnceMessageV2 (ver uma vez)
+ *  - documentWithCaptionMessage (documento com legenda)
+ *
+ * Sem isso, o webhook gravava "[mensagem não suportada]" pra qualquer mensagem
+ * em conversas com modo efêmero ativado.
+ */
+function unwrapMessage(message: any, depth = 0): any {
+  if (!message || depth > 3) return message
+  if (message.ephemeralMessage?.message) return unwrapMessage(message.ephemeralMessage.message, depth + 1)
+  if (message.viewOnceMessage?.message) return unwrapMessage(message.viewOnceMessage.message, depth + 1)
+  if (message.viewOnceMessageV2?.message) return unwrapMessage(message.viewOnceMessageV2.message, depth + 1)
+  if (message.documentWithCaptionMessage?.message) return unwrapMessage(message.documentWithCaptionMessage.message, depth + 1)
+  return message
+}
 
 function extractPhoneFromJid(jid: string | undefined): string | null {
   if (!jid) return null
@@ -44,11 +65,12 @@ function isGroup(jid: string | undefined): boolean {
   return !!jid && jid.endsWith('@g.us')
 }
 
-function detectMessageKind(message: any): {
+function detectMessageKind(rawMessage: any): {
   kind: MessageKind
   content: string
   mimetype?: string
 } {
+  const message = unwrapMessage(rawMessage)
   if (!message) return { kind: 'unknown', content: '' }
 
   if (typeof message.conversation === 'string') {
@@ -98,6 +120,40 @@ function detectMessageKind(message: any): {
     const lat = message.locationMessage.degreesLatitude
     const lng = message.locationMessage.degreesLongitude
     return { kind: 'location', content: `[localização: ${lat},${lng}]` }
+  }
+
+  // Reação com emoji (cliente clica em "reagir" numa mensagem). Quase metade
+  // dos "[mensagem não suportada]" eram isso.
+  if (message.reactionMessage) {
+    const emoji = message.reactionMessage.text || '👍'
+    return { kind: 'reaction', content: `[reagiu: ${emoji}]` }
+  }
+
+  // Enquete (poll). V3 é o formato novo do WhatsApp Business.
+  const poll = message.pollCreationMessage
+    || message.pollCreationMessageV2
+    || message.pollCreationMessageV3
+  if (poll) {
+    const name = poll.name || 'Enquete'
+    return { kind: 'poll', content: `[enquete: ${name}]` }
+  }
+
+  // Contato compartilhado (cartão vCard).
+  if (message.contactMessage) {
+    const name = message.contactMessage.displayName || 'contato'
+    return { kind: 'contact', content: `[contato: ${name}]` }
+  }
+  if (message.contactsArrayMessage) {
+    const list = message.contactsArrayMessage.contacts || []
+    const display = list.map((c: any) => c.displayName).filter(Boolean).join(', ') || 'contatos'
+    return { kind: 'contact', content: `[contatos: ${display}]` }
+  }
+
+  // Localização em tempo real.
+  if (message.liveLocationMessage) {
+    const lat = message.liveLocationMessage.degreesLatitude
+    const lng = message.liveLocationMessage.degreesLongitude
+    return { kind: 'location', content: `[localização ao vivo: ${lat},${lng}]` }
   }
 
   return { kind: 'unknown', content: '[mensagem não suportada]' }
