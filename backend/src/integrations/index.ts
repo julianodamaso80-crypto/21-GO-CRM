@@ -10,22 +10,12 @@
  */
 
 // Exporta integrações REAIS
-export { stripeIntegration } from './stripe.integration'
 export { whatsappIntegration } from './whatsapp.integration'
 export { emailIntegration } from './email.integration'
 
 // Exporta integrações MOCKADAS (para desenvolvimento/testes)
-export { stripeServiceMock } from './stripe.integration.mock'
 export { whatsappServiceMock } from './whatsapp.integration.mock'
 export { emailServiceMock } from './email.integration.mock'
-
-export type {
-  CreateCustomerParams,
-  CreateSubscriptionParams,
-  CreatePaymentIntentParams,
-  StripePlan,
-  WebhookEvent,
-} from './stripe.integration'
 
 export type {
   SendMessageParams,

@@ -30,4 +30,15 @@ export class WebhooksService {
   async deleteWebhook(_id: string, _companyId: string) {
     return { success: true }
   }
+
+  // Lista de eventos disponíveis pro CRUD da UI (stub — schema não tem webhooks ainda)
+  getEvents() {
+    return [
+      { code: 'lead.created', label: 'Lead criado' },
+      { code: 'lead.qualified', label: 'Lead qualificado' },
+      { code: 'cotacao.enviada', label: 'Cotação enviada' },
+      { code: 'sinistro.aberto', label: 'Sinistro aberto' },
+      { code: 'sinistro.encerrado', label: 'Sinistro encerrado' },
+    ]
+  }
 }

@@ -38,10 +38,9 @@ export class WebhooksController {
   async create(request: FastifyRequest, reply: FastifyReply) {
     const user = (request as any).user
     const companyId = user.companyId
-    const userId = user.id
     const data = request.body as CreateWebhookDTO
 
-    const webhook = await webhooksService.createWebhook(companyId, userId, data)
+    const webhook = await webhooksService.createWebhook(companyId, data)
 
     return reply.status(201).send(webhook)
   }

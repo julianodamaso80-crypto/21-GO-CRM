@@ -27,13 +27,6 @@ const envSchema = z.object({
   REFRESH_TOKEN_SECRET: z.string().min(8).default('dev-refresh-secret-change-in-prod-32chars'),
   REFRESH_TOKEN_EXPIRES_IN: z.string().default('7d'),
 
-  // Stripe (optional - billing may not be active yet)
-  STRIPE_SECRET_KEY: z.string().optional(),
-  STRIPE_WEBHOOK_SECRET: z.string().optional(),
-  STRIPE_PRICE_ID_FREE: z.string().optional(),
-  STRIPE_PRICE_ID_PRO: z.string().optional(),
-  STRIPE_PRICE_ID_ENTERPRISE: z.string().optional(),
-
   // AI
   OPENAI_API_KEY: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),

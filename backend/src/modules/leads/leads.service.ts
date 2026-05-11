@@ -78,7 +78,7 @@ export class LeadsService {
             select: { id: true, firstName: true, lastName: true },
           },
           associado: {
-            select: { id: true, nome: true },
+            select: { id: true, nome: true, telefone: true, whatsapp: true, email: true },
           },
         },
       }),

@@ -13,7 +13,6 @@ import { KanbanPage } from './pages/pipes/KanbanPage'
 import { LoginPage } from './pages/auth/LoginPage'
 import { WebhooksPage } from './pages/webhooks/WebhooksPage'
 import { AutomationsPage } from './pages/automations/AutomationsPage'
-import { BillingPage } from './pages/billing/BillingPage'
 import { AnalyticsPage } from './pages/analytics/AnalyticsPage'
 import { NPSPage } from './pages/nps/NPSPage'
 import { VehiclesPage } from './pages/vehicles/VehiclesPage'
@@ -96,7 +95,6 @@ export function Router() {
           <Route path="/webhooks" element={<WebhooksPage />} />
           <Route path="/automations" element={<AutomationsPage />} />
           <Route path="/projects" element={<ProjectsPage />} />
-          <Route path="/billing" element={<BillingPage />} />
           <Route path="/equipe" element={<TeamPage />} />
         </Route>
       </Route>

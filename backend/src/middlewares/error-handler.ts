@@ -10,7 +10,10 @@ export function errorHandler(
 ) {
   // Zod validation errors
   if (error instanceof ZodError) {
-    const validationError = fromZodError(error)
+    // Cast pra ZodError compatível com a versão usada por zod-validation-error.
+    // Fastify+zod-to-json-schema embaralham os generics e o TS se confunde —
+    // o cast via `any` mantém o comportamento de runtime intacto.
+    const validationError = fromZodError(error as any)
     return reply.status(400).send({
       error: 'Validation Error',
       message: validationError.message,

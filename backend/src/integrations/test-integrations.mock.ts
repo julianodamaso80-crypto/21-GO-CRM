@@ -4,48 +4,12 @@
  * Execute: npx tsx src/integrations/test-integrations.mock.ts
  */
 
-import { stripeServiceMock } from './stripe.integration.mock'
 import { whatsappServiceMock } from './whatsapp.integration.mock'
 import { emailServiceMock } from './email.integration.mock'
 
 async function testIntegrations() {
   console.log('\n🧪 TESTANDO INTEGRAÇÕES MOCKADAS\n')
   console.log('='.repeat(60))
-
-  // ============================================================================
-  // TESTE STRIPE
-  // ============================================================================
-  console.log('\n💳 Testando Stripe Mock...\n')
-
-  try {
-    // Criar cliente
-    const customer = await stripeServiceMock.createCustomer(
-      'teste@empresa.com',
-      'Empresa Teste Ltda'
-    )
-    console.log('✅ Cliente criado:', customer.id)
-
-    // Criar assinatura
-    const subscription = await stripeServiceMock.createSubscription(
-      customer.id,
-      'price_pro'
-    )
-    console.log('✅ Assinatura criada:', subscription.id, '- Status:', subscription.status)
-
-    // Criar pagamento
-    const payment = await stripeServiceMock.createPaymentIntent(9900, 'brl', customer.id)
-    console.log('✅ Pagamento criado:', payment.id, '- Status:', payment.status)
-
-    // Listar planos
-    const plans = await stripeServiceMock.listPlans()
-    console.log('✅ Planos disponíveis:', plans.length)
-
-    // Cancelar assinatura
-    const canceled = await stripeServiceMock.cancelSubscription(subscription.id)
-    console.log('✅ Assinatura cancelada:', canceled.status)
-  } catch (error: any) {
-    console.error('❌ Erro no Stripe:', error.message)
-  }
 
   // ============================================================================
   // TESTE WHATSAPP
@@ -122,7 +86,7 @@ async function testIntegrations() {
         amount: 9900,
         dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         status: 'open',
-        url: 'https://billing.stripe.com/invoice/inv_123',
+        url: 'https://example.com/invoice/inv_123',
       }
     )
     console.log('✅ Email de fatura enviado:', invoice.id)
@@ -160,7 +124,6 @@ async function testIntegrations() {
   console.log('\n' + '='.repeat(60))
   console.log('\n✅ TODOS OS TESTES CONCLUÍDOS COM SUCESSO!\n')
   console.log('📊 Resumo:')
-  console.log('  - Stripe: Funcionando (mock)')
   console.log('  - WhatsApp: Funcionando (mock)')
   console.log('  - Email: Funcionando (mock)')
   console.log('\n💡 As integrações mockadas estão prontas para uso em desenvolvimento!\n')

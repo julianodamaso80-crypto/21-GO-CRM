@@ -7,5 +7,10 @@ export async function ouvidoriaRoutes(app: FastifyInstance) {
   app.post('/api/ouvidoria', createOuvidoriaHandler)
 
   // Autenticado — gestor/admin consulta
-  app.get('/api/ouvidoria', { preHandler: [authenticate] }, listOuvidoriaHandler)
+  app.route({
+    method: 'GET',
+    url: '/api/ouvidoria',
+    preHandler: [authenticate],
+    handler: listOuvidoriaHandler,
+  })
 }
