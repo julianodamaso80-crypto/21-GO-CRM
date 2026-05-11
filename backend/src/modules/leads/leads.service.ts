@@ -25,6 +25,8 @@ export interface UpdateLeadDTO extends Partial<CreateLeadDTO> {
   cotacaoValor?: number
   cotacaoEnviada?: boolean
   qualificadoPor?: string
+  valorCompra?: number
+  produtoComprado?: string
 }
 
 export interface ListLeadsQuery {
@@ -233,6 +235,8 @@ export class LeadsService {
         utmSource: data.utmSource,
         utmMedium: data.utmMedium,
         utmCampaign: data.utmCampaign,
+        valorCompra: data.valorCompra,
+        produtoComprado: data.produtoComprado,
       },
     })
 

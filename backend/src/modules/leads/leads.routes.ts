@@ -134,6 +134,9 @@ export async function leadsRoutes(fastify: FastifyInstance) {
           estimatedValue: { type: 'number' },
           status: { type: 'string' },
           score: { type: 'number' },
+          valorCompra: { type: 'number' },
+          produtoComprado: { type: 'string' },
+          etapaFunil: { type: 'string' },
           tags: {
             type: 'array',
             items: { type: 'string' },

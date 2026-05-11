@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from 'react'
 import {
   X, Loader2, Send, MessageSquare, Phone, Mail, User2, Calendar,
   ArrowRightLeft, Tag, CheckSquare, Clock, Plus, Pencil, Check,
-  Trash2, Trophy, XCircle, MessageCircle, MoveRight, ChevronDown,
+  Trash2, MoveRight, ChevronDown, DollarSign,
 } from 'lucide-react'
 import { useCard, useTransferCard, usePipes, useUpdateCard, useDeleteCard, useKanban, useMoveCard } from '../../hooks/usePipes'
 import { useTasksByLead, useCompleteTask } from '../../hooks/useTasks'
@@ -50,7 +50,6 @@ export function CardDrawer({ cardId, pipeId, onClose }: CardDrawerProps) {
   const conversation = (card as any)?.conversation
   const lead = (card as any)?.lead
   const messages = conversation?.messages || []
-  const phoneDigits = (lead?.whatsapp || lead?.telefone || '').replace(/\D/g, '')
 
   const handleSaveTitle = () => {
     const t = (titleEdit || '').trim()
@@ -59,21 +58,6 @@ export function CardDrawer({ cardId, pipeId, onClose }: CardDrawerProps) {
       { cardId, data: { title: t } },
       {
         onSuccess: () => { toast.success('Título atualizado'); setTitleEdit(null); refetch() },
-      },
-    )
-  }
-
-  const handleMarkDone = (kind: 'won' | 'lost') => {
-    // Procura primeira fase isWon ou isLost
-    const target = (card?.pipe?.phases || allPipes || [])
-    // Vou usar o approach mais simples: chama updateCard com status='done'
-    updateCard.mutate(
-      { cardId, data: { status: 'done' } },
-      {
-        onSuccess: () => {
-          toast.success(kind === 'won' ? 'Card marcado como ganho!' : 'Card marcado como perdido')
-          onClose()
-        },
       },
     )
   }
@@ -349,49 +333,12 @@ export function CardDrawer({ cardId, pipeId, onClose }: CardDrawerProps) {
                   </div>
                 </div>
 
-                {/* Ações rápidas (ligar / wa / etc) */}
-                {phoneDigits && (
-                  <div className="px-5 pt-4 pb-2 grid grid-cols-2 gap-2">
-                    <a
-                      href={`https://wa.me/${phoneDigits}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20 text-xs font-medium transition"
-                    >
-                      <MessageCircle className="w-3.5 h-3.5" />
-                      WhatsApp
-                    </a>
-                    <a
-                      href={`tel:+${phoneDigits}`}
-                      className="inline-flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-300 hover:bg-blue-500/20 text-xs font-medium transition"
-                    >
-                      <Phone className="w-3.5 h-3.5" />
-                      Ligar
-                    </a>
-                  </div>
-                )}
+                {/* Preço cobrado na ativação */}
+                <ActivationPriceCard lead={lead} />
 
                 {/* Ações */}
                 <div className="p-5 space-y-2">
                   <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-2">Ações</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => handleMarkDone('won')}
-                      disabled={updateCard.isPending || card.status === 'done'}
-                      className="inline-flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20 text-xs font-medium transition disabled:opacity-50"
-                    >
-                      <Trophy className="w-3.5 h-3.5" />
-                      Ganhei
-                    </button>
-                    <button
-                      onClick={() => handleMarkDone('lost')}
-                      disabled={updateCard.isPending || card.status === 'done'}
-                      className="inline-flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 hover:bg-red-500/20 text-xs font-medium transition disabled:opacity-50"
-                    >
-                      <XCircle className="w-3.5 h-3.5" />
-                      Perdi
-                    </button>
-                  </div>
                   <button
                     onClick={() => setPhasePickerOpen(true)}
                     className="w-full inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-dark-800/60 border border-dark-700/40 text-sm text-gray-300 hover:bg-dark-700/40 hover:border-gold-500/30 transition"
@@ -656,6 +603,80 @@ function InfoRow({ icon: Icon, label, value }: { icon: any; label: string; value
       <div className="min-w-0 flex-1">
         <p className="text-[10px] text-gray-500 uppercase tracking-wider">{label}</p>
         <p className="text-sm text-gray-200 truncate">{value || '—'}</p>
+      </div>
+    </div>
+  )
+}
+
+function ActivationPriceCard({ lead }: { lead: any }) {
+  const queryClient = useQueryClient()
+  const initial = lead?.valorCompra != null ? String(lead.valorCompra) : ''
+  const [value, setValue] = useState(initial)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    setValue(lead?.valorCompra != null ? String(lead.valorCompra) : '')
+  }, [lead?.id, lead?.valorCompra])
+
+  const handleSave = async () => {
+    if (!lead?.id) {
+      toast.error('Sem lead vinculado a esse card')
+      return
+    }
+    const num = parseFloat(value.replace(',', '.'))
+    if (!Number.isFinite(num) || num < 0) {
+      toast.error('Informe um valor válido')
+      return
+    }
+    setSaving(true)
+    try {
+      await api.put(`/leads/${lead.id}`, { valorCompra: num })
+      toast.success('Valor salvo')
+      queryClient.invalidateQueries({ queryKey: ['cards', 'detail'] })
+      queryClient.invalidateQueries({ queryKey: ['leads'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    } catch (e: any) {
+      const detail = e?.response?.data?.message || e?.message || 'erro'
+      toast.error(`Não consegui salvar: ${detail}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const dirty = value.trim() !== initial.trim()
+
+  return (
+    <div className="p-5 border-b border-dark-700/40">
+      <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-3">
+        Preço cobrado na ativação
+      </p>
+      <div className="space-y-2">
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gold-400 font-semibold">R$</span>
+          <input
+            type="text"
+            inputMode="decimal"
+            value={value}
+            onChange={(e) => setValue(e.target.value.replace(/[^0-9.,]/g, ''))}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleSave() }}
+            placeholder="0,00"
+            disabled={!lead?.id}
+            className="w-full pl-10 pr-3 py-2.5 text-base font-display font-semibold bg-dark-800 border border-dark-600/50 text-white rounded-lg focus:ring-2 focus:ring-gold-500/30 focus:border-gold-500 disabled:opacity-50"
+          />
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={saving || !dirty || !lead?.id}
+          className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg btn-primary text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <DollarSign className="w-4 h-4" />}
+          {saving ? 'Salvando…' : 'Salvar valor'}
+        </button>
+        {lead?.valorCompra != null && lead.valorCompra > 0 && !dirty && (
+          <p className="text-[10px] text-gray-500 text-center">
+            Salvo: R$ {Number(lead.valorCompra).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          </p>
+        )}
       </div>
     </div>
   )

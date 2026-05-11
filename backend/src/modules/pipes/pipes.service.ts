@@ -280,7 +280,7 @@ export class PipesService {
     // Se card description bate com "Lead do WhatsApp — <fone>" também usa o fone como fallback.
     let lead = await prisma.lead.findFirst({
       where: { companyId, nome: card.title },
-      select: { id: true, nome: true, telefone: true, whatsapp: true, email: true, origem: true, etapaFunil: true },
+      select: { id: true, nome: true, telefone: true, whatsapp: true, email: true, origem: true, etapaFunil: true, valorCompra: true, produtoComprado: true },
     })
 
     if (!lead && card.description) {
@@ -291,7 +291,7 @@ export class PipesService {
             companyId,
             OR: [{ whatsapp: phoneMatch[1] }, { telefone: phoneMatch[1] }],
           },
-          select: { id: true, nome: true, telefone: true, whatsapp: true, email: true, origem: true, etapaFunil: true },
+          select: { id: true, nome: true, telefone: true, whatsapp: true, email: true, origem: true, etapaFunil: true, valorCompra: true, produtoComprado: true },
         })
       }
     }
