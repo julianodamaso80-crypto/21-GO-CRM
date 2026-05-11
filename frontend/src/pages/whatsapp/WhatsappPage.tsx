@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import {
   MessageSquare, Send, Loader2, Bot, User, Circle, CheckCheck, Search,
-  Smartphone, QrCode, CheckCircle2, XCircle, Sparkles, ChevronRight, Wifi,
+  Smartphone, QrCode, CheckCircle2, XCircle, Sparkles, ChevronRight, Wifi, ArrowLeft,
 } from 'lucide-react'
 import {
   useConversations, useMessages, useSendMessage, useUpdateConversationStatus, useMarkAsRead,
@@ -462,8 +462,10 @@ function ChatPanel({
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Modal "Converter em Lead"
+// Modal "Converter em Lead" — 2 passos: escolhe funil → escolhe fase
 // ─────────────────────────────────────────────────────────────────────
+type FunilType = 'consultor' | 'associado'
+
 function ConvertToLeadModal({
   conversationId,
   onClose,
@@ -471,19 +473,28 @@ function ConvertToLeadModal({
   conversationId: string
   onClose: () => void
 }) {
+  const [step, setStep] = useState<'funil' | 'fase'>('funil')
+  const [funilType, setFunilType] = useState<FunilType | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [funilType, setFunilType] = useState<'consultor' | 'associado'>('associado')
 
-  const handleConvert = async () => {
+  const handleSelectFunil = (v: FunilType) => {
+    setFunilType(v)
+    setStep('fase')
+  }
+
+  const handleConvert = async (phaseId: string) => {
+    if (!funilType) return
     setSubmitting(true)
     try {
-      const r = await api.post(`/conversations/${conversationId}/convert-to-lead`, { funilType })
+      const r = await api.post(`/conversations/${conversationId}/convert-to-lead`, {
+        funilType,
+        phaseId,
+      })
       const data = r.data
       toast.success(`Lead criado em "${data.pipe?.name}"!`)
       onClose()
     } catch (e: any) {
       toast.error(e?.response?.data?.message || 'Erro ao converter em lead')
-    } finally {
       setSubmitting(false)
     }
   }
@@ -493,89 +504,202 @@ function ConvertToLeadModal({
       <div className="drawer-overlay" onClick={onClose} />
       <div className="drawer-panel max-w-md flex flex-col">
         <div className="px-6 py-4 border-b border-dark-700/40 flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-display font-semibold text-white">Converter em Lead</h3>
-            <p className="text-xs text-gray-500 mt-0.5">Escolha em qual funil o card será criado</p>
+          <div className="flex items-center gap-2 min-w-0">
+            {step === 'fase' && (
+              <button
+                onClick={() => setStep('funil')}
+                disabled={submitting}
+                className="p-1 -ml-1 text-gray-400 hover:text-gray-200 rounded"
+                title="Voltar"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+            )}
+            <div className="min-w-0">
+              <h3 className="text-lg font-display font-semibold text-white">Converter em Lead</h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {step === 'funil'
+                  ? 'Escolha em qual funil o card será criado'
+                  : 'Escolha em qual fase do Kanban entrar'}
+              </p>
+            </div>
           </div>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-300">
             <XCircle className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="p-6 space-y-3">
-          <FunilOption
-            value="associado"
-            current={funilType}
-            onSelect={setFunilType}
-            title="Vendas de Associados"
-            desc="Cliente quer adesão de proteção veicular"
-            color="blue"
-          />
-          <FunilOption
-            value="consultor"
-            current={funilType}
-            onSelect={setFunilType}
-            title="Vendas de Consultores"
-            desc="Cliente quer ser parceiro/consultor"
-            color="orange"
-          />
-        </div>
-
-        <div className="px-6 py-4 border-t border-dark-700/40 flex justify-end gap-2">
-          <button
-            onClick={onClose}
+        {step === 'funil' ? (
+          <div className="p-6 space-y-3">
+            <FunilOption
+              onSelect={() => handleSelectFunil('associado')}
+              title="Vendas de Associados"
+              desc="Cliente quer adesão de proteção veicular"
+              color="blue"
+            />
+            <FunilOption
+              onSelect={() => handleSelectFunil('consultor')}
+              title="Vendas de Consultores"
+              desc="Cliente quer ser parceiro/consultor"
+              color="orange"
+            />
+          </div>
+        ) : (
+          <PhasePicker
+            funilType={funilType!}
             disabled={submitting}
-            className="px-4 py-2 text-sm text-gray-300 border border-dark-700/50 rounded-lg hover:bg-dark-700/40"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={handleConvert}
-            disabled={submitting}
-            className="btn-primary inline-flex items-center gap-2 text-sm"
-          >
-            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            Converter
-          </button>
-        </div>
+            onPick={handleConvert}
+          />
+        )}
       </div>
     </>
   )
 }
 
 function FunilOption({
-  value,
-  current,
   onSelect,
   title,
   desc,
   color,
 }: {
-  value: 'consultor' | 'associado'
-  current: 'consultor' | 'associado'
-  onSelect: (v: 'consultor' | 'associado') => void
+  onSelect: () => void
   title: string
   desc: string
   color: 'blue' | 'orange'
 }) {
-  const selected = current === value
   const colorCls =
     color === 'blue'
-      ? selected ? 'bg-blue-500/10 border-blue-500/40' : 'border-dark-700/40 hover:border-dark-600'
-      : selected ? 'bg-orange-500/10 border-orange-500/40' : 'border-dark-700/40 hover:border-dark-600'
+      ? 'border-dark-700/40 hover:border-blue-500/40 hover:bg-blue-500/5'
+      : 'border-dark-700/40 hover:border-orange-500/40 hover:bg-orange-500/5'
   return (
     <button
-      onClick={() => onSelect(value)}
-      className={`w-full text-left p-4 rounded-xl border transition ${colorCls}`}
+      onClick={onSelect}
+      className={`w-full text-left p-4 rounded-xl border transition group ${colorCls}`}
     >
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-semibold text-white">{title}</p>
           <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
         </div>
-        {selected && <ChevronRight className="w-4 h-4 text-gold-400" />}
+        <ChevronRight className="w-4 h-4 text-gray-500 group-hover:text-gold-400 transition" />
       </div>
     </button>
+  )
+}
+
+// Lista as fases do funil escolhido — clica numa fase, converte direto.
+function PhasePicker({
+  funilType,
+  disabled,
+  onPick,
+}: {
+  funilType: FunilType
+  disabled: boolean
+  onPick: (phaseId: string) => void
+}) {
+  const [pipe, setPipe] = useState<any | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [pickedId, setPickedId] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const run = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        // Lista pipes da empresa e acha o que casa com a keyword (mesma lógica do backend)
+        const list = await api.get('/pipes')
+        const keyword = funilType === 'consultor' ? 'consultor' : 'associado'
+        const found = (list.data as any[]).find((p) =>
+          (p.name || '').toLowerCase().includes(keyword),
+        )
+        if (!found) {
+          if (!cancelled) setError(`Funil de ${funilType} não encontrado.`)
+          return
+        }
+        const detail = await api.get(`/pipes/${found.id}`)
+        if (!cancelled) setPipe(detail.data)
+      } catch (e: any) {
+        if (!cancelled) setError(e?.response?.data?.message || 'Erro ao carregar fases')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    run()
+    return () => {
+      cancelled = true
+    }
+  }, [funilType])
+
+  const handlePick = (phaseId: string) => {
+    if (disabled) return
+    setPickedId(phaseId)
+    onPick(phaseId)
+  }
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center py-10">
+        <Loader2 className="w-6 h-6 text-gold-400 animate-spin" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <p className="text-sm text-red-400">{error}</p>
+      </div>
+    )
+  }
+
+  const phases = (pipe?.phases || []) as Array<{ id: string; name: string; color?: string; isWon?: boolean; isLost?: boolean }>
+
+  return (
+    <div className="p-6 flex-1 overflow-y-auto">
+      <p className="text-xs text-gray-500 mb-3">
+        Funil: <span className="text-gray-300 font-medium">{pipe?.name}</span>
+      </p>
+      <div className="space-y-2">
+        {phases.length === 0 ? (
+          <p className="text-sm text-gray-400">Esse funil ainda não tem fases.</p>
+        ) : (
+          phases.map((ph) => {
+            const isPicking = pickedId === ph.id
+            const dot = ph.color || '#3B82F6'
+            return (
+              <button
+                key={ph.id}
+                onClick={() => handlePick(ph.id)}
+                disabled={disabled}
+                className="w-full text-left p-3 rounded-lg border border-dark-700/40 hover:border-gold-500/40 hover:bg-gold-500/5 transition flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <span
+                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: dot }}
+                  />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-white truncate">{ph.name}</p>
+                    {(ph.isWon || ph.isLost) && (
+                      <p className="text-[10px] text-gray-500 mt-0.5">
+                        {ph.isWon ? 'Ganho' : 'Perdido'}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                {isPicking ? (
+                  <Loader2 className="w-4 h-4 text-gold-400 animate-spin" />
+                ) : (
+                  <Sparkles className="w-4 h-4 text-gray-500" />
+                )}
+              </button>
+            )
+          })
+        )}
+      </div>
+    </div>
   )
 }
 

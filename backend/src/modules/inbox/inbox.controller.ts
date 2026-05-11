@@ -93,9 +93,9 @@ export class InboxController {
   async convertToLead(request: FastifyRequest, reply: FastifyReply) {
     const user = (request as any).user
     const { id } = request.params as { id: string }
-    const body = request.body as { funilType: 'consultor' | 'associado'; title?: string }
+    const body = request.body as { funilType: 'consultor' | 'associado'; title?: string; phaseId?: string }
 
-    const card = await inboxService.convertToLead(id, user.companyId, user.id, body.funilType, body.title)
+    const card = await inboxService.convertToLead(id, user.companyId, user.id, body.funilType, body.title, body.phaseId)
     return reply.status(201).send(card)
   }
 

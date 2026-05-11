@@ -137,6 +137,7 @@ export async function inboxRoutes(fastify: FastifyInstance) {
         properties: {
           funilType: { type: 'string', enum: ['consultor', 'associado'] },
           title: { type: 'string' },
+          phaseId: { type: 'string' },
         },
       },
     },

@@ -399,10 +399,12 @@ export class InboxService {
   }
 
   /**
-   * Converte uma conversa em card no Kanban (1a fase do funil escolhido).
+   * Converte uma conversa em card no Kanban.
    * funilType:
-   *  - 'consultor' → busca pipe com slug/tag 'consultores'
-   *  - 'associado' → busca pipe com slug/tag 'associados'
+   *  - 'consultor' → busca pipe com nome contendo 'consultor'
+   *  - 'associado' → busca pipe com nome contendo 'associado'
+   * phaseId opcional: se vier, vai pra essa fase (validando que pertence ao pipe).
+   * Senão, vai pra primeira fase.
    */
   async convertToLead(
     conversationId: string,
@@ -410,6 +412,7 @@ export class InboxService {
     userId: string,
     funilType: 'consultor' | 'associado',
     customTitle?: string,
+    phaseId?: string,
   ) {
     const conversation = await prisma.conversation.findFirst({
       where: { id: conversationId, companyId },
@@ -435,12 +438,20 @@ export class InboxService {
       )
     }
 
-    // Pega 1a fase
-    const firstPhase = await prisma.phase.findFirst({
-      where: { pipeId: pipe.id },
-      orderBy: { position: 'asc' },
-    })
-    if (!firstPhase) {
+    // Fase escolhida ou primeira fase. Valida que pertence ao pipe (segurança).
+    let chosenPhase = phaseId
+      ? await prisma.phase.findFirst({ where: { id: phaseId, pipeId: pipe.id } })
+      : null
+    if (phaseId && !chosenPhase) {
+      throw new AppError('Fase nao pertence ao funil escolhido', 400, 'PHASE_MISMATCH')
+    }
+    if (!chosenPhase) {
+      chosenPhase = await prisma.phase.findFirst({
+        where: { pipeId: pipe.id },
+        orderBy: { position: 'asc' },
+      })
+    }
+    if (!chosenPhase) {
       throw new AppError('Funil sem fases. Adicione uma fase primeiro.', 400, 'NO_PHASES')
     }
 
@@ -451,7 +462,7 @@ export class InboxService {
       data: {
         companyId,
         pipeId: pipe.id,
-        currentPhaseId: firstPhase.id,
+        currentPhaseId: chosenPhase.id,
         title,
         description: `Convertido da conversa de WhatsApp em ${new Date().toLocaleString('pt-BR')}`,
         status: 'active',
