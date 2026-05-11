@@ -1,7 +1,7 @@
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, Users, MessageSquare, Brain,
-  LayoutGrid, LogOut, Webhook, Zap, CreditCard, BarChart3,
+  LayoutGrid, LogOut, Webhook, Zap, BarChart3,
   SmilePlus, Car, FileText, AlertTriangle, Gift, Link2,
   Bell, ChevronDown, ClipboardList, Settings,
   Shield, Wrench, UserCog, ListChecks, Sun, Moon,
@@ -10,6 +10,7 @@ import { useAuthStore, type UserRole } from '../../store/auth-store'
 import { useState } from 'react'
 import { usePipes } from '../../hooks/usePipes'
 import { GlobalSearch } from '../GlobalSearch'
+import { SocketStatusBadge } from '../SocketStatusBadge'
 import { useTheme } from '../../contexts'
 
 type NavItem = {
@@ -182,18 +183,6 @@ export function AppLayout() {
             </div>
           ))}
 
-          {/* Financeiro — admin/gestor only */}
-          {['admin', 'gestor'].includes(currentRole) && (
-            <div className="border-t border-hairline mt-4 pt-4">
-              <Link
-                to="/billing"
-                className={isActive('/billing') ? 'sidebar-link-active' : 'sidebar-link-inactive'}
-              >
-                <CreditCard size={18} className={isActive('/billing') ? 'text-blue-400' : ''} />
-                <span>Financeiro</span>
-              </Link>
-            </div>
-          )}
         </nav>
 
         {/* User Profile */}
@@ -226,6 +215,11 @@ export function AppLayout() {
 
           {/* Right Actions */}
           <div className="flex items-center gap-2">
+            {/* Status de conexao real-time */}
+            <SocketStatusBadge />
+
+            <div className="w-px h-6 bg-hairline mx-1" />
+
             {/* Role Selector */}
             <div className="relative">
               <button

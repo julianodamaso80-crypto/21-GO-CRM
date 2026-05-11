@@ -35,7 +35,6 @@ import { automationsRoutes } from './modules/automations/automations.routes'
 import { webhooksRoutes } from './modules/webhooks/webhooks.routes'
 import { dashboardRoutes } from './modules/dashboard/dashboard.routes'
 import { analyticsRoutes } from './modules/analytics/analytics.routes'
-import { billingRoutes } from './modules/billing/billing.routes'
 import { uploadRoutes } from './modules/upload/upload.routes'
 
 // Novos modules 21Go
@@ -188,7 +187,6 @@ async function bootstrap() {
     await fastify.register(webhooksRoutes, { prefix: '/api/webhooks' })
     await fastify.register(dashboardRoutes, { prefix: '/api/dashboard' })
     await fastify.register(analyticsRoutes, { prefix: '/api/analytics' })
-    await fastify.register(billingRoutes, { prefix: '/api/billing' })
     await fastify.register(uploadRoutes, { prefix: '/api/upload' })
 
     // Public endpoints (no auth — chamados pelo site estático)
@@ -196,6 +194,10 @@ async function bootstrap() {
 
     // Evolution API webhook (público — recebe da Evolution, validação via EVOLUTION_WEBHOOK_SECRET)
     await fastify.register(webhookEvolutionRoutes, { prefix: '/api/webhook/evolution' })
+
+    // Observabilidade do pipeline real-time (smoke test bate aqui)
+    const { realtimeRoutes } = await import('./modules/realtime/realtime.routes')
+    await fastify.register(realtimeRoutes, { prefix: '/api/realtime' })
 
     // Ouvidoria (público — recebe do site)
     const { ouvidoriaRoutes } = await import('./modules/ouvidoria/ouvidoria.routes')
