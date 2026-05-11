@@ -53,18 +53,35 @@ export class WhatsappService {
   async create(userId: string, companyId: string, name: string) {
     const trimmed = name?.trim() || 'Meu WhatsApp'
 
-    // 1 por user — se já existe, retorna a existente sem recriar
+    // 1 por user — se já existe, tenta reusar; se a Evolution não reconhece
+    // mais (instância foi removida do Manager), apaga o registro órfão e cria
+    // novo do zero. Sem isso, o user fica preso com status CONNECTED no banco
+    // do CRM enquanto a Evolution não tem nada.
     const existing = await prisma.whatsappInstance.findFirst({
       where: { userId, companyId },
     })
     if (existing) {
-      // tenta forçar QR novo se ainda não conectou
-      if (existing.status !== STATUS.CONNECTED && existing.evolutionApiKey) {
+      if (existing.evolutionApiKey) {
         const evolution = getEvolutionClient()
-        const qr = await evolution.fetchQrCode(existing.evolutionName, existing.evolutionApiKey)
-        return { instance: shape(existing), qrCodeBase64: qr.base64 }
+        try {
+          // Tenta puxar QR direto. Se a instância ainda existe na Evolution,
+          // isso funciona (mesmo se status local diz CONNECTED — força reconect).
+          const qr = await evolution.fetchQrCode(
+            existing.evolutionName,
+            existing.evolutionApiKey,
+          )
+          return { instance: shape(existing), qrCodeBase64: qr.base64 }
+        } catch (err) {
+          console.warn(
+            '[whatsapp.create] fetchQrCode falhou — instância órfã, recriando:',
+            (err as Error).message,
+          )
+          // Apaga local e cai pro fluxo de criação nova abaixo
+          await prisma.whatsappInstance.delete({ where: { id: existing.id } }).catch(() => {})
+        }
+      } else {
+        return { instance: shape(existing), qrCodeBase64: null }
       }
-      return { instance: shape(existing), qrCodeBase64: null }
     }
 
     const evolutionName = buildEvolutionName(userId, trimmed)
@@ -223,7 +240,9 @@ export class WhatsappService {
     }
   }
 
-  /** DELETE /whatsapp — remove instância e desconecta */
+  /** DELETE /whatsapp — remove instância e desconecta.
+   *  Resiliente: se a Evolution já não tem mais a instância (ou está fora),
+   *  ainda assim apaga o registro do CRM pra não ficar órfão. */
   async delete(userId: string, companyId: string) {
     const inst = await prisma.whatsappInstance.findFirst({
       where: { userId, companyId },
@@ -231,14 +250,21 @@ export class WhatsappService {
     if (!inst) throw new AppError('Instancia nao encontrada', 404, 'NOT_FOUND')
 
     if (inst.evolutionApiKey) {
-      const evolution = getEvolutionClient()
-      await evolution.deleteInstance(inst.evolutionName)
+      try {
+        const evolution = getEvolutionClient()
+        await evolution.deleteInstance(inst.evolutionName)
+      } catch (err) {
+        console.warn(
+          '[whatsapp.delete] Evolution deleteInstance falhou (seguindo com delete local):',
+          (err as Error).message,
+        )
+      }
     }
     await prisma.whatsappInstance.delete({ where: { id: inst.id } })
     return { success: true }
   }
 
-  /** POST /whatsapp/logout — desconecta sem deletar */
+  /** POST /whatsapp/logout — desconecta sem deletar. Resiliente a falhas na Evolution. */
   async logout(userId: string, companyId: string) {
     const inst = await prisma.whatsappInstance.findFirst({
       where: { userId, companyId },
@@ -246,8 +272,15 @@ export class WhatsappService {
     if (!inst) throw new AppError('Instancia nao encontrada', 404, 'NOT_FOUND')
 
     if (inst.evolutionApiKey) {
-      const evolution = getEvolutionClient()
-      await evolution.logoutInstance(inst.evolutionName, inst.evolutionApiKey)
+      try {
+        const evolution = getEvolutionClient()
+        await evolution.logoutInstance(inst.evolutionName, inst.evolutionApiKey)
+      } catch (err) {
+        console.warn(
+          '[whatsapp.logout] Evolution logout falhou (seguindo com status local):',
+          (err as Error).message,
+        )
+      }
     }
     const updated = await prisma.whatsappInstance.update({
       where: { id: inst.id },

@@ -309,18 +309,41 @@ export class InboxService {
     try {
       await prisma.conversation.update({
         where: { id: conversationId },
-        data: { lastMessageAt: new Date(), status: 'assigned', assignedToId: userId },
+        data: {
+          lastMessageAt: new Date(),
+          status: 'assigned',
+          assignedToId: userId,
+          // Vendedor respondeu = leu tudo que tinha pendente.
+          unreadCount: 0,
+          lastReadAt: new Date(),
+        },
       })
     } catch (err) {
       console.warn('[sendMessage] update conversation failed:', (err as Error).message)
     }
 
     try {
+      // Monta conversation completa no mesmo shape do GET /api/conversations
+      // pra o frontend conseguir atualizar/prepend a linha sem refetch.
+      const conversationDTO = await this.getConversationById(conversationId, companyId).catch(
+        () => null,
+      )
       socketService.emitToCompany(companyId, 'inbox:new_message', {
         conversationId,
         message: message as any,
         channel: { type: conversation.channel || 'whatsapp', name: 'WhatsApp' },
-      })
+        conversation: conversationDTO
+          ? {
+              ...conversationDTO,
+              lastMessage: message,
+              lastMessagePreview: data.content,
+              lastMessageAt: message.createdAt,
+              unreadCount: 0,
+              status: 'assigned',
+              assignedToId: userId,
+            }
+          : null,
+      } as any)
     } catch (err) {
       console.warn('[sendMessage] socket emit failed:', (err as Error).message)
     }
@@ -344,10 +367,12 @@ export class InboxService {
   }
 
   async markAsRead(id: string, companyId: string) {
-    // Schema atual não tem campo read na Message — implementação no-op
-    // até decidir como modelar "lido". Por ora só valida acesso.
     const conversation = await prisma.conversation.findFirst({ where: { id, companyId } })
     if (!conversation) throw new AppError('Conversation not found', 404, 'NOT_FOUND')
+    await prisma.conversation.update({
+      where: { id },
+      data: { unreadCount: 0, lastReadAt: new Date() },
+    })
     return { ok: true }
   }
 

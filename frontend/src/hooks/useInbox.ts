@@ -47,13 +47,84 @@ export function useConversations(
     const conversationId = payload?.conversationId
     const message = payload?.message
     if (!conversationId || !message) return
-    qc.setQueriesData({ queryKey: ['conversations'] }, (old: ConvListItem[] | undefined) =>
-      moveToFrontAndUpdate(old, conversationId, {
-        lastMessage: message,
-        lastMessagePreview: message.content,
-        lastMessageAt: message.createdAt,
-      }),
-    )
+    // Inbound = cliente mandou → conta como não lida.
+    // Outbound = nós mandamos → não conta (e o backend zera o unread no sendMessage).
+    const isInbound = message.direction === 'inbound'
+    const newConversation = payload?.conversation // shape do GET /api/conversations
+
+    // Rastreia decisão pra log (após setQueriesData rodar em todos os caches).
+    // Wrapper em objeto evita narrowing agressivo do TS pra valor inicial.
+    type CacheAction =
+      | 'updated_existing'
+      | 'prepended_new_conversation'
+      | 'fallback_invalidated'
+      | 'no_cache'
+    const state: { action: CacheAction; foundIndex: number; cacheLength: number } = {
+      action: 'no_cache',
+      foundIndex: -1,
+      cacheLength: 0,
+    }
+
+    qc.setQueriesData({ queryKey: ['conversations'] }, (old: ConvListItem[] | undefined) => {
+      if (!old) {
+        state.action = 'no_cache'
+        return old
+      }
+      state.cacheLength = old.length
+      const idx = old.findIndex((c) => c.id === conversationId)
+      state.foundIndex = idx
+
+      // CASE 1 — conversa já está no cache: atualiza imutável + move pro topo
+      if (idx !== -1) {
+        const current = old[idx]
+        const nextUnread = isInbound ? (current.unreadCount ?? 0) + 1 : 0
+        state.action = 'updated_existing'
+        return moveToFrontAndUpdate(old, conversationId, {
+          lastMessage: message,
+          lastMessagePreview: message.content,
+          lastMessageAt: message.createdAt,
+          unreadCount: nextUnread,
+        })
+      }
+
+      // CASE 2 — conversa NOVA e o backend mandou o objeto completo: prepend
+      if (newConversation && newConversation.id === conversationId) {
+        state.action = 'prepended_new_conversation'
+        const prepended: ConvListItem = {
+          ...newConversation,
+          lastMessage: message,
+          lastMessagePreview: message.content,
+          lastMessageAt: message.createdAt,
+          // Garante unread coerente: inbound = 1, outbound = 0
+          unreadCount: isInbound ? Math.max(1, newConversation.unreadCount ?? 0) : 0,
+        }
+        // Dedup defensivo (não deveria ter, mas garante)
+        const filtered = old.filter((c) => c.id !== conversationId)
+        return [prepended, ...filtered]
+      }
+
+      // CASE 3 — conversa nova MAS backend não mandou objeto: fallback via refetch
+      // Marca aqui; o invalidate é disparado fora do updater (não pode ter side-effect aqui).
+      state.action = 'fallback_invalidated'
+      return old
+    })
+
+    // [TRACE-WA] Prova de decisao do cache
+    console.log('[INBOX_CACHE_DECISION_PROOF]', {
+      tag: 'INBOX_CACHE_DECISION_PROOF',
+      timestamp: new Date().toISOString(),
+      correlationId: payload?.__correlationId,
+      conversationId,
+      messageId: message?.id,
+      cacheLength: state.cacheLength,
+      foundIndex: state.foundIndex,
+      action: state.action,
+    })
+
+    // Side-effect fora do updater
+    if (state.action === 'fallback_invalidated') {
+      qc.invalidateQueries({ queryKey: ['conversations'] })
+    }
   })
   useSocketEvent('conversation:updated', (payload: any) => {
     const conversationId = payload?.conversationId
@@ -168,7 +239,7 @@ export function useMarkAsRead() {
         { queryKey: ['conversations'] },
         (old: ConvListItem[] | undefined) => {
           if (!old) return old
-          return old.map((c) => (c.id === conversationId ? { ...c, isUnread: false } : c))
+          return old.map((c) => (c.id === conversationId ? { ...c, unreadCount: 0 } : c))
         },
       )
     },

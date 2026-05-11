@@ -135,6 +135,20 @@ class SocketService {
     socket.on('message_read', (data) => this.handleMessageRead(socket, data))
     socket.on('disconnect', () => this.handleDisconnect(socket))
 
+    // [TRACE-WA] Log estruturado de conexao com transport efetivo e rooms autojoin
+    console.log(
+      '[SOCKET_CONNECTED] ' +
+        JSON.stringify({
+          tag: 'SOCKET_CONNECTED',
+          socketId: socket.id,
+          userId,
+          companyId,
+          transport: (socket.conn && (socket.conn as any).transport?.name) || 'unknown',
+          roomsJoined: Array.from(socket.rooms).filter((r) => r !== socket.id),
+          connectedAt: new Date().toISOString(),
+        }),
+    )
+
     logger.info(
       {
         socketId: socket.id,
@@ -176,6 +190,20 @@ class SocketService {
             { socketId: socket.id, userId, requested: room, actualCompany: companyId },
             '[JAPAO][socket] tentativa de join cross-tenant bloqueada'
           )
+          // [TRACE-WA] Log estruturado de join (rejeitado cross-tenant)
+          console.log(
+            '[SOCKET_JOIN_ROOM] ' +
+              JSON.stringify({
+                tag: 'SOCKET_JOIN_ROOM',
+                socketId: socket.id,
+                userId,
+                companyId,
+                requestedRoom: room,
+                accepted: false,
+                reason: 'cross_tenant_denied',
+                targetCompany,
+              }),
+          )
           callback?.({
             success: false,
             room,
@@ -191,6 +219,20 @@ class SocketService {
           logger.warn(
             { socketId: socket.id, userId, requested: room },
             '[JAPAO][socket] tentativa de join em room de outro user bloqueada'
+          )
+          // [TRACE-WA] Log estruturado de join (rejeitado user mismatch)
+          console.log(
+            '[SOCKET_JOIN_ROOM] ' +
+              JSON.stringify({
+                tag: 'SOCKET_JOIN_ROOM',
+                socketId: socket.id,
+                userId,
+                companyId,
+                requestedRoom: room,
+                accepted: false,
+                reason: 'user_room_mismatch',
+                targetUser,
+              }),
           )
           callback?.({
             success: false,
@@ -213,6 +255,21 @@ class SocketService {
         'Socket joined room'
       )
 
+      // [TRACE-WA] Log estruturado de join (sucesso)
+      console.log(
+        '[SOCKET_JOIN_ROOM] ' +
+          JSON.stringify({
+            tag: 'SOCKET_JOIN_ROOM',
+            socketId: socket.id,
+            userId,
+            companyId,
+            requestedRoom: room,
+            accepted: true,
+            reason: 'ok',
+            currentRooms: Array.from(socket.rooms).filter((r) => r !== socket.id),
+          }),
+      )
+
       callback?.({
         success: true,
         room,
@@ -221,6 +278,19 @@ class SocketService {
     } catch (error) {
       const room = typeof data === 'string' ? data : data?.room
       logger.error({ error, socketId: socket.id, room }, 'Failed to join room')
+      // [TRACE-WA] Log estruturado de join (falha por exception)
+      console.log(
+        '[SOCKET_JOIN_ROOM] ' +
+          JSON.stringify({
+            tag: 'SOCKET_JOIN_ROOM',
+            socketId: socket.id,
+            userId: socket.data?.userId,
+            companyId: socket.data?.companyId,
+            requestedRoom: room || '',
+            accepted: false,
+            reason: 'exception',
+          }),
+      )
       callback?.({
         success: false,
         room: room || '',

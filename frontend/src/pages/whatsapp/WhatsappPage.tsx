@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import {
-  MessageSquare, Send, Loader2, Bot, User, Circle, CheckCheck, Search,
+  MessageSquare, Send, Loader2, Bot, User, CheckCheck, Search,
   Smartphone, QrCode, CheckCircle2, XCircle, Sparkles, ChevronRight, Wifi, ArrowLeft,
 } from 'lucide-react'
 import {
@@ -186,6 +186,23 @@ function ConversationsLayout() {
   // Real-time: nova mensagem chega → invalida lista (atualiza preview, ordem,
   // contador) e mensagens da conversa ativa. Substitui o polling de 30s.
   useSocketEvent('inbox:new_message', (data: any) => {
+    // [TRACE-WA] PROVA de que o evento chegou ate o navegador da tela /whatsapp
+    try {
+      const sock: any = (window as any).__crmSocket || null
+      console.log('[INBOX_FE_RECEIVED_PROOF]', {
+        tag: 'INBOX_FE_RECEIVED_PROOF',
+        timestamp: new Date().toISOString(),
+        correlationId: data?.__correlationId,
+        conversationId: data?.conversationId,
+        messageId: data?.message?.id,
+        whatsappMessageId: data?.message?.whatsappMessageId,
+        socketConnected: !!sock?.connected,
+        transport: sock?.io?.engine?.transport?.name || 'unknown',
+        currentUrl: window.location.pathname,
+      })
+    } catch {
+      /* log nunca quebra fluxo */
+    }
     queryClient.invalidateQueries({ queryKey: ['conversations'] })
     if (data?.conversationId) {
       queryClient.invalidateQueries({ queryKey: ['messages', data.conversationId] })
@@ -196,9 +213,22 @@ function ConversationsLayout() {
   // só pra não mexer no resto do JSX.
   const filtered = conversations || []
 
+  // [TRACE-WA] PROVA de render — dispara quando a lista efetiva muda
+  useEffect(() => {
+    const top = filtered[0]
+    console.log('[INBOX_RENDER_PROOF]', {
+      tag: 'INBOX_RENDER_PROOF',
+      timestamp: new Date().toISOString(),
+      listLength: filtered.length,
+      topConversationId: top?.id ?? null,
+      topLastMessageAt: top?.lastMessageAt ?? null,
+      topLastMessagePreview: (top as any)?.lastMessagePreview ?? null,
+    })
+  }, [filtered])
+
   const handleSelect = (conv: Conversation) => {
     setSelectedId(conv.id)
-    if (conv.isUnread) markAsRead.mutate(conv.id)
+    if ((conv.unreadCount ?? 0) > 0) markAsRead.mutate(conv.id)
   }
 
   // Notificação sonora + push browser quando chega mensagem nova.
@@ -267,7 +297,10 @@ function ConversationsLayout() {
               <p className="text-[11px] text-gray-600 mt-1">As mensagens recebidas aparecerão aqui</p>
             </div>
           ) : (
-            filtered.map((conv) => (
+            filtered.map((conv) => {
+              const unread = conv.unreadCount ?? 0
+              const hasUnread = unread > 0
+              return (
               <button
                 key={conv.id}
                 onClick={() => handleSelect(conv)}
@@ -283,10 +316,10 @@ function ConversationsLayout() {
                   <div className="flex-1 min-w-0">
                     {/* Linha 1: NOME do cliente (destaque) + horario */}
                     <div className="flex items-center justify-between gap-2">
-                      <span className={`text-sm font-semibold truncate ${conv.isUnread ? 'text-dark-50' : 'text-dark-100'}`}>
+                      <span className={`text-sm truncate ${hasUnread ? 'font-bold text-white' : 'font-semibold text-dark-100'}`}>
                         {conv.contact?.fullName || conv.contact?.firstName || 'Contato'}
                       </span>
-                      <span className="text-[10px] text-dark-400 whitespace-nowrap">
+                      <span className={`text-[10px] whitespace-nowrap ${hasUnread ? 'text-gold-400 font-semibold' : 'text-dark-400'}`}>
                         {formatTimeAgo(conv.lastMessageAt || conv.createdAt)}
                       </span>
                     </div>
@@ -296,17 +329,22 @@ function ConversationsLayout() {
                         {formatBrPhone(conv.contact.phone)}
                       </p>
                     )}
-                    {/* Linha 3: ULTIMA MENSAGEM enviada pelo cliente — cinza claro, italico */}
-                    <p className={`text-xs truncate mt-0.5 italic ${conv.isUnread ? 'text-dark-100 font-medium not-italic' : 'text-dark-400'}`}>
-                      {(conv as any).lastMessagePreview || 'Sem mensagens'}
-                    </p>
+                    {/* Linha 3: ULTIMA MENSAGEM — cinza claro/itálico, ou branca/bold quando não lida */}
+                    <div className="flex items-center justify-between gap-2 mt-0.5">
+                      <p className={`text-xs truncate flex-1 ${hasUnread ? 'text-dark-50 font-semibold not-italic' : 'italic text-dark-400'}`}>
+                        {(conv as any).lastMessagePreview || 'Sem mensagens'}
+                      </p>
+                      {hasUnread && (
+                        <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full bg-gold-500 text-dark-900 text-[10px] font-bold leading-none flex-shrink-0">
+                          {unread > 99 ? '99+' : unread}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  {conv.isUnread && (
-                    <Circle className="w-2 h-2 fill-gold-500 text-gold-500 mt-2" />
-                  )}
                 </div>
               </button>
-            ))
+              )
+            })
           )}
         </div>
       </div>

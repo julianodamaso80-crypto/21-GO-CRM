@@ -118,12 +118,21 @@ export function SocketProvider({ children }: SocketProviderProps) {
 
     setSocket(socketInstance)
 
+    // [TRACE-WA] expoe a instancia pra que os logs PROOF consigam ler transport/connected
+    if (typeof window !== 'undefined') {
+      (window as any).__crmSocket = socketInstance
+    }
+
     // Cleanup on unmount or when dependencies change
     return () => {
       log('Cleaning up socket connection')
       socketInstance.disconnect()
       setSocket(null)
       setConnectionStatus('disconnected')
+      // [TRACE-WA] remove referencia ao desconectar
+      if (typeof window !== 'undefined' && (window as any).__crmSocket === socketInstance) {
+        (window as any).__crmSocket = null
+      }
     }
   }, [isAuthenticated, token, user])
 

@@ -170,7 +170,73 @@ async function resolveCompanyId(): Promise<string | null> {
   return first?.id ?? null
 }
 
-async function handleMessageUpsert(payload: EvolutionWebhookPayload) {
+/**
+ * Monta o DTO de Conversation no MESMO shape que o GET /api/conversations
+ * retorna pra inbox (ver inbox.service.ts → listConversations). Frontend usa
+ * esse shape pra renderizar uma linha da lista direto, sem precisar refetch.
+ *
+ * Reproduzido aqui (e não importado de inbox.service) pra evitar acoplamento
+ * cruzado entre módulos. Drift fica óbvio em revisão — se o shape mudar lá,
+ * tem que mudar aqui também.
+ */
+async function buildConversationDTOById(
+  conversationId: string,
+  fallbackPushName?: string,
+): Promise<any | null> {
+  const c = await prisma.conversation.findUnique({
+    where: { id: conversationId },
+    include: {
+      associado: {
+        select: { id: true, nome: true, email: true, telefone: true, whatsapp: true },
+      },
+      lead: {
+        select: { id: true, nome: true, email: true, telefone: true, whatsapp: true },
+      },
+      assignedTo: {
+        select: { id: true, firstName: true, lastName: true },
+      },
+      messages: {
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        select: { id: true, content: true, sender: true, createdAt: true },
+      },
+    },
+  })
+  if (!c) return null
+
+  const source = c.associado
+    ? {
+        id: c.associado.id,
+        fullName: c.associado.nome,
+        email: c.associado.email,
+        phone: c.associado.whatsapp || c.associado.telefone,
+      }
+    : c.lead
+      ? {
+          id: c.lead.id,
+          fullName: c.lead.nome || fallbackPushName || null,
+          email: c.lead.email,
+          phone: c.lead.whatsapp || c.lead.telefone,
+        }
+      : null
+
+  return {
+    ...c,
+    channel: { type: c.channel, name: c.channel },
+    contact: source
+      ? {
+          ...source,
+          firstName: source.fullName?.split(' ')[0] || '',
+          lastName: source.fullName?.split(' ').slice(1).join(' ') || '',
+          avatar: null,
+        }
+      : null,
+    lastMessage: c.messages[0] || null,
+    lastMessagePreview: c.messages[0]?.content || null,
+  }
+}
+
+async function handleMessageUpsert(payload: EvolutionWebhookPayload, correlationId: string) {
   const data = payload.data
   if (!data) return { ignored: 'no_data' }
 
@@ -302,6 +368,29 @@ async function handleMessageUpsert(payload: EvolutionWebhookPayload) {
     // edge case
   }
 
+  // [TRACE-WA] Captura lastMessageAt anterior pra evidenciar drift no update
+  const persistStart = Date.now()
+  const convBefore = await prisma.conversation.findUnique({
+    where: { id: conversation.id },
+    select: { lastMessageAt: true, unreadCount: true },
+  })
+
+  console.log(
+    '[WA_MESSAGE_PERSIST_START] ' +
+      JSON.stringify({
+        tag: 'WA_MESSAGE_PERSIST_START',
+        correlationId,
+        companyId,
+        leadId,
+        associadoId: associado?.id ?? null,
+        conversationId: conversation.id,
+        whatsappMessageId: whatsappMessageId || null,
+        direction: 'inbound',
+        oldLastMessageAt: convBefore?.lastMessageAt?.toISOString() || null,
+        kind,
+      }),
+  )
+
   // 5. Persiste a mensagem com TIMESTAMP REAL da Evolution (não now()).
   const message = await prisma.message.create({
     data: {
@@ -320,17 +409,59 @@ async function handleMessageUpsert(payload: EvolutionWebhookPayload) {
 
   // lastMessageAt também usa o timestamp real — só atualiza se for mais
   // recente que o atual (evita regressão se mensagem antiga chegou atrasada).
-  await prisma.conversation.updateMany({
+  // unreadCount incrementa junto: só conta como "nova" se a msg é mais recente
+  // que a última conhecida — assim msg histórica atrasada não fura o contador.
+  const updateResult = await prisma.conversation.updateMany({
     where: {
       id: conversation.id,
       OR: [{ lastMessageAt: null }, { lastMessageAt: { lt: messageTs } }],
     },
-    data: { lastMessageAt: messageTs },
+    data: { lastMessageAt: messageTs, unreadCount: { increment: 1 } },
   })
+
+  console.log(
+    '[WA_MESSAGE_PERSIST_DONE] ' +
+      JSON.stringify({
+        tag: 'WA_MESSAGE_PERSIST_DONE',
+        correlationId,
+        messageId: message.id,
+        conversationId: conversation.id,
+        newLastMessageAt: messageTs.toISOString(),
+        lastMessageAtUpdated: updateResult.count > 0,
+        durationMs: Date.now() - persistStart,
+      }),
+  )
 
   // 6. Socket.io
   try {
-    socketService.emitToCompany(companyId, 'inbox:new_message', {
+    // [TRACE-WA] Conta clientes em cada room antes do emit
+    const io = socketService.getIO()
+    const roomCompany = `company:${companyId}`
+    const roomInbox = `inbox:${companyId}`
+    let clientsInCompanyRoom = -1
+    let clientsInInboxRoom = -1
+    if (io) {
+      try {
+        const sockCompany = await io.in(roomCompany).fetchSockets()
+        clientsInCompanyRoom = sockCompany.length
+      } catch {
+        /* fetchSockets pode falhar em adapter sem suporte — segue */
+      }
+      try {
+        const sockInbox = await io.in(roomInbox).fetchSockets()
+        clientsInInboxRoom = sockInbox.length
+      } catch {
+        /* idem */
+      }
+    }
+
+    // Monta `conversation` no mesmo shape do GET /api/conversations.
+    // Permite que o frontend insira a linha direto na lista (prepend) sem refetch.
+    const conversationDTO = await buildConversationDTOById(conversation.id, pushName).catch(
+      () => null,
+    )
+
+    const payload = {
       conversationId: conversation.id,
       message: message as any,
       contact: {
@@ -338,9 +469,43 @@ async function handleMessageUpsert(payload: EvolutionWebhookPayload) {
         fullName: associado?.nome || pushName,
       },
       channel: { type: 'whatsapp', name: 'WhatsApp' },
-    })
+      // Payload completo da conversation pra prepend imediato no front
+      conversation: conversationDTO,
+      // [TRACE-WA] propaga correlationId pro frontend
+      __correlationId: correlationId,
+    }
+
+    // [TRACE-WA] PROVA DE EMISSÃO — log no ponto exato antes de emitir
+    console.log(
+      '[INBOX_EMIT_PROOF] ' +
+        JSON.stringify({
+          tag: 'INBOX_EMIT_PROOF',
+          timestamp: new Date().toISOString(),
+          correlationId,
+          companyId,
+          conversationId: conversation.id,
+          messageId: message.id,
+          whatsappMessageId: whatsappMessageId || null,
+          room: roomCompany,
+          roomInbox,
+          clientsInRoom: clientsInCompanyRoom,
+          clientsInInboxRoom,
+          socketInitialized: socketService.isInitialized(),
+          payloadKeys: Object.keys(payload),
+          conversationIncluded: !!conversationDTO,
+        }),
+    )
+
+    socketService.emitToCompany(companyId, 'inbox:new_message', payload as any)
   } catch (err) {
-    console.warn('[EvolutionWebhook] socket emit failed:', (err as Error).message)
+    console.warn(
+      '[INBOX_SOCKET_EMIT_FAIL] ' +
+        JSON.stringify({
+          tag: 'INBOX_SOCKET_EMIT_FAIL',
+          correlationId,
+          err: (err as Error).message,
+        }),
+    )
   }
 
   return {
@@ -353,7 +518,7 @@ async function handleMessageUpsert(payload: EvolutionWebhookPayload) {
   }
 }
 
-async function handleSendMessage(payload: EvolutionWebhookPayload) {
+async function handleSendMessage(payload: EvolutionWebhookPayload, _correlationId: string) {
   // Log de mensagens que NÓS enviamos — útil pra auditoria,
   // mas a persistência principal é feita pelo módulo que dispara o envio.
   const data = payload.data
@@ -369,7 +534,7 @@ async function handleSendMessage(payload: EvolutionWebhookPayload) {
   return { logged: true, alreadyPersisted: !!existing }
 }
 
-async function handleConnectionUpdate(payload: EvolutionWebhookPayload) {
+async function handleConnectionUpdate(payload: EvolutionWebhookPayload, _correlationId: string) {
   const state = payload.data?.state || payload.data?.connection
   console.log(`[EvolutionWebhook] connection update → ${state}`, {
     instance: payload.instance,
@@ -377,16 +542,20 @@ async function handleConnectionUpdate(payload: EvolutionWebhookPayload) {
   return { logged: true, state }
 }
 
-export async function processEvolutionWebhook(payload: EvolutionWebhookPayload) {
+export async function processEvolutionWebhook(
+  payload: EvolutionWebhookPayload,
+  // [TRACE-WA] correlationId injetado pela route; fallback caso seja chamado de outro lugar
+  correlationId: string = `proc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+) {
   const event = (payload.event || '').toLowerCase().replace(/_/g, '.')
 
   switch (event) {
     case 'messages.upsert':
-      return handleMessageUpsert(payload)
+      return handleMessageUpsert(payload, correlationId)
     case 'send.message':
-      return handleSendMessage(payload)
+      return handleSendMessage(payload, correlationId)
     case 'connection.update':
-      return handleConnectionUpdate(payload)
+      return handleConnectionUpdate(payload, correlationId)
     default:
       return { ignored: 'unhandled_event', event: payload.event }
   }
