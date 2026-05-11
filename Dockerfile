@@ -1,38 +1,48 @@
 # =====================================================================
-# 21Go CRM — Dockerfile multi-stage
+# 21Go CRM — Dockerfile multi-stage otimizado
 # Builda frontend (Vite) + backend (Fastify TS) num único container.
 # Fastify serve API em /api/* e SPA estática em / (com fallback p/ index.html)
+#
+# Otimizações chave:
+# - npm workspaces com lockfile na raiz → npm ci (3-5x mais rápido que npm install)
+# - Stage `deps` isolado → cache de layer só invalida se package*.json mudar
+# - COPY de código DEPOIS do install → mudança em src/ não reinstala deps
 # =====================================================================
 
 # ─────────────────────────────────────────────────────────────────────
-# STAGE 1 — build do frontend (Vite SPA)
+# STAGE 1 — deps (compartilhado por frontend e backend)
+# Só invalida cache se algum package.json ou lockfile mudar.
 # ─────────────────────────────────────────────────────────────────────
-FROM node:20-slim AS frontend-builder
-
-WORKDIR /app/frontend
-
-COPY frontend/package.json frontend/package-lock.json* ./
-RUN npm install --no-audit --no-fund
-
-COPY shared/ /app/shared/
-COPY frontend/ ./
-
-RUN npm run build
-
-# ─────────────────────────────────────────────────────────────────────
-# STAGE 2 — build do backend (Fastify TS → JS)
-# ─────────────────────────────────────────────────────────────────────
-FROM node:20-slim AS backend-builder
+FROM node:20-slim AS deps
 
 WORKDIR /app
 
-COPY package.json package-lock.json* ./
+# Lockfile + manifests dos 3 workspaces (frontend, backend, shared)
+COPY package.json package-lock.json ./
+COPY frontend/package.json ./frontend/
 COPY backend/package.json ./backend/
+COPY shared/package.json ./shared/
+
+# npm ci é determinístico e 3-5x mais rápido que npm install.
+# --ignore-scripts evita postinstall (prisma generate) antes de copiar o schema.
+RUN npm ci --no-audit --no-fund --ignore-scripts
+
+# ─────────────────────────────────────────────────────────────────────
+# STAGE 2 — build do frontend (Vite SPA)
+# ─────────────────────────────────────────────────────────────────────
+FROM deps AS frontend-builder
+
 COPY shared/ ./shared/
+COPY frontend/ ./frontend/
 
-# Instala deps SEM rodar postinstall (evita prisma generate prematuro)
-RUN npm install --workspace=backend --include-workspace-root --no-audit --no-fund --ignore-scripts
+RUN npm run build --workspace=frontend
 
+# ─────────────────────────────────────────────────────────────────────
+# STAGE 3 — build do backend (Fastify TS → JS)
+# ─────────────────────────────────────────────────────────────────────
+FROM deps AS backend-builder
+
+COPY shared/ ./shared/
 COPY backend/ ./backend/
 
 WORKDIR /app/backend
@@ -40,11 +50,11 @@ RUN npx prisma generate
 RUN npx tsup
 
 # ─────────────────────────────────────────────────────────────────────
-# STAGE 3 — runtime
+# STAGE 4 — runtime
 # ─────────────────────────────────────────────────────────────────────
 FROM node:20-slim AS runtime
 
-# Chromium do sistema + libs do Puppeteer
+# Chromium do sistema + libs do Puppeteer (usado pra gerar PDFs de cotação)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
     ca-certificates \

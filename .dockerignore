@@ -1,33 +1,102 @@
+# =====================================================================
+# .dockerignore — reduz o contexto enviado ao Docker daemon
+# Quanto menos arquivo aqui, mais rápido o "transferring context"
+# =====================================================================
+
+# Deps e builds (Docker reinstala/rebuilda do zero)
 node_modules
 **/node_modules
 **/dist
 **/build
 **/.next
 **/out
+**/.cache
+**/.turbo
+**/.parcel-cache
+
+# Logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Envs (NUNCA ir pro build)
 .env
 .env.*
 !.env.example
+**/.env
+**/.env.*
+
+# Git/IDE/SO
 .git
 .gitignore
+.gitattributes
+.github
 .vscode
 .idea
 .DS_Store
+Thumbs.db
+
+# Vercel/Netlify
 .vercel
+.netlify
+
+# Claude/AI tooling
 .claude
+.cursor
+CLAUDE.md
+**/CLAUDE.md
+
+# Documentação (todos *.md) — não precisa em prod
+*.md
+**/*.md
+
+# Projetos paralelos no monorepo que não vão pro CRM
 21go-website
 21go-router
 21go-squad
+
+# Configs de dev
 docker-compose*.yml
-README.md
-*.md
-!CLAUDE.md
-api
-frontend/.gitignore
-backend/.env*
-DEPLOY_EASYPANEL.md
-PROXIMOS_PASSOS.md
-scripts
-test
-tests
-coverage
+docker/
+
+# Tests / coverage
+**/test
+**/tests
+**/__tests__
+**/coverage
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+
+# Scripts locais
+scripts/
+
+# Backups Prisma
+backend/prisma/*.backup
+backend/prisma/dev.db*
+
+# Dockerfiles de DEV (não usar como build target em prod)
+backend/Dockerfile
+frontend/Dockerfile
+
+# Diagnósticos/auditorias (arquivos grandes de troubleshooting)
+DEBUG-*
+DEBUG_*
+DIAGNOSTICO_*
+DIAGNOSTICO-*
+AUDITORIA*
+ENTREGA.md
+IMPLEMENTACAO_*
+INSTALAR_*
+DEPLOY_*
+DEPLOY-*
+FASE-*
+PROJETO-*
+PROXIMOS_PASSOS*
+RELATORIO*
+CHANGELOG*
+
+# Lockfiles de outros gerenciadores (se houver)
+yarn.lock
+pnpm-lock.yaml
