@@ -14,6 +14,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useSocketEvent } from '../../hooks/useSocketEvent'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { MessageContent } from '../../components/MessageContent'
 
 interface CardDrawerProps {
   cardId: string
@@ -693,7 +694,13 @@ function MessageBubble({ message }: { message: any }) {
             : 'bg-dark-800 border border-dark-700/40 text-gray-100 rounded-bl-sm'
         }`}
       >
-        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+        <MessageContent
+          messageType={message.messageType}
+          content={message.content}
+          mediaBase64={message.mediaBase64}
+          mediaMimeType={message.mediaMimeType}
+          outbound={isOutbound}
+        />
         <p className={`text-[10px] mt-1 ${isOutbound ? 'text-emerald-100' : 'text-gray-500'}`}>
           {new Date(message.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
         </p>

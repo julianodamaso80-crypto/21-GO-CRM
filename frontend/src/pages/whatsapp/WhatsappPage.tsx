@@ -14,6 +14,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { toast } from 'sonner'
 import type { Conversation, Message, ConversationStatus } from '../../../../shared/types'
+import { MessageContent } from '../../components/MessageContent'
 
 const STATUS_MAP: Record<ConversationStatus, { label: string; cls: string }> = {
   open: { label: 'Aberto', cls: 'bg-accent-blue/15 text-accent-blue' },
@@ -608,7 +609,13 @@ function MessageBubble({ message }: { message: Message }) {
             <span className="text-[10px] text-blue-200">{senderLabel}</span>
           </div>
         )}
-        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+        <MessageContent
+          messageType={(message as any).messageType}
+          content={message.content}
+          mediaBase64={(message as any).mediaBase64}
+          mediaMimeType={(message as any).mediaMimeType}
+          outbound={isOutbound}
+        />
         <div className={`flex items-center justify-end gap-1 mt-1 ${isOutbound ? 'text-blue-200' : 'text-gray-500'}`}>
           <span className="text-[10px]">
             {new Date(message.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
