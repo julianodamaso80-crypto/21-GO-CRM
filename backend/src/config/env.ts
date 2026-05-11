@@ -76,8 +76,10 @@ const envSchema = z.object({
   SENTRY_DSN: z.string().optional(),
 
   // Rate Limiting
-  RATE_LIMIT_WINDOW_MS: z.coerce.number().default(900000),
-  RATE_LIMIT_MAX_REQUESTS: z.coerce.number().default(100),
+  // 600 req/min por IP. Antes era 100/15min — bloqueava o inbox da Leticya
+  // em uso normal (Socket.IO polling + heartbeat + invalidateQueries).
+  RATE_LIMIT_WINDOW_MS: z.coerce.number().default(60_000),
+  RATE_LIMIT_MAX_REQUESTS: z.coerce.number().default(600),
 
   // API Brasil (consulta de placa + FIPE — endpoint de crédito)
   APIBRASIL_TOKEN: z.string().optional(),
