@@ -2,17 +2,22 @@ import { prisma } from '../../config/database'
 
 export type LeadTipo = 'consultor' | 'associado'
 
+const NOMES_GENERICOS = new Set(['', '21 Go', '21Go', 'Voce', 'Você', '.', '..', '...'])
+
 /**
  * Regra absoluta do projeto: TODO lead deve ter card num funil do Kanban.
  *
  * Heurística de classificação (em ordem de precedência):
  *  1. hint explícito (`'consultor' | 'associado'`)
- *  2. lead.origem === 'seja_consultor'        → consultor
- *  3. lead.qualificadoPor === 'site_consultor' → consultor
+ *  2. lead.origem contém "consultor"          → consultor
+ *  3. lead.qualificadoPor contém "consultor"  → consultor
  *  4. fallback: associado
  *
- * Idempotência: se já existe card com title === lead.nome no funil resolvido,
+ * Idempotência: chave é `cards.leadId` (1:1). Se já existe card desse lead,
  * devolve o existente em vez de duplicar.
+ *
+ * Sanitização de title: se o nome do lead é genérico (vinda lixo de pushName
+ * do WhatsApp tipo "21 Go", "Você", "."), usa últimos 4 dígitos do whatsapp.
  */
 export async function ensureCardForLead(
   leadId: string,
@@ -34,6 +39,20 @@ export async function ensureCardForLead(
   if (!lead) {
     console.warn(`[ensureCardForLead] Lead ${leadId} não encontrado`)
     return null
+  }
+
+  // Idempotência por leadId (1:1)
+  const existingByLead = await prisma.card.findFirst({
+    where: { leadId: lead.id },
+    select: { id: true, pipeId: true, currentPhaseId: true },
+  })
+  if (existingByLead) {
+    return {
+      cardId: existingByLead.id,
+      pipeId: existingByLead.pipeId,
+      phaseId: existingByLead.currentPhaseId,
+      created: false,
+    }
   }
 
   const tipo: LeadTipo = resolveTipo(hint, lead)
@@ -62,14 +81,6 @@ export async function ensureCardForLead(
     return null
   }
 
-  const existing = await prisma.card.findFirst({
-    where: { companyId: lead.companyId, pipeId: pipe.id, title: lead.nome },
-    select: { id: true, currentPhaseId: true },
-  })
-  if (existing) {
-    return { cardId: existing.id, pipeId: pipe.id, phaseId: existing.currentPhaseId, created: false }
-  }
-
   const creatorId = await resolveCreatorId(lead.companyId, lead.vendedorId)
   if (!creatorId) {
     console.warn(`[ensureCardForLead] Sem user pra createdById em ${lead.companyId}. Pulando.`)
@@ -77,21 +88,36 @@ export async function ensureCardForLead(
   }
 
   const phoneTag = lead.whatsapp || lead.telefone || ''
+  const title = sanitizeCardTitle(lead.nome, phoneTag, lead.id)
+
   const card = await prisma.card.create({
     data: {
       companyId: lead.companyId,
       pipeId: pipe.id,
       currentPhaseId: firstPhase.id,
-      title: lead.nome,
+      title,
       description: `Lead ${tipo} — origem: ${lead.origem || '-'}${phoneTag ? ` — ${phoneTag}` : ''}`,
       status: 'active',
       createdById: creatorId,
       assignedToId: lead.vendedorId || null,
+      leadId: lead.id,
     },
     select: { id: true },
   })
 
   return { cardId: card.id, pipeId: pipe.id, phaseId: firstPhase.id, created: true }
+}
+
+function sanitizeCardTitle(nome: string, phone: string, leadId: string): string {
+  const trimmed = (nome || '').trim()
+  if (NOMES_GENERICOS.has(trimmed) || trimmed.length < 2) {
+    const digits = phone.replace(/\D/g, '')
+    if (digits.length >= 4) {
+      return `Lead ${digits.slice(-4)} (sem nome)`
+    }
+    return `Lead sem nome (${leadId.slice(0, 8)})`
+  }
+  return trimmed
 }
 
 function resolveTipo(
@@ -120,41 +146,33 @@ async function resolveCreatorId(companyId: string, vendedorId: string | null): P
 }
 
 /**
- * Backfill: percorre leads sem card e cria card pra cada um.
+ * Backfill: percorre leads sem card (cards.leadId NULL) e cria card pra cada um.
  * Idempotente — pode rodar várias vezes sem duplicar.
- * Retorna estatísticas.
+ *
+ * OBS: a migration 20260515_fix_card_idempotency_lead_id já faz isso em SQL
+ * dentro do próprio banco. Este helper fica como fallback caso novos leads
+ * cheguem por algum caminho que não dispara o trigger (situação que NÃO
+ * deveria mais existir, mas por segurança mantemos).
  */
 export async function backfillCardsForOrphanLeads(
   companyId: string,
-  limit = 500,
+  limit = 1000,
 ): Promise<{ scanned: number; created: number; alreadyHadCard: number; skipped: number }> {
   const leads = await prisma.lead.findMany({
-    where: { companyId },
-    select: { id: true, nome: true },
+    where: { companyId, cards: { none: {} } },
+    select: { id: true },
     orderBy: { createdAt: 'desc' },
     take: limit,
   })
 
-  const titles = leads.map((l) => l.nome)
-  const existing = await prisma.card.findMany({
-    where: { companyId, title: { in: titles } },
-    select: { title: true },
-  })
-  const haveCard = new Set(existing.map((c) => c.title))
-
   let created = 0
-  let alreadyHadCard = 0
   let skipped = 0
 
   for (const l of leads) {
-    if (haveCard.has(l.nome)) {
-      alreadyHadCard++
-      continue
-    }
     const result = await ensureCardForLead(l.id)
     if (result?.created) created++
     else skipped++
   }
 
-  return { scanned: leads.length, created, alreadyHadCard, skipped }
+  return { scanned: leads.length, created, alreadyHadCard: 0, skipped }
 }

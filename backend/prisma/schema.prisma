@@ -341,6 +341,9 @@ model Lead {
   // Indicacao que gerou este lead (back-reference)
   indicacaoOrigem Indicacao?
 
+  // Cards no Kanban (back-reference — regra: 1 lead -> 1 card)
+  cards Card[] @relation("LeadCard")
+
   // Conversations
   conversations Conversation[]
 
@@ -1008,6 +1011,10 @@ model Card {
   assignedToId String? @map("assigned_to_id")
   assignedTo   User?   @relation("AssignedCards", fields: [assignedToId], references: [id], onDelete: SetNull)
 
+  // Lead origem (1:1) — chave de idempotencia do trigger fn_ensure_card_for_lead
+  leadId String? @map("lead_id")
+  lead   Lead?   @relation("LeadCard", fields: [leadId], references: [id], onDelete: SetNull)
+
   dueDate     DateTime? @map("due_date")
   completedAt DateTime? @map("completed_at")
 
@@ -1019,6 +1026,7 @@ model Card {
   @@index([companyId, pipeId])
   @@index([currentPhaseId])
   @@index([status])
+  @@index([leadId])
   @@map("cards")
 }
 
