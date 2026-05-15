@@ -6,13 +6,19 @@ import { ensureCardForLead } from '../leads/lead-card.helper'
  * Webhook da Evolution API (WhatsApp via Baileys).
  * Recebe eventos MESSAGES_UPSERT, SEND_MESSAGE, CONNECTION_UPDATE.
  *
- * Fluxo principal (MESSAGES_UPSERT inbound):
- *  1. Ignora mensagens do próprio bot (fromMe) e de grupos.
- *  2. Idempotência via whatsappMessageId (evita processar 2x).
- *  3. Procura Associado → depois Lead → cria Lead novo se nada bater.
- *  4. Abre (ou reusa) Conversation.
- *  5. Persiste Message com tipo + mídia.
- *  6. Emite inbox:new_message via Socket.io.
+ * Fluxo principal (MESSAGES_UPSERT — inbound OU outbound do WhatsApp Web do vendedor):
+ *  1. Descarta mensagens de grupo (sempre, mesmo fromMe — equipe interna posta lá).
+ *  2. Decide direction: fromMe=true → 'outbound' (vendedora respondendo via WhatsApp Web/celular).
+ *  3. Idempotência via whatsappMessageId UNIQUE — protege contra dupla persistência
+ *     quando inbox.service.sendMessage já gravou a mesma mensagem antes do webhook chegar.
+ *  4. Procura Associado → depois Lead → cria Lead novo se nada bater.
+ *     Em outbound, pushName é a vendedora — NÃO usar como nome de lead novo,
+ *     cai em fallback "Contato XXXX" (4 últimos dígitos do telefone).
+ *  5. Abre (ou reusa) Conversation.
+ *  6. Persiste Message com direction/sender/senderId corretos.
+ *  7. Atualiza Conversation: inbound incrementa unreadCount; outbound zera +
+ *     marca como 'assigned' + atribui ao user da instância (vendedora respondeu = leu tudo).
+ *  8. Emite inbox:new_message via Socket.io.
  */
 
 interface EvolutionWebhookPayload {
@@ -164,6 +170,74 @@ function firstName(raw: string | undefined): string {
   return raw.trim().split(/\s+/).slice(0, 3).join(' ') || 'Contato WhatsApp'
 }
 
+// ============================================================================
+// Funções puras (exportadas pra teste) — decisões de direção / sender /
+// payload de update da conversation. Mantém handleMessageUpsert legível e
+// permite testar a lógica sem mockar Prisma inteiro.
+// ============================================================================
+
+export type Direction = 'inbound' | 'outbound'
+
+export function resolveDirection(fromMe: boolean): Direction {
+  return fromMe ? 'outbound' : 'inbound'
+}
+
+/**
+ * pushName é do REMETENTE da mensagem WhatsApp. Em outbound (fromMe:true),
+ * é o nome do perfil da vendedora — NUNCA usar como nome de lead novo.
+ * Fallback usa os 4 últimos dígitos do telefone do CONTATO (não da vendedora).
+ */
+export function resolvePushName(
+  fromMe: boolean,
+  dataPushName: string | undefined,
+  phone: string,
+): string {
+  if (fromMe) return `Contato ${phone.slice(-4)}`
+  return firstName(dataPushName)
+}
+
+export function resolveSender(
+  fromMe: boolean,
+  hasAssociado: boolean,
+): 'vendedor' | 'associado' | 'lead' {
+  if (fromMe) return 'vendedor'
+  return hasAssociado ? 'associado' : 'lead'
+}
+
+/**
+ * Payload do UPDATE da conversation depois de gravar a mensagem.
+ *  - inbound: incrementa unreadCount, mantém status/assigned como estão.
+ *  - outbound: zera unreadCount + lastReadAt (vendedora respondeu = leu tudo,
+ *    isso é verdade independente de quem é dono). Se a instância está mapeada
+ *    pra um user (assignedUserId !== null), também força status='assigned' e
+ *    atribui à vendedora. Se NÃO está mapeada, preserva assignedToId/status
+ *    atuais — não "rouba" a conversa pra ninguém (defesa contra instância
+ *    nova criada sem rodar mapping em whatsapp_instances).
+ */
+export function buildConversationUpdate(
+  direction: Direction,
+  messageTs: Date,
+  assignedUserId: string | null,
+  now: Date = new Date(),
+): Record<string, unknown> {
+  if (direction === 'inbound') {
+    return { lastMessageAt: messageTs, unreadCount: { increment: 1 } }
+  }
+  const base = {
+    lastMessageAt: messageTs,
+    unreadCount: 0,
+    lastReadAt: now,
+  }
+  if (assignedUserId === null) {
+    return base
+  }
+  return {
+    ...base,
+    status: 'assigned',
+    assignedToId: assignedUserId,
+  }
+}
+
 async function resolveCompanyId(): Promise<string | null> {
   if (process.env.DEFAULT_COMPANY_ID) return process.env.DEFAULT_COMPANY_ID
   const first = await prisma.company.findFirst({ select: { id: true } })
@@ -251,11 +325,17 @@ async function handleMessageUpsert(payload: EvolutionWebhookPayload, correlation
     ? new Date(Number(data.messageTimestamp) * 1000)
     : new Date()
 
-  if (fromMe) return { ignored: 'from_me' }
+  // Grupo descarta SEMPRE — mesmo fromMe (vendedora posta no grupo interno
+  // da equipe e isso não pode contaminar Inbox de lead nenhum).
+  // ORDEM IMPORTA: filtro de grupo TEM que vir antes do tratamento de fromMe.
   if (isGroup(remoteJid)) return { ignored: 'group' }
 
   const phone = extractPhoneFromJid(remoteJid)
   if (!phone) return { ignored: 'invalid_jid', remoteJid }
+
+  // Decide direção: fromMe=true (vendedora respondeu via WhatsApp Web/celular)
+  // → outbound. Senão → inbound (cliente mandando).
+  const direction = resolveDirection(fromMe)
 
   // Idempotência
   if (whatsappMessageId) {
@@ -285,7 +365,9 @@ async function handleMessageUpsert(payload: EvolutionWebhookPayload, correlation
   const companyId = mappedCompanyId || (await resolveCompanyId())
   if (!companyId) return { ignored: 'no_company' }
 
-  const pushName = firstName(data.pushName)
+  // pushName é o nome do REMETENTE. Em outbound, é o nome do perfil da
+  // vendedora ("Consultora leticya- 21go") — NÃO usar pra nomear lead novo.
+  const pushName = resolvePushName(fromMe, data.pushName, phone)
   const { kind, content, mimetype } = detectMessageKind(data.message)
   const base64: string | undefined = data.message?.base64 || data.base64
 
@@ -375,6 +457,9 @@ async function handleMessageUpsert(payload: EvolutionWebhookPayload, correlation
     select: { lastMessageAt: true, unreadCount: true },
   })
 
+  const sender = resolveSender(fromMe, !!associado)
+  const senderId = fromMe ? assignedUserId : null
+
   console.log(
     '[WA_MESSAGE_PERSIST_START] ' +
       JSON.stringify({
@@ -385,7 +470,9 @@ async function handleMessageUpsert(payload: EvolutionWebhookPayload, correlation
         associadoId: associado?.id ?? null,
         conversationId: conversation.id,
         whatsappMessageId: whatsappMessageId || null,
-        direction: 'inbound',
+        direction,
+        sender,
+        senderId,
         oldLastMessageAt: convBefore?.lastMessageAt?.toISOString() || null,
         kind,
       }),
@@ -397,8 +484,9 @@ async function handleMessageUpsert(payload: EvolutionWebhookPayload, correlation
       companyId,
       conversationId: conversation.id,
       content,
-      sender: associado ? 'associado' : 'lead',
-      direction: 'inbound',
+      sender,
+      senderId,
+      direction,
       messageType: kind === 'unknown' ? 'text' : kind,
       mediaBase64: base64 || null,
       mediaMimeType: mimetype || null,
@@ -407,16 +495,18 @@ async function handleMessageUpsert(payload: EvolutionWebhookPayload, correlation
     },
   })
 
-  // lastMessageAt também usa o timestamp real — só atualiza se for mais
-  // recente que o atual (evita regressão se mensagem antiga chegou atrasada).
-  // unreadCount incrementa junto: só conta como "nova" se a msg é mais recente
-  // que a última conhecida — assim msg histórica atrasada não fura o contador.
+  // lastMessageAt usa o timestamp real — só atualiza se for mais recente que
+  // o atual (evita regressão se mensagem antiga chegou atrasada).
+  //  - inbound: unreadCount incrementa.
+  //  - outbound (fromMe:true): vendedora respondeu = leu tudo, zera unreadCount
+  //    + marca como assigned + atribui à dona da instância. Mesma semântica
+  //    que inbox.service.sendMessage usa (mantém comportamento consistente).
   const updateResult = await prisma.conversation.updateMany({
     where: {
       id: conversation.id,
       OR: [{ lastMessageAt: null }, { lastMessageAt: { lt: messageTs } }],
     },
-    data: { lastMessageAt: messageTs, unreadCount: { increment: 1 } },
+    data: buildConversationUpdate(direction, messageTs, assignedUserId) as any,
   })
 
   console.log(
@@ -426,6 +516,7 @@ async function handleMessageUpsert(payload: EvolutionWebhookPayload, correlation
         correlationId,
         messageId: message.id,
         conversationId: conversation.id,
+        direction,
         newLastMessageAt: messageTs.toISOString(),
         lastMessageAtUpdated: updateResult.count > 0,
         durationMs: Date.now() - persistStart,
@@ -486,6 +577,7 @@ async function handleMessageUpsert(payload: EvolutionWebhookPayload, correlation
           conversationId: conversation.id,
           messageId: message.id,
           whatsappMessageId: whatsappMessageId || null,
+          direction,
           room: roomCompany,
           roomInbox,
           clientsInRoom: clientsInCompanyRoom,
@@ -514,6 +606,7 @@ async function handleMessageUpsert(payload: EvolutionWebhookPayload, correlation
     conversationId: conversation.id,
     leadId,
     associadoId: associado?.id ?? null,
+    direction,
     kind,
   }
 }
