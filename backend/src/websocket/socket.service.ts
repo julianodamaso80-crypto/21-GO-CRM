@@ -44,6 +44,36 @@ class SocketService {
       // Event handlers
       this.io.on('connection', this.handleConnection.bind(this))
 
+      // [INSTRUMENTATION_TEMP] Captura erros do Engine.IO (handshake, upgrade,
+      // protocol violations). Sem isso ficamos cegos pro motivo real de
+      // falhas no nivel de transporte. REMOVER apos diagnostico.
+      this.io.engine.on('connection_error', (err: any) => {
+        console.log(
+          '[ENGINE_CONNECTION_ERROR] ' +
+            JSON.stringify({
+              tag: 'ENGINE_CONNECTION_ERROR',
+              code: err?.code ?? null,
+              message: err?.message ?? null,
+              context: err?.context ?? null,
+              type: err?.type ?? null,
+              req: err?.req
+                ? {
+                    url: err.req.url,
+                    method: err.req.method,
+                    headers: {
+                      upgrade: err.req.headers?.upgrade,
+                      connection: err.req.headers?.connection,
+                      'sec-websocket-version': err.req.headers?.['sec-websocket-version'],
+                      'sec-websocket-extensions': err.req.headers?.['sec-websocket-extensions'],
+                      'user-agent': err.req.headers?.['user-agent']?.slice(0, 80),
+                    },
+                  }
+                : null,
+              ts: new Date().toISOString(),
+            }),
+        )
+      })
+
       logger.info('Socket.io initialized successfully')
     } catch (error) {
       logger.error({ error }, 'Failed to initialize Socket.io')
@@ -133,7 +163,9 @@ class SocketService {
     socket.on('typing', (data) => this.handleTyping(socket, data))
     socket.on('stop_typing', (data) => this.handleStopTyping(socket, data))
     socket.on('message_read', (data) => this.handleMessageRead(socket, data))
-    socket.on('disconnect', () => this.handleDisconnect(socket))
+    socket.on('disconnect', (reason, description) =>
+      this.handleDisconnect(socket, reason, description),
+    )
 
     // [TRACE-WA] Log estruturado de conexao com transport efetivo e rooms autojoin
     console.log(
@@ -438,7 +470,11 @@ class SocketService {
   /**
    * Handle de disconnect event
    */
-  private handleDisconnect(socket: TypedSocket): void {
+  private handleDisconnect(
+    socket: TypedSocket,
+    reason?: string,
+    description?: unknown,
+  ): void {
     const { userId, companyId } = socket.data
 
     // Notificar outros usuários da empresa que este usuário está offline
@@ -449,11 +485,46 @@ class SocketService {
       timestamp: new Date().toISOString(),
     })
 
+    // [INSTRUMENTATION_TEMP] Loga motivo REAL do disconnect + transport
+    // efetivo no momento da queda. REMOVER apos diagnostico.
+    const transport =
+      (socket.conn && (socket.conn as any).transport?.name) || 'unknown'
+    let descriptionSerialized: any = null
+    try {
+      if (description instanceof Error) {
+        descriptionSerialized = {
+          name: description.name,
+          message: description.message,
+          type: (description as any).type ?? null,
+        }
+      } else if (description !== undefined && description !== null) {
+        descriptionSerialized = description
+      }
+    } catch (_e) {
+      descriptionSerialized = String(description)
+    }
+
+    console.log(
+      '[SOCKET_DISCONNECTED] ' +
+        JSON.stringify({
+          tag: 'SOCKET_DISCONNECTED',
+          socketId: socket.id,
+          userId,
+          companyId,
+          reason: reason ?? 'unknown',
+          description: descriptionSerialized,
+          transport,
+          ts: new Date().toISOString(),
+        }),
+    )
+
     logger.info(
       {
         socketId: socket.id,
         userId,
         companyId,
+        reason: reason ?? 'unknown',
+        transport,
       },
       'Socket disconnected'
     )
