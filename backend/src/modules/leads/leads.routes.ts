@@ -74,7 +74,8 @@ export async function leadsRoutes(fastify: FastifyInstance) {
         type: 'object',
         required: ['id'],
         properties: {
-          id: { type: 'string', format: 'uuid' },
+          // Aceita UUID novos e CUID legados (leads antigos da fase inicial do projeto)
+          id: { type: 'string', minLength: 1 },
         },
       },
     },
@@ -91,13 +92,13 @@ export async function leadsRoutes(fastify: FastifyInstance) {
         type: 'object',
         required: ['contactId', 'title', 'source'],
         properties: {
-          contactId: { type: 'string', format: 'uuid' },
+          contactId: { type: 'string', minLength: 1 },
           title: { type: 'string' },
           description: { type: 'string' },
           source: { type: 'string' },
           medium: { type: 'string' },
           campaign: { type: 'string' },
-          assignedToId: { type: 'string', format: 'uuid' },
+          assignedToId: { type: 'string', minLength: 1 },
           estimatedValue: { type: 'number' },
           tags: {
             type: 'array',
@@ -119,19 +120,19 @@ export async function leadsRoutes(fastify: FastifyInstance) {
         type: 'object',
         required: ['id'],
         properties: {
-          id: { type: 'string', format: 'uuid' },
+          id: { type: 'string', minLength: 1 },
         },
       },
       body: {
         type: 'object',
         properties: {
-          contactId: { type: 'string', format: 'uuid' },
+          contactId: { type: 'string', minLength: 1 },
           title: { type: 'string' },
           description: { type: 'string' },
           source: { type: 'string' },
           medium: { type: 'string' },
           campaign: { type: 'string' },
-          assignedToId: { type: 'string', format: 'uuid' },
+          assignedToId: { type: 'string', minLength: 1 },
           estimatedValue: { type: 'number' },
           status: { type: 'string' },
           score: { type: 'number' },
@@ -158,7 +159,7 @@ export async function leadsRoutes(fastify: FastifyInstance) {
         type: 'object',
         required: ['id'],
         properties: {
-          id: { type: 'string', format: 'uuid' },
+          id: { type: 'string', minLength: 1 },
         },
       },
       response: {

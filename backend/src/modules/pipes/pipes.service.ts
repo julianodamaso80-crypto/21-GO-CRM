@@ -199,6 +199,9 @@ export class PipesService {
   }
 
   async getKanbanData(pipeId: string, companyId: string) {
+    // Kanban mostra cards ativos E concluidos (status='done' em fases isWon/isLost).
+    // Cards 'archived' ficam de fora.
+    const kanbanStatusFilter = { in: ['active', 'done'] }
     const pipe = await prisma.pipe.findFirst({
       where: { id: pipeId, companyId },
       include: {
@@ -206,14 +209,14 @@ export class PipesService {
           orderBy: { position: 'asc' },
           include: {
             cards: {
-              where: { status: 'active' },
+              where: { status: kanbanStatusFilter },
               include: {
                 assignedTo: { select: { id: true, firstName: true, lastName: true, avatar: true } },
                 fieldValues: { include: { fieldDefinition: true } },
               },
               orderBy: { createdAt: 'asc' },
             },
-            _count: { select: { cards: { where: { status: 'active' } } } },
+            _count: { select: { cards: { where: { status: kanbanStatusFilter } } } },
           },
         },
       },
@@ -276,13 +279,22 @@ export class PipesService {
     })
     if (!card) throw new AppError('Card nao encontrado', 404, 'NOT_FOUND')
 
-    // Tenta achar Lead/Conversation vinculados pelo titulo (que copiamos do nome do lead)
-    // Se card description bate com "Lead do WhatsApp — <fone>" também usa o fone como fallback.
-    let lead = await prisma.lead.findFirst({
-      where: { companyId, nome: card.title },
-      select: { id: true, nome: true, telefone: true, whatsapp: true, email: true, origem: true, etapaFunil: true, valorCompra: true, produtoComprado: true },
-    })
+    const leadSelect = { id: true, nome: true, telefone: true, whatsapp: true, email: true, origem: true, etapaFunil: true, valorCompra: true, produtoComprado: true }
 
+    // 1) Preferir FK direta (cards.lead_id) — fonte de verdade pós-migration 20260515
+    let lead = card.leadId
+      ? await prisma.lead.findFirst({ where: { id: card.leadId, companyId }, select: leadSelect })
+      : null
+
+    // 2) Fallback: busca por nome do card (cards legados sem leadId backfilled)
+    if (!lead) {
+      lead = await prisma.lead.findFirst({
+        where: { companyId, nome: card.title },
+        select: leadSelect,
+      })
+    }
+
+    // 3) Ultimo fallback: telefone na description ("Lead do WhatsApp — <fone>")
     if (!lead && card.description) {
       const phoneMatch = card.description.match(/\b(\d{10,13})\b/)
       if (phoneMatch) {
@@ -291,7 +303,7 @@ export class PipesService {
             companyId,
             OR: [{ whatsapp: phoneMatch[1] }, { telefone: phoneMatch[1] }],
           },
-          select: { id: true, nome: true, telefone: true, whatsapp: true, email: true, origem: true, etapaFunil: true, valorCompra: true, produtoComprado: true },
+          select: leadSelect,
         })
       }
     }
