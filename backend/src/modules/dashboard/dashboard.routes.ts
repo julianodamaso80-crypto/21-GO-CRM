@@ -5,98 +5,22 @@ import { authenticate } from '../../middlewares/authenticate'
 const dashboardController = new DashboardController()
 
 export async function dashboardRoutes(fastify: FastifyInstance) {
-  // Todas as rotas requerem autenticacao
   fastify.addHook('onRequest', authenticate)
 
-  // GET /dashboard/stats
+  // GET /dashboard/stats?periodDays=7
   fastify.get('/stats', {
     schema: {
-      description: 'Get aggregated dashboard statistics',
+      description: 'Dashboard stats com filtro de periodo (1, 7, 30, 90 dias)',
       tags: ['dashboard'],
       security: [{ bearerAuth: [] }],
-      response: {
-        200: {
-          type: 'object',
-          properties: {
-            contacts: {
-              type: 'object',
-              properties: {
-                total: { type: 'number' },
-                withEmail: { type: 'number' },
-                withPhone: { type: 'number' },
-                recentCount: { type: 'number' },
-              },
-            },
-            pipes: {
-              type: 'object',
-              properties: {
-                totalPipes: { type: 'number' },
-                totalCards: { type: 'number' },
-                activeCards: { type: 'number' },
-                doneCards: { type: 'number' },
-              },
-            },
-            pipesSummary: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  id: { type: 'string' },
-                  name: { type: 'string' },
-                  color: { type: 'string' },
-                  totalCards: { type: 'number' },
-                  activeCards: { type: 'number' },
-                },
-              },
-            },
-            phaseDistribution: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  phaseName: { type: 'string' },
-                  phaseColor: { type: 'string' },
-                  count: { type: 'number' },
-                },
-              },
-            },
-            ai: {
-              type: 'object',
-              properties: {
-                totalQueries: { type: 'number' },
-                totalDocuments: { type: 'number' },
-                totalAgents: { type: 'number' },
-              },
-            },
-            recentCards: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  id: { type: 'string' },
-                  title: { type: 'string' },
-                  status: { type: 'string' },
-                  pipeName: { type: 'string' },
-                  phaseName: { type: 'string' },
-                  phaseColor: { type: 'string' },
-                  createdAt: { type: 'string', format: 'date-time' },
-                },
-              },
-            },
-            cardsByDay: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  date: { type: 'string' },
-                  created: { type: 'number' },
-                  completed: { type: 'number' },
-                },
-              },
-            },
-          },
+      querystring: {
+        type: 'object',
+        properties: {
+          periodDays: { type: 'string', enum: ['1', '7', '30', '90'] },
         },
       },
+      // Resposta schema-less: shape detalhado em shared/types/index.ts (DashboardStats).
+      // Schema rigido aqui obrigava manter sincronizado em 3 lugares (service, route, types).
     },
     handler: dashboardController.getStats.bind(dashboardController),
   })

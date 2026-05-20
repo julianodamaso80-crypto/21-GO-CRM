@@ -1,18 +1,35 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  Users, Car, Loader2, ArrowRight, TrendingUp,
-  ShieldCheck, Target, MessageSquare, Bot, Zap,
+  Users, Car, Loader2, TrendingUp, TrendingDown, Wallet,
+  ShieldCheck, ArrowUpRight, Sparkles, Target, MessageSquare,
+  Bot, Zap, ClipboardCheck, Handshake, Clock,
 } from 'lucide-react'
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Cell,
+  Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  CartesianGrid,
 } from 'recharts'
 import { useDashboardStats } from '../../hooks/useDashboard'
+import type { DashboardPeriod } from '../../../../shared/types'
+
+const PERIOD_OPTIONS: Array<{ value: DashboardPeriod; label: string }> = [
+  { value: 1, label: 'Hoje' },
+  { value: 7, label: '7 dias' },
+  { value: 30, label: '30 dias' },
+  { value: 90, label: '90 dias' },
+]
+
+const formatBRL = (v: number) =>
+  v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+
+const formatBRLFull = (v: number) =>
+  v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
 export function DashboardPage() {
-  const { data: stats, isLoading } = useDashboardStats()
+  const [period, setPeriod] = useState<DashboardPeriod>(7)
+  const { data: stats, isLoading } = useDashboardStats(period)
 
-  if (isLoading) {
+  if (isLoading || !stats) {
     return (
       <div className="flex justify-center items-center h-96">
         <Loader2 className="w-8 h-8 text-gold-400 animate-spin" />
@@ -20,161 +37,481 @@ export function DashboardPage() {
     )
   }
 
-  if (!stats) {
-    return (
-      <div className="p-6">
-        <p className="text-gray-400">Erro ao carregar dados do dashboard.</p>
-      </div>
-    )
-  }
+  const k = stats.kpis
+  const periodLabel = PERIOD_OPTIONS.find((p) => p.value === period)?.label || '7 dias'
+
+  // sparklines (mesma serie, recortes diferentes pra cada KPI)
+  const sparkReceita = stats.timeline.map((t) => ({ x: t.date, y: t.receita }))
+  const sparkFechados = stats.timeline.map((t) => ({ x: t.date, y: t.fechados }))
+  const sparkEntradas = stats.timeline.map((t) => ({ x: t.date, y: t.entradas }))
 
   return (
-    <div className="p-6 space-y-6 page-enter">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-display font-bold text-white">Dashboard</h1>
-        <p className="text-sm text-gray-400 mt-1">Visao geral da 21Go Protecao Veicular</p>
-      </div>
+    <div className="relative min-h-screen p-6 space-y-6 page-enter">
+      {/* Background radial sutil — paleta oficial 21Go (#293C82 azul + #F2911D laranja) */}
+      <div
+        className="pointer-events-none fixed inset-0 z-0 opacity-60"
+        style={{
+          background:
+            'radial-gradient(ellipse 80% 50% at 50% -10%, rgba(242, 145, 29, 0.08), transparent 60%), radial-gradient(ellipse 60% 40% at 90% 20%, rgba(41, 60, 130, 0.12), transparent 50%)',
+        }}
+      />
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 stagger-children">
-        <KpiCard
-          icon={<Users className="w-5 h-5 text-gold-400" />}
-          label="Associados"
-          value={stats.contacts.total}
-          sub={`${stats.contacts.ativos || 0} ativos`}
-          bgColor="bg-gold-500/10"
-          link="/associados"
-        />
-        <KpiCard
-          icon={<Car className="w-5 h-5 text-accent-blue" />}
-          label="Veiculos"
-          value={stats.ai?.totalAgents || 0}
-          sub="protegidos"
-          bgColor="bg-accent-blue/10"
-          link="/vehicles"
-        />
-        <KpiCard
-          icon={<Target className="w-5 h-5 text-accent-emerald" />}
-          label="Leads"
-          value={stats.pipes?.totalCards || 0}
-          sub="no funil"
-          bgColor="bg-accent-emerald/10"
-          link="/leads"
-        />
-        <KpiCard
-          icon={<TrendingUp className="w-5 h-5 text-accent-amber" />}
-          label="Pipes"
-          value={stats.pipes?.total || 0}
-          sub={`${stats.pipes?.doneCards || 0} cards concluidos`}
-          bgColor="bg-accent-amber/10"
-          link="/pipes"
-        />
-      </div>
-
-      {/* Main Content Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Quick Links */}
-        <div className="card">
-          <h3 className="text-sm font-semibold text-gray-300 mb-4">Acesso Rapido</h3>
-          <div className="grid grid-cols-2 gap-3">
-            <QuickLink icon={<Users size={18} />} label="Associados" to="/associados" color="text-gold-400 bg-gold-500/10" />
-            <QuickLink icon={<Car size={18} />} label="Veiculos" to="/vehicles" color="text-accent-blue bg-accent-blue/10" />
-            <QuickLink icon={<Target size={18} />} label="Leads" to="/leads" color="text-accent-emerald bg-accent-emerald/10" />
-            <QuickLink icon={<ShieldCheck size={18} />} label="NPS" to="/nps" color="text-accent-purple bg-accent-purple/10" />
-            <QuickLink icon={<MessageSquare size={18} />} label="Inbox" to="/inbox" color="text-accent-rose bg-accent-rose/10" />
-            <QuickLink icon={<Bot size={18} />} label="IA & Agentes" to="/ai" color="text-accent-cyan bg-accent-cyan/10" />
-            <QuickLink icon={<TrendingUp size={18} />} label="Analytics" to="/analytics" color="text-accent-amber bg-accent-amber/10" />
-            <QuickLink icon={<Zap size={18} />} label="Automacoes" to="/automations" color="text-yellow-400 bg-yellow-500/10" />
+      <div className="relative z-10 space-y-6">
+        {/* Header com filtro de periodo */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-display font-bold text-white tracking-tight">Dashboard</h1>
+            <p className="text-sm text-gray-400 mt-1">
+              Visao da 21Go — periodo: <span className="text-gold-400 font-medium">{periodLabel}</span>
+            </p>
+          </div>
+          <div className="inline-flex p-1 bg-dark-800/60 backdrop-blur-xl border border-dark-700/40 rounded-xl shadow-lg">
+            {PERIOD_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setPeriod(opt.value)}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  period === opt.value
+                    ? 'bg-gradient-to-br from-gold-500/20 to-gold-600/10 text-gold-300 shadow-inner border border-gold-500/30'
+                    : 'text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Phase Distribution Chart */}
-        <div className="card">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-gray-300">Pipeline de Vendas</h3>
-            <Link to="/pipes" className="text-xs text-gold-400 hover:text-gold-300 flex items-center gap-1 transition-colors">
-              Ver pipes <ArrowRight className="w-3 h-3" />
-            </Link>
-          </div>
-          {stats.phaseDistribution.length > 0 ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={stats.phaseDistribution} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-                <XAxis dataKey="phaseName" tick={{ fontSize: 11, fill: '#757598' }} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#757598' }} />
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: 12,
-                    border: '1px solid rgba(201, 168, 76, 0.15)',
-                    backgroundColor: 'rgba(20, 20, 34, 0.95)',
-                    color: '#F9FAFB',
-                    fontSize: 13,
-                    backdropFilter: 'blur(12px)',
-                  }}
-                />
-                <Bar dataKey="cards" name="Cards" radius={[6, 6, 0, 0]}>
-                  {stats.phaseDistribution.map((entry, i) => (
-                    <Cell key={i} fill={entry.color} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="h-[280px] flex items-center justify-center text-gray-500 text-sm">
-              Nenhum dado de pipeline
+        {/* === KPI HERO (4 cards principais) === */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 stagger-children">
+          <KpiHero
+            label="Associados Fechados"
+            value={k.fechadosPeriodo}
+            sub={`Total ativos: ${k.associadosAtivos}`}
+            delta={k.fechadosDelta}
+            icon={<ShieldCheck className="w-5 h-5" />}
+            accent="emerald"
+            sparkline={sparkFechados}
+            link="/associados"
+          />
+          <KpiHero
+            label="Receita Cobrada"
+            value={formatBRL(k.receitaPeriodo)}
+            sub={`Anterior: ${formatBRL(k.receitaAnterior)}`}
+            delta={k.receitaDelta}
+            icon={<Wallet className="w-5 h-5" />}
+            accent="gold"
+            sparkline={sparkReceita}
+            highlight
+          />
+          <KpiHero
+            label="Em Vistoria"
+            value={k.emVistoria}
+            sub="aguardando aprovacao"
+            icon={<ClipboardCheck className="w-5 h-5" />}
+            accent="blue"
+            link="/pipes"
+          />
+          <KpiHero
+            label="Em Negociacao"
+            value={k.emNegociacao}
+            sub="conversas ativas"
+            icon={<Handshake className="w-5 h-5" />}
+            accent="purple"
+            link="/pipes"
+          />
+        </div>
+
+        {/* === KPI SECUNDARIOS === */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <KpiMini
+            label="Entradas no periodo"
+            value={k.entradasPeriodo}
+            delta={k.entradasDelta}
+            icon={<Sparkles className="w-4 h-4" />}
+            sparkline={sparkEntradas}
+          />
+          <KpiMini
+            label="Taxa de conversao"
+            value={`${k.taxaConversao}%`}
+            icon={<Target className="w-4 h-4" />}
+          />
+          <KpiMini
+            label="Veiculos protegidos"
+            value={k.veiculosProtegidos}
+            icon={<Car className="w-4 h-4" />}
+          />
+          <KpiMini
+            label="Total associados"
+            value={k.associadosTotal}
+            icon={<Users className="w-4 h-4" />}
+          />
+        </div>
+
+        {/* === GRAFICO PRINCIPAL: Receita por dia === */}
+        <GlassCard>
+          <div className="flex items-start justify-between mb-5">
+            <div>
+              <h3 className="text-sm font-semibold text-white">Crescimento de receita</h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Receita cobrada na ativacao — ultimos {Math.min(period, 30)} dias
+              </p>
             </div>
-          )}
+            <div className="text-right">
+              <p className="text-[10px] uppercase tracking-wider text-gray-500">Total no periodo</p>
+              <p className="text-2xl font-display font-bold text-transparent bg-clip-text bg-gradient-to-br from-gold-300 to-gold-500">
+                {formatBRLFull(k.receitaPeriodo)}
+              </p>
+            </div>
+          </div>
+          <ResponsiveContainer width="100%" height={260}>
+            <AreaChart data={stats.timeline} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
+              <defs>
+                <linearGradient id="gradReceita" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#C9A84C" stopOpacity={0.5} />
+                  <stop offset="60%" stopColor="#C9A84C" stopOpacity={0.15} />
+                  <stop offset="100%" stopColor="#C9A84C" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="gradFechados" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10B981" stopOpacity={0.3} />
+                  <stop offset="100%" stopColor="#10B981" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+              <XAxis
+                dataKey="date"
+                tick={{ fontSize: 10, fill: '#757598' }}
+                tickFormatter={(d) => {
+                  const dt = new Date(d)
+                  return `${dt.getDate()}/${dt.getMonth() + 1}`
+                }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                tick={{ fontSize: 10, fill: '#757598' }}
+                tickFormatter={(v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v))}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip
+                contentStyle={{
+                  borderRadius: 12,
+                  border: '1px solid rgba(201, 168, 76, 0.25)',
+                  backgroundColor: 'rgba(11, 17, 32, 0.95)',
+                  backdropFilter: 'blur(16px)',
+                  fontSize: 12,
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                }}
+                labelFormatter={(label) => {
+                  const dt = new Date(label)
+                  return dt.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+                }}
+                formatter={(value: number, name: string) => {
+                  if (name === 'receita') return [formatBRLFull(value), 'Receita']
+                  if (name === 'fechados') return [value, 'Fechados']
+                  return [value, name]
+                }}
+              />
+              <Area
+                type="monotone"
+                dataKey="receita"
+                stroke="#C9A84C"
+                strokeWidth={2.5}
+                fill="url(#gradReceita)"
+                animationDuration={800}
+              />
+              <Area
+                type="monotone"
+                dataKey="fechados"
+                stroke="#10B981"
+                strokeWidth={1.5}
+                fill="url(#gradFechados)"
+                animationDuration={1000}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </GlassCard>
+
+        {/* === FUNIL + ULTIMOS FECHADOS === */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Funil */}
+          <GlassCard className="lg:col-span-2">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-sm font-semibold text-white">Funil de vendas</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Distribuicao atual por etapa</p>
+              </div>
+              <Link
+                to="/pipes"
+                className="text-xs text-gold-400 hover:text-gold-300 flex items-center gap-1 transition-colors"
+              >
+                Ver Kanban <ArrowUpRight className="w-3 h-3" />
+              </Link>
+            </div>
+            <div className="space-y-2.5">
+              {stats.funil.map((phase) => {
+                const max = Math.max(...stats.funil.map((p) => p.count), 1)
+                const pct = (phase.count / max) * 100
+                return <FunnelBar key={phase.id} phase={phase} widthPct={pct} />
+              })}
+              {stats.funil.length === 0 && (
+                <p className="text-sm text-gray-500 text-center py-8">Funil vazio</p>
+              )}
+            </div>
+          </GlassCard>
+
+          {/* Ultimos fechados */}
+          <GlassCard>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-white">Ultimos fechados</h3>
+              <span className="text-[10px] uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+                {stats.ultimosFechados.length}
+              </span>
+            </div>
+            <div className="space-y-2.5">
+              {stats.ultimosFechados.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-8">Nenhum fechado ainda</p>
+              ) : (
+                stats.ultimosFechados.map((f) => <FechadoRow key={f.id} f={f} />)
+              )}
+            </div>
+          </GlassCard>
         </div>
+
+        {/* === ACESSO RAPIDO === */}
+        <GlassCard>
+          <h3 className="text-sm font-semibold text-white mb-4">Acesso rapido</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+            <QuickLink icon={<Users size={18} />} label="Associados" to="/associados" tint="gold" />
+            <QuickLink icon={<Car size={18} />} label="Veiculos" to="/vehicles" tint="blue" />
+            <QuickLink icon={<Target size={18} />} label="Leads" to="/leads" tint="emerald" />
+            <QuickLink icon={<ShieldCheck size={18} />} label="NPS" to="/nps" tint="purple" />
+            <QuickLink icon={<MessageSquare size={18} />} label="Inbox" to="/inbox" tint="rose" />
+            <QuickLink icon={<Bot size={18} />} label="IA" to="/ai" tint="cyan" />
+            <QuickLink icon={<TrendingUp size={18} />} label="Analytics" to="/analytics" tint="amber" />
+            <QuickLink icon={<Zap size={18} />} label="Automacoes" to="/automations" tint="yellow" />
+          </div>
+        </GlassCard>
       </div>
     </div>
   )
 }
 
-// -- Sub-components --
+/* ============================================================
+ * SUB-COMPONENTS
+ * ============================================================ */
 
-function KpiCard({
-  icon, label, value, sub, bgColor, link,
-}: {
-  icon: React.ReactNode
-  label: string
-  value: number | string
-  sub: string
-  bgColor: string
-  link?: string
-}) {
-  const content = (
-    <div className="stat-card">
-      <div className="flex items-center gap-3">
-        <div className={`stat-icon ${bgColor}`}>{icon}</div>
-        <div>
-          <p className="text-xs text-gray-400">{label}</p>
-          <p className="text-xl font-display font-bold text-white">{value}</p>
-        </div>
-      </div>
-      <p className="text-xs text-gray-500 mt-2">{sub}</p>
+function GlassCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div
+      className={`relative bg-gradient-to-br from-dark-800/60 to-dark-900/40 backdrop-blur-xl border border-dark-700/40 rounded-2xl p-5 shadow-[0_4px_24px_rgba(0,0,0,0.3)] hover:border-dark-700/60 transition-colors ${className}`}
+    >
+      {children}
     </div>
   )
+}
 
+type Accent = 'gold' | 'emerald' | 'blue' | 'purple' | 'rose' | 'cyan' | 'amber' | 'yellow'
+
+const accentMap: Record<Accent, { text: string; bg: string; border: string; glow: string; gradId: string; stroke: string }> = {
+  gold: { text: 'text-gold-300', bg: 'bg-gold-500/10', border: 'border-gold-500/25', glow: 'shadow-gold-500/10', gradId: 'sparkGold', stroke: '#C9A84C' },
+  emerald: { text: 'text-emerald-300', bg: 'bg-emerald-500/10', border: 'border-emerald-500/25', glow: 'shadow-emerald-500/10', gradId: 'sparkEmerald', stroke: '#10B981' },
+  blue: { text: 'text-sky-300', bg: 'bg-sky-500/10', border: 'border-sky-500/25', glow: 'shadow-sky-500/10', gradId: 'sparkBlue', stroke: '#0EA5E9' },
+  purple: { text: 'text-violet-300', bg: 'bg-violet-500/10', border: 'border-violet-500/25', glow: 'shadow-violet-500/10', gradId: 'sparkPurple', stroke: '#8B5CF6' },
+  rose: { text: 'text-rose-300', bg: 'bg-rose-500/10', border: 'border-rose-500/25', glow: 'shadow-rose-500/10', gradId: 'sparkRose', stroke: '#F43F5E' },
+  cyan: { text: 'text-cyan-300', bg: 'bg-cyan-500/10', border: 'border-cyan-500/25', glow: 'shadow-cyan-500/10', gradId: 'sparkCyan', stroke: '#06B6D4' },
+  amber: { text: 'text-amber-300', bg: 'bg-amber-500/10', border: 'border-amber-500/25', glow: 'shadow-amber-500/10', gradId: 'sparkAmber', stroke: '#F59E0B' },
+  yellow: { text: 'text-yellow-300', bg: 'bg-yellow-500/10', border: 'border-yellow-500/25', glow: 'shadow-yellow-500/10', gradId: 'sparkYellow', stroke: '#EAB308' },
+}
+
+function KpiHero({
+  label, value, sub, delta, icon, accent, sparkline, link, highlight,
+}: {
+  label: string
+  value: number | string
+  sub?: string
+  delta?: number
+  icon: React.ReactNode
+  accent: Accent
+  sparkline?: Array<{ x: string; y: number }>
+  link?: string
+  highlight?: boolean
+}) {
+  const c = accentMap[accent]
+  const content = (
+    <div
+      className={`group relative overflow-hidden rounded-2xl p-5 border ${c.border} bg-gradient-to-br from-dark-800/80 to-dark-900/40 backdrop-blur-xl shadow-xl ${c.glow} hover:shadow-2xl transition-all hover:scale-[1.02] hover:-translate-y-0.5 cursor-pointer`}
+    >
+      {/* glow gradient atras */}
+      {highlight && (
+        <div
+          className="absolute inset-0 opacity-50"
+          style={{
+            background: `radial-gradient(circle at 30% 0%, ${c.stroke}22, transparent 60%)`,
+          }}
+        />
+      )}
+      <div className="relative z-10">
+        <div className="flex items-start justify-between">
+          <div className={`w-9 h-9 rounded-xl ${c.bg} ${c.text} flex items-center justify-center ring-1 ${c.border}`}>
+            {icon}
+          </div>
+          {typeof delta === 'number' && (
+            <DeltaPill delta={delta} />
+          )}
+        </div>
+        <div className="mt-4">
+          <p className="text-xs text-gray-400 font-medium tracking-wide">{label}</p>
+          <p className="text-3xl font-display font-bold text-white mt-1 leading-none">{value}</p>
+          {sub && <p className="text-xs text-gray-500 mt-2">{sub}</p>}
+        </div>
+        {sparkline && sparkline.length > 1 && (
+          <div className="mt-3 h-12 -mx-1">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={sparkline}>
+                <defs>
+                  <linearGradient id={c.gradId} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={c.stroke} stopOpacity={0.5} />
+                    <stop offset="100%" stopColor={c.stroke} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <Area type="monotone" dataKey="y" stroke={c.stroke} strokeWidth={1.8} fill={`url(#${c.gradId})`} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+    </div>
+  )
   if (link) return <Link to={link}>{content}</Link>
   return content
 }
 
-function QuickLink({ icon, label, to, color }: {
-  icon: React.ReactNode
+function KpiMini({
+  label, value, delta, icon, sparkline,
+}: {
   label: string
-  to: string
-  color: string
+  value: number | string
+  delta?: number
+  icon: React.ReactNode
+  sparkline?: Array<{ x: string; y: number }>
 }) {
+  return (
+    <div className="relative rounded-xl p-3.5 bg-gradient-to-br from-dark-800/50 to-dark-900/30 backdrop-blur-xl border border-dark-700/30 hover:border-dark-700/60 transition">
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-2 text-gray-500">
+          {icon}
+          <span className="text-[11px] uppercase tracking-wider font-medium">{label}</span>
+        </div>
+        {typeof delta === 'number' && <DeltaPill delta={delta} mini />}
+      </div>
+      <div className="flex items-end justify-between gap-2">
+        <p className="text-xl font-display font-bold text-white leading-none">{value}</p>
+        {sparkline && sparkline.length > 1 && (
+          <div className="w-20 h-7">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={sparkline}>
+                <Area type="monotone" dataKey="y" stroke="#C9A84C" strokeWidth={1.3} fill="rgba(201,168,76,0.15)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function DeltaPill({ delta, mini }: { delta: number; mini?: boolean }) {
+  const isUp = delta > 0
+  const isZero = delta === 0
+  const color = isZero
+    ? 'text-gray-400 bg-dark-700/40 border-dark-600/40'
+    : isUp
+      ? 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30'
+      : 'text-rose-300 bg-rose-500/15 border-rose-500/30'
+  const Icon = isUp ? TrendingUp : isZero ? null : TrendingDown
+  const size = mini ? 'text-[9px] px-1.5 py-0.5' : 'text-[10px] px-2 py-0.5'
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full font-medium border ${color} ${size}`}>
+      {Icon && <Icon className={mini ? 'w-2.5 h-2.5' : 'w-3 h-3'} />}
+      {Math.abs(delta)}%
+    </span>
+  )
+}
+
+function FunnelBar({ phase, widthPct }: { phase: any; widthPct: number }) {
+  const stripe = phase.isWon
+    ? 'from-emerald-500/80 to-emerald-600/40 border-emerald-500/40'
+    : phase.isLost
+      ? 'from-rose-500/70 to-rose-600/30 border-rose-500/30'
+      : 'from-gold-500/70 to-gold-600/20 border-gold-500/30'
+  const dot = phase.isWon ? 'bg-emerald-400' : phase.isLost ? 'bg-rose-400' : 'bg-gold-400'
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 w-48 shrink-0">
+        <span className={`w-2 h-2 rounded-full ${dot}`} />
+        <span className="text-xs text-gray-300 truncate">{phase.name}</span>
+      </div>
+      <div className="flex-1 h-7 bg-dark-900/60 rounded-md overflow-hidden relative border border-dark-700/30">
+        <div
+          className={`h-full bg-gradient-to-r ${stripe} border-r transition-all duration-700 ease-out`}
+          style={{ width: `${widthPct}%` }}
+        />
+        <span className="absolute inset-0 flex items-center px-2.5 text-[11px] text-white font-semibold drop-shadow">
+          {phase.count}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function FechadoRow({ f }: { f: any }) {
+  const ts = f.completedAt ? new Date(f.completedAt) : null
+  const ago = ts ? timeAgo(ts) : '—'
+  return (
+    <div className="flex items-center gap-3 p-2.5 rounded-xl bg-dark-900/40 border border-dark-700/30 hover:border-emerald-500/30 hover:bg-emerald-500/5 transition">
+      <div className="w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center flex-shrink-0">
+        <ShieldCheck className="w-4 h-4 text-emerald-400" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm text-white truncate font-medium">{f.nome || f.title}</p>
+        <p className="text-[10px] text-gray-500 flex items-center gap-1 mt-0.5">
+          <Clock className="w-2.5 h-2.5" /> {ago}
+        </p>
+      </div>
+      <div className="text-right">
+        <p className="text-sm font-display font-semibold text-emerald-300">
+          {f.valor > 0 ? formatBRL(f.valor) : '—'}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function QuickLink({ icon, label, to, tint }: { icon: React.ReactNode; label: string; to: string; tint: Accent }) {
+  const c = accentMap[tint]
   return (
     <Link
       to={to}
-      className="flex items-center gap-3 p-3 rounded-xl border border-dark-700/40 hover:border-gold-500/15 hover:bg-dark-700/30 transition-all duration-200 group"
+      className="group flex flex-col items-center gap-2 p-3 rounded-xl border border-dark-700/40 hover:border-gold-500/30 bg-dark-800/30 hover:bg-dark-700/40 transition-all"
     >
-      <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${color} transition-transform duration-200 group-hover:scale-105`}>
+      <div className={`w-9 h-9 rounded-lg ${c.bg} ${c.text} flex items-center justify-center group-hover:scale-110 transition-transform`}>
         {icon}
       </div>
-      <span className="text-sm font-medium text-gray-300 group-hover:text-white transition-colors">{label}</span>
+      <span className="text-[11px] font-medium text-gray-400 group-hover:text-white transition-colors">{label}</span>
     </Link>
   )
+}
+
+function timeAgo(date: Date): string {
+  const ms = Date.now() - date.getTime()
+  const min = Math.floor(ms / 60000)
+  if (min < 1) return 'agora'
+  if (min < 60) return `${min}min atras`
+  const h = Math.floor(min / 60)
+  if (h < 24) return `${h}h atras`
+  const d = Math.floor(h / 24)
+  if (d < 7) return `${d}d atras`
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
 }

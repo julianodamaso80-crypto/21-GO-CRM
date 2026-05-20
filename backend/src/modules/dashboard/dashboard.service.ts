@@ -1,179 +1,251 @@
 import { prisma } from '../../config/database'
 
-export class DashboardService {
-  async getStats(companyId: string) {
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+export type DashboardPeriod = 1 | 7 | 30 | 90 // dias
 
-    // --- Associados ---
-    const [
-      contactsTotal,
-      contactsWithEmail,
-      contactsWithPhone,
-      contactsRecent,
-    ] = await Promise.all([
-      prisma.associado.count({ where: { companyId } }),
-      prisma.associado.count({
-        where: { companyId, email: { not: null } },
-      }),
-      prisma.associado.count({
-        where: { companyId, telefone: { not: null } },
-      }),
-      prisma.associado.count({
+export class DashboardService {
+  async getStats(companyId: string, periodDays: DashboardPeriod = 7) {
+    const now = new Date()
+    const periodStart = new Date(now.getTime() - periodDays * 86400000)
+    const prevPeriodStart = new Date(periodStart.getTime() - periodDays * 86400000)
+
+    // Resolve fases especiais do funil (por nome) — independente do pipe especifico
+    const allPhases = await prisma.phase.findMany({
+      where: { companyId },
+      select: { id: true, name: true, color: true, position: true, isWon: true, isLost: true, pipeId: true },
+      orderBy: { position: 'asc' },
+    })
+
+    const wonPhaseIds = allPhases.filter((p) => p.isWon).map((p) => p.id)
+    const vistoriaPhaseIds = allPhases.filter((p) => /vistoria/i.test(p.name)).map((p) => p.id)
+    const negociacaoPhaseIds = allPhases.filter((p) => /negocia/i.test(p.name)).map((p) => p.id)
+
+    // ----- Cards "won" no periodo + receita -----
+    const [cardsWonInPeriod, cardsWonPrevPeriod] = await Promise.all([
+      prisma.card.findMany({
         where: {
           companyId,
-          createdAt: { gte: thirtyDaysAgo },
+          currentPhaseId: { in: wonPhaseIds.length ? wonPhaseIds : ['___none___'] },
+          completedAt: { gte: periodStart, lte: now },
+        },
+        select: { id: true, leadId: true, title: true, completedAt: true },
+      }),
+      prisma.card.count({
+        where: {
+          companyId,
+          currentPhaseId: { in: wonPhaseIds.length ? wonPhaseIds : ['___none___'] },
+          completedAt: { gte: prevPeriodStart, lt: periodStart },
         },
       }),
     ])
 
-    // --- Pipes & Cards ---
-    const [totalPipes, totalCards, activeCards, doneCards] = await Promise.all([
-      prisma.pipe.count({ where: { companyId } }),
-      prisma.card.count({ where: { companyId } }),
-      prisma.card.count({ where: { companyId, status: 'active' } }),
-      prisma.card.count({ where: { companyId, status: 'done' } }),
-    ])
-
-    // --- Pipes Summary ---
-    const pipes = await prisma.pipe.findMany({
-      where: { companyId },
-      select: {
-        id: true,
-        name: true,
-        color: true,
-        _count: {
-          select: { cards: true },
-        },
-      },
-    })
-
-    const pipesSummary = await Promise.all(
-      pipes.map(async (pipe) => {
-        const activeCount = await prisma.card.count({
-          where: { companyId, pipeId: pipe.id, status: 'active' },
+    const leadIds = cardsWonInPeriod.map((c) => c.leadId).filter(Boolean) as string[]
+    const leadsWon = leadIds.length
+      ? await prisma.lead.findMany({
+          where: { id: { in: leadIds }, companyId },
+          select: { id: true, nome: true, valorCompra: true, updatedAt: true, whatsapp: true, telefone: true },
         })
-        return {
-          id: pipe.id,
-          name: pipe.name,
-          color: pipe.color,
-          totalCards: pipe._count.cards,
-          activeCards: activeCount,
-        }
+      : []
+
+    const receitaPeriodo = leadsWon.reduce((sum, l) => sum + (l.valorCompra || 0), 0)
+
+    // Receita periodo anterior pra delta
+    const prevLeadIds = (
+      await prisma.card.findMany({
+        where: {
+          companyId,
+          currentPhaseId: { in: wonPhaseIds.length ? wonPhaseIds : ['___none___'] },
+          completedAt: { gte: prevPeriodStart, lt: periodStart },
+        },
+        select: { leadId: true },
       })
     )
+      .map((c) => c.leadId)
+      .filter(Boolean) as string[]
 
-    // --- Phase Distribution ---
-    const phases = await prisma.phase.findMany({
-      where: { companyId },
-      select: {
-        name: true,
-        color: true,
-        _count: {
-          select: { cards: true },
-        },
-      },
-    })
+    const receitaAnterior = prevLeadIds.length
+      ? (
+          await prisma.lead.findMany({
+            where: { id: { in: prevLeadIds }, companyId },
+            select: { valorCompra: true },
+          })
+        ).reduce((sum, l) => sum + (l.valorCompra || 0), 0)
+      : 0
 
-    const phaseDistribution = phases.map((phase) => ({
-      phaseName: phase.name,
-      phaseColor: phase.color,
-      count: phase._count.cards,
-    }))
-
-    // --- AI Stats ---
-    const [totalDocuments, totalAgents] = await Promise.all([
-      prisma.knowledgeDocument.count({
-        where: {
-          knowledgeBase: { companyId },
-        },
-      }),
-      prisma.aIAgent.count({ where: { companyId } }),
+    // ----- Estados ativos: em vistoria + em negociacao -----
+    const [emVistoria, emNegociacao] = await Promise.all([
+      vistoriaPhaseIds.length
+        ? prisma.card.count({
+            where: { companyId, status: 'active', currentPhaseId: { in: vistoriaPhaseIds } },
+          })
+        : 0,
+      negociacaoPhaseIds.length
+        ? prisma.card.count({
+            where: { companyId, status: 'active', currentPhaseId: { in: negociacaoPhaseIds } },
+          })
+        : 0,
     ])
 
-    // --- Recent Cards ---
-    const recentCardsRaw = await prisma.card.findMany({
-      where: { companyId },
-      orderBy: { createdAt: 'desc' },
-      take: 10,
-      select: {
-        id: true,
-        title: true,
-        status: true,
-        createdAt: true,
-        pipe: {
-          select: { name: true },
-        },
-        currentPhase: {
-          select: { name: true, color: true },
-        },
-      },
+    // ----- Associados (tabela associados, status ativo) -----
+    const [associadosTotal, associadosAtivos] = await Promise.all([
+      prisma.associado.count({ where: { companyId } }),
+      prisma.associado.count({ where: { companyId, status: 'ativo' } }),
+    ])
+
+    // ----- Entradas no periodo (leads novos) -----
+    const [entradasPeriodo, entradasAnterior] = await Promise.all([
+      prisma.lead.count({ where: { companyId, createdAt: { gte: periodStart, lte: now } } }),
+      prisma.lead.count({
+        where: { companyId, createdAt: { gte: prevPeriodStart, lt: periodStart } },
+      }),
+    ])
+
+    // ----- Funil completo (todas as fases agrupadas, status active+done) -----
+    // Pego cards por fase com status active OR done (kanban-style)
+    const cardsByPhase = await prisma.card.groupBy({
+      by: ['currentPhaseId'],
+      where: { companyId, status: { in: ['active', 'done'] } },
+      _count: { _all: true },
+    })
+    const cardCountByPhaseId = new Map(cardsByPhase.map((c) => [c.currentPhaseId, c._count._all]))
+
+    // Funil: mostra todas as fases ordenadas por (pipe ordem, position)
+    const pipes = await prisma.pipe.findMany({
+      where: { companyId, status: 'active' },
+      select: { id: true, name: true },
+      orderBy: { createdAt: 'asc' },
     })
 
-    const recentCards = recentCardsRaw.map((card) => ({
-      id: card.id,
-      title: card.title,
-      status: card.status,
-      pipeName: card.pipe.name,
-      phaseName: card.currentPhase.name,
-      phaseColor: card.currentPhase.color,
-      createdAt: card.createdAt,
-    }))
+    // Funil principal = primeiro pipe ativo (geralmente "Vendas de Associados")
+    const mainPipe =
+      pipes.find((p) => /associad/i.test(p.name)) ??
+      pipes.find((p) => /vendas/i.test(p.name)) ??
+      pipes[0]
 
-    // --- Cards by Day (last 7 days) ---
-    const cardsByDay: Array<{ date: string; created: number; completed: number }> = []
+    const funil = mainPipe
+      ? allPhases
+          .filter((ph) => ph.pipeId === mainPipe.id)
+          .sort((a, b) => a.position - b.position)
+          .map((ph) => ({
+            id: ph.id,
+            name: ph.name,
+            color: ph.color,
+            count: cardCountByPhaseId.get(ph.id) || 0,
+            isWon: ph.isWon,
+            isLost: ph.isLost,
+          }))
+      : []
 
-    for (let i = 6; i >= 0; i--) {
-      const dayStart = new Date()
+    // ----- Serie temporal: receita + fechamentos por dia (no periodo) -----
+    const seriesDays = Math.min(periodDays, 30)
+    const timeline: Array<{ date: string; receita: number; fechados: number; entradas: number }> = []
+
+    for (let i = seriesDays - 1; i >= 0; i--) {
+      const dayStart = new Date(now)
       dayStart.setHours(0, 0, 0, 0)
       dayStart.setDate(dayStart.getDate() - i)
-
       const dayEnd = new Date(dayStart)
       dayEnd.setHours(23, 59, 59, 999)
 
-      const [created, completed] = await Promise.all([
-        prisma.card.count({
-          where: {
-            companyId,
-            createdAt: { gte: dayStart, lte: dayEnd },
-          },
-        }),
-        prisma.card.count({
-          where: {
-            companyId,
-            completedAt: { gte: dayStart, lte: dayEnd },
-          },
-        }),
-      ])
+      const dayCards = await prisma.card.findMany({
+        where: {
+          companyId,
+          currentPhaseId: { in: wonPhaseIds.length ? wonPhaseIds : ['___none___'] },
+          completedAt: { gte: dayStart, lte: dayEnd },
+        },
+        select: { leadId: true },
+      })
 
-      cardsByDay.push({
+      const dayLeadIds = dayCards.map((c) => c.leadId).filter(Boolean) as string[]
+      const dayReceita = dayLeadIds.length
+        ? (
+            await prisma.lead.findMany({
+              where: { id: { in: dayLeadIds } },
+              select: { valorCompra: true },
+            })
+          ).reduce((s, l) => s + (l.valorCompra || 0), 0)
+        : 0
+
+      const dayEntradas = await prisma.lead.count({
+        where: { companyId, createdAt: { gte: dayStart, lte: dayEnd } },
+      })
+
+      timeline.push({
         date: dayStart.toISOString().split('T')[0],
-        created,
-        completed,
+        receita: Math.round(dayReceita * 100) / 100,
+        fechados: dayCards.length,
+        entradas: dayEntradas,
       })
     }
 
+    // ----- Ultimos fechados -----
+    const ultimosFechadosRaw = await prisma.card.findMany({
+      where: {
+        companyId,
+        currentPhaseId: { in: wonPhaseIds.length ? wonPhaseIds : ['___none___'] },
+        completedAt: { not: null },
+      },
+      orderBy: { completedAt: 'desc' },
+      take: 8,
+      select: { id: true, title: true, completedAt: true, leadId: true },
+    })
+
+    const ultFechadosLeadIds = ultimosFechadosRaw
+      .map((c) => c.leadId)
+      .filter(Boolean) as string[]
+    const ultFechadosLeads = ultFechadosLeadIds.length
+      ? await prisma.lead.findMany({
+          where: { id: { in: ultFechadosLeadIds } },
+          select: { id: true, nome: true, valorCompra: true },
+        })
+      : []
+    const leadMap = new Map(ultFechadosLeads.map((l) => [l.id, l]))
+
+    const ultimosFechados = ultimosFechadosRaw.map((c) => {
+      const lead = c.leadId ? leadMap.get(c.leadId) : null
+      return {
+        id: c.id,
+        title: c.title,
+        nome: lead?.nome || c.title,
+        valor: lead?.valorCompra || 0,
+        completedAt: c.completedAt,
+      }
+    })
+
+    // ----- Veiculos protegidos -----
+    const veiculosProtegidos = await prisma.vehicle.count({ where: { companyId, ativo: true } })
+
+    // ----- Taxa de conversao: fechados / entradas no periodo -----
+    const taxaConversao =
+      entradasPeriodo > 0 ? (cardsWonInPeriod.length / entradasPeriodo) * 100 : 0
+
+    // ----- Deltas (%) vs periodo anterior -----
+    const calcDelta = (cur: number, prev: number) => {
+      if (prev === 0 && cur === 0) return 0
+      if (prev === 0) return 100
+      return Math.round(((cur - prev) / prev) * 100)
+    }
+
     return {
-      contacts: {
-        total: contactsTotal,
-        withEmail: contactsWithEmail,
-        withPhone: contactsWithPhone,
-        recentCount: contactsRecent,
+      periodDays,
+      generatedAt: now.toISOString(),
+      kpis: {
+        fechadosPeriodo: cardsWonInPeriod.length,
+        fechadosDelta: calcDelta(cardsWonInPeriod.length, cardsWonPrevPeriod),
+        receitaPeriodo: Math.round(receitaPeriodo * 100) / 100,
+        receitaDelta: calcDelta(receitaPeriodo, receitaAnterior),
+        receitaAnterior: Math.round(receitaAnterior * 100) / 100,
+        emVistoria,
+        emNegociacao,
+        entradasPeriodo,
+        entradasDelta: calcDelta(entradasPeriodo, entradasAnterior),
+        taxaConversao: Math.round(taxaConversao * 10) / 10,
+        associadosTotal,
+        associadosAtivos,
+        veiculosProtegidos,
       },
-      pipes: {
-        totalPipes,
-        totalCards,
-        activeCards,
-        doneCards,
-      },
-      pipesSummary,
-      phaseDistribution,
-      ai: {
-        totalQueries: 0,
-        totalDocuments,
-        totalAgents,
-      },
-      recentCards,
-      cardsByDay,
+      funil,
+      timeline,
+      ultimosFechados,
     }
   }
 }
