@@ -12,7 +12,10 @@ import { useSocketEvent } from './useSocketEvent'
  * silenciosamente — não é o caminho principal de atualização.
  */
 
-const HEARTBEAT_MS = 1000 * 60
+// 15s: rede de seguranca curta. Se o socket cair (proxy/CDN dropa upgrade WS,
+// token expira, aba inativa), a UI ainda recebe mensagens novas em <=15s
+// via refetch HTTP. Custo: 4 reqs/min por aba aberta — barato.
+const HEARTBEAT_MS = 1000 * 15
 
 type ConvListItem = any  // formato do inboxService.listConversations()
 

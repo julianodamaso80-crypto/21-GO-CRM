@@ -53,15 +53,19 @@ export function SocketProvider({ children }: SocketProviderProps) {
       auth: {
         token,
       },
-      // WebSocket primeiro (real-time <100ms). Polling como fallback automático
-      // se WS falhar — não gera reconnection loop como o comentário antigo
-      // afirmava (Traefik faz upgrade WS, validado 2026-05-15 via curl:
-      // HTTP 101 Switching Protocols).
-      transports: ['websocket', 'polling'],
+      // Polling PRIMEIRO (mais robusto atras de proxies/CDN), WS por upgrade
+      // automatico. Se WS falhar, polling continua funcionando (real-time
+      // fica ~3s em vez de <100ms, mas mensagens chegam). Garante que
+      // mensagens novas aparecem mesmo em redes onde WS direto eh dropado.
+      transports: ['polling', 'websocket'],
+      upgrade: true,
       reconnection: true,
-      reconnectionAttempts: Infinity,
+      // Cap em 50 tentativas com backoff: evita loop infinito (411 requests
+      // em 5min sufocava o servidor) e impede que aba antiga com token
+      // expirado fique martelando socket forever.
+      reconnectionAttempts: 50,
       reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
+      reconnectionDelayMax: 10000,
       timeout: 20000,
     })
 
