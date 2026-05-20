@@ -563,7 +563,8 @@ export interface Conversation {
   assignedToId?: string
   assignedTo?: User
   status: ConversationStatus
-  isUnread: boolean
+  unreadCount: number
+  lastReadAt?: string
   isBotActive: boolean
   lastMessageAt?: string
   createdAt: string
@@ -964,6 +965,10 @@ export interface CreateCardRequest {
   assignedToId?: string
   dueDate?: string
   fieldValues?: Array<{ fieldDefinitionId: string; value: any }>
+  // Fase de destino (opcional — default = primeira fase do funil)
+  phaseId?: string
+  // Lead opcional — se vier, backend cria/encontra Lead e linka no card
+  lead?: { nome: string; telefone?: string; whatsapp?: string; email?: string }
 }
 
 export interface MoveCardRequest {
@@ -1106,51 +1111,47 @@ export interface ApiError {
 // DASHBOARD
 // ============================================================================
 
+export type DashboardPeriod = 1 | 7 | 30 | 90
+
 export interface DashboardStats {
-  contacts: {
-    total: number
-    ativos: number
-    inativos: number
-    recentCount: number
+  periodDays: DashboardPeriod
+  generatedAt: string
+  kpis: {
+    fechadosPeriodo: number
+    fechadosDelta: number // % vs periodo anterior
+    receitaPeriodo: number
+    receitaDelta: number
+    receitaAnterior: number
+    emVistoria: number
+    emNegociacao: number
+    entradasPeriodo: number
+    entradasDelta: number
+    taxaConversao: number // 0-100
+    associadosTotal: number
+    associadosAtivos: number
+    veiculosProtegidos: number
   }
-  pipes: {
-    total: number
-    totalCards: number
-    activeCards: number
-    doneCards: number
-    wonCards: number
-    lostCards: number
-  }
-  pipesSummary: Array<{
+  funil: Array<{
     id: string
     name: string
     color: string
-    totalCards: number
-    activeCards: number
-    wonCards: number
-    lostCards: number
+    count: number
+    isWon: boolean
+    isLost: boolean
   }>
-  phaseDistribution: Array<{
-    phaseName: string
-    color: string
-    cards: number
+  timeline: Array<{
+    date: string
+    receita: number
+    fechados: number
+    entradas: number
   }>
-  ai: {
-    totalQueries: number
-    totalDocuments: number
-    totalAgents: number
-    avgResponseTime: number
-  }
-  recentCards: Array<{
+  ultimosFechados: Array<{
     id: string
     title: string
-    pipeName: string
-    phaseName: string
-    phaseColor: string
-    status: string
-    createdAt: string
+    nome: string
+    valor: number
+    completedAt: string | null
   }>
-  cardsByDay: Array<{ date: string; created: number; completed: number }>
 }
 
 // ============================================================================

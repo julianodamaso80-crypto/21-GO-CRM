@@ -3,10 +3,11 @@ import { useState, useEffect, useMemo } from 'react'
 import { useParams, Link, useSearchParams } from 'react-router-dom'
 import {
   ArrowLeft, Plus, Loader2, Settings2, ArrowRightLeft, X, MoveRight,
-  Search, Phone, MessageCircle, Bell, Clock, Filter,
+  Search, Phone, MessageCircle, Bell, Clock, Filter, UserPlus,
 } from 'lucide-react'
 import { useKanban, useCreateCard, useMoveCard, useTransferCard, usePipes } from '../../hooks/usePipes'
 import { CardDrawer } from './CardDrawer'
+import { CreateLeadModal } from './CreateLeadModal'
 import { PhasesEditorDrawer } from './PhasesEditorDrawer'
 import { useAuthStore } from '../../store/auth-store'
 import type { Card, Phase } from '../../../../shared/types'
@@ -67,6 +68,7 @@ export function KanbanPage() {
   const [draggedCardId, setDraggedCardId] = useState<string | null>(null)
   const [dragOverPhaseId, setDragOverPhaseId] = useState<string | null>(null)
   const [phasesEditorOpen, setPhasesEditorOpen] = useState(false)
+  const [createLeadOpen, setCreateLeadOpen] = useState(false)
   const [transferCardId, setTransferCardId] = useState<string | null>(null)
   const [moveCardId, setMoveCardId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -218,6 +220,16 @@ export function KanbanPage() {
         >
           <Filter className="w-3.5 h-3.5" />
           Só meus
+        </button>
+
+        {/* CTA: Novo lead manual — abre modal pra escolher funil + fase + dados */}
+        <button
+          onClick={() => setCreateLeadOpen(true)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold bg-orange-500 hover:bg-orange-600 text-white rounded-lg shadow-cta-orange transition-all"
+          title="Criar lead manualmente em qualquer funil/fase"
+        >
+          <UserPlus className="w-4 h-4" />
+          Novo lead
         </button>
 
         {isAdmin && (
@@ -481,6 +493,13 @@ export function KanbanPage() {
           onClose={() => setPhasesEditorOpen(false)}
         />
       )}
+
+      {/* Modal: Novo lead manual — escolhe funil + fase + dados */}
+      <CreateLeadModal
+        isOpen={createLeadOpen}
+        defaultPipeId={pipeId}
+        onClose={() => setCreateLeadOpen(false)}
+      />
 
       {/* Transfer Card Modal */}
       {transferCardId && (

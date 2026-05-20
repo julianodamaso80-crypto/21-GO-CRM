@@ -334,26 +334,77 @@ export class PipesService {
     pipeId: string,
     companyId: string,
     userId: string,
-    data: { title: string; description?: string; assignedToId?: string; dueDate?: string; fieldValues?: Array<{ fieldDefinitionId: string; value: any }> }
+    data: {
+      title: string
+      description?: string
+      assignedToId?: string
+      dueDate?: string
+      fieldValues?: Array<{ fieldDefinitionId: string; value: any }>
+      // Fase de destino (default = primeira fase do funil)
+      phaseId?: string
+      // Lead opcional — se vier, cria/encontra Lead e linka no card
+      lead?: { nome: string; telefone?: string; whatsapp?: string; email?: string }
+    }
   ) {
-    // Get first phase
-    const firstPhase = await prisma.phase.findFirst({
-      where: { pipeId, companyId },
-      orderBy: { position: 'asc' },
-    })
-    if (!firstPhase) throw new AppError('Pipe nao tem fases. Crie pelo menos uma fase.', 400, 'BAD_REQUEST')
+    // Resolve fase de destino: phaseId explícito > primeira fase
+    let targetPhase
+    if (data.phaseId) {
+      targetPhase = await prisma.phase.findFirst({
+        where: { id: data.phaseId, pipeId, companyId },
+      })
+      if (!targetPhase) throw new AppError('Fase nao encontrada nesse funil', 400, 'BAD_REQUEST')
+    } else {
+      targetPhase = await prisma.phase.findFirst({
+        where: { pipeId, companyId },
+        orderBy: { position: 'asc' },
+      })
+    }
+    if (!targetPhase) throw new AppError('Pipe nao tem fases. Crie pelo menos uma fase.', 400, 'BAD_REQUEST')
 
     return prisma.$transaction(async (tx) => {
+      // Cria lead se vieram dados (e tenta reaproveitar por whatsapp/telefone se já existir)
+      let leadId: string | undefined
+      if (data.lead?.nome?.trim()) {
+        const phoneDigits = (data.lead.whatsapp || data.lead.telefone || '').replace(/\D/g, '')
+        let existing = null
+        if (phoneDigits) {
+          existing = await tx.lead.findFirst({
+            where: {
+              companyId,
+              OR: [{ whatsapp: { contains: phoneDigits } }, { telefone: { contains: phoneDigits } }],
+            },
+          })
+        }
+        if (existing) {
+          leadId = existing.id
+        } else {
+          const created = await tx.lead.create({
+            data: {
+              companyId,
+              nome: data.lead.nome.trim(),
+              telefone: data.lead.telefone || null,
+              whatsapp: data.lead.whatsapp || data.lead.telefone || null,
+              email: data.lead.email || null,
+              origem: 'manual',
+              qualificadoPor: 'manual',
+              vendedorId: userId,
+            },
+          })
+          leadId = created.id
+        }
+      }
+
       const card = await tx.card.create({
         data: {
           companyId,
           pipeId,
-          currentPhaseId: firstPhase.id,
+          currentPhaseId: targetPhase.id,
           title: data.title,
           description: data.description,
           createdById: userId,
           assignedToId: data.assignedToId,
           dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
+          leadId,
         },
         include: { currentPhase: true },
       })
