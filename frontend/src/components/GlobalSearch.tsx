@@ -137,7 +137,7 @@ export function GlobalSearch() {
         value={q}
         onChange={(e) => { setQ(e.target.value); setOpen(true) }}
         onFocus={() => setOpen(true)}
-        className="w-full pl-9 pr-12 py-2 bg-blue-800/60 border border-blue-500/40 rounded-lg text-sm text-white placeholder-blue-200/60 focus:outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400/40 transition-all"
+        className="w-full pl-9 pr-12 py-2 bg-blue-600/70 border border-blue-300/30 rounded-lg text-sm text-white placeholder-blue-200/70 focus:outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400/40 transition-all"
       />
       {q ? (
         <button
@@ -147,7 +147,7 @@ export function GlobalSearch() {
           <X className="w-4 h-4" />
         </button>
       ) : (
-        <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-blue-200/80 bg-blue-900/60 px-1.5 py-0.5 rounded-md border border-blue-500/40 font-mono">/</kbd>
+        <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-blue-100 bg-blue-700/70 px-1.5 py-0.5 rounded-md border border-blue-300/40 font-mono">/</kbd>
       )}
 
       {/* Dropdown via Portal (escapa de overflow:hidden de qualquer parent) */}

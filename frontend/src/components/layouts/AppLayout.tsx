@@ -131,10 +131,10 @@ export function AppLayout() {
 
   return (
     <div className="flex h-screen bg-slate-50">
-      {/* Sidebar — Enterprise navy 21Go (#293C82 → blue-500/blue-700) */}
-      <aside className="w-[260px] bg-blue-700 flex flex-col shadow-sidebar relative z-10">
-        {/* Logo block — fundo navy mais escuro pra dar peso ao topo */}
-        <div className="h-16 flex items-center px-5 border-b border-blue-600/50 bg-blue-800">
+      {/* Sidebar — Azul Institucional oficial 21Go (#293C82 = blue-500 do manual) */}
+      <aside className="w-[260px] bg-blue-500 flex flex-col shadow-sidebar relative z-10">
+        {/* Logo block — mesmo navy oficial */}
+        <div className="h-16 flex items-center px-5 border-b border-blue-400/30 bg-blue-500">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-orange-500 flex items-center justify-center shadow-cta-orange">
               <img
@@ -190,7 +190,7 @@ export function AppLayout() {
         </nav>
 
         {/* User Profile */}
-        <div className="px-3 py-3 border-t border-blue-600/50">
+        <div className="px-3 py-3 border-t border-blue-400/30">
           <div className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-blue-600/40 transition-colors duration-200 ease-smooth group">
             <div className="w-9 h-9 rounded-xl bg-orange-500/20 border border-orange-400/40 flex items-center justify-center text-xs font-bold text-orange-300 flex-shrink-0">
               {user?.firstName?.[0]}{user?.lastName?.[0]}
@@ -212,8 +212,8 @@ export function AppLayout() {
 
       {/* Main Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header — Enterprise navy 21Go: 64px, search + ações */}
-        <header className="h-16 bg-blue-700 flex items-center justify-between px-6 flex-shrink-0 shadow-sm relative z-10">
+        {/* Header — Azul Institucional oficial 21Go (#293C82 = blue-500) */}
+        <header className="h-16 bg-blue-500 flex items-center justify-between px-6 flex-shrink-0 shadow-sm relative z-10">
           {/* Global Search */}
           <GlobalSearch />
 
@@ -222,13 +222,13 @@ export function AppLayout() {
             {/* Status de conexao real-time */}
             <SocketStatusBadge />
 
-            <div className="w-px h-6 bg-blue-500/40 mx-1" />
+            <div className="w-px h-6 bg-blue-300/30 mx-1" />
 
             {/* Role Selector */}
             <div className="relative">
               <button
                 onClick={() => setRoleMenuOpen(!roleMenuOpen)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-800/50 border border-blue-500/40 hover:border-blue-400/60 hover:bg-blue-800/70 transition-all duration-200 ease-smooth"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600/60 border border-blue-300/30 hover:border-blue-300/50 hover:bg-blue-600/80 transition-all duration-200 ease-smooth"
               >
                 <Shield size={14} className="text-orange-300" />
                 <span className="text-[11px] font-bold uppercase tracking-wider text-orange-200">
@@ -258,7 +258,7 @@ export function AppLayout() {
               )}
             </div>
 
-            <div className="w-px h-6 bg-blue-500/40 mx-1" />
+            <div className="w-px h-6 bg-blue-300/30 mx-1" />
 
             <button
               onClick={toggleTheme}
@@ -276,7 +276,7 @@ export function AppLayout() {
             <button className="relative p-2 rounded-xl text-blue-200/70 hover:text-white hover:bg-blue-600/40 transition-all duration-200 ease-smooth">
               <Settings size={18} />
             </button>
-            <div className="w-px h-6 bg-blue-500/40 mx-1" />
+            <div className="w-px h-6 bg-blue-300/30 mx-1" />
             <button className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl hover:bg-blue-600/40 transition-all duration-200 ease-smooth">
               <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-[11px] font-bold text-white border-2 border-orange-300/50">
                 {user?.firstName?.[0]}{user?.lastName?.[0]}
