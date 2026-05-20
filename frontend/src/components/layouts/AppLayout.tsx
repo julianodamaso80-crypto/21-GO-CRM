@@ -130,20 +130,22 @@ export function AppLayout() {
   }
 
   return (
-    <div className="flex h-screen bg-dark-950">
-      {/* Sidebar — Xan-style: 260px, panel bg, hairline 1px direita */}
-      <aside className="w-[260px] bg-dark-900 border-r border-hairline flex flex-col shadow-sidebar">
-        {/* Logo — usa PNG oficial da marca (manual de identidade visual) */}
-        <div className="h-16 flex items-center px-5 border-b border-hairline">
+    <div className="flex h-screen bg-slate-50">
+      {/* Sidebar — Enterprise navy 21Go (#293C82 → blue-500/blue-700) */}
+      <aside className="w-[260px] bg-blue-700 flex flex-col shadow-sidebar relative z-10">
+        {/* Logo block — fundo navy mais escuro pra dar peso ao topo */}
+        <div className="h-16 flex items-center px-5 border-b border-blue-600/50 bg-blue-800">
           <div className="flex items-center gap-3">
-            <img
-              src="/logo21go.png"
-              alt="21Go Proteção Patrimonial"
-              className="w-10 h-10 rounded-xl object-contain shadow-glow-blue"
-            />
+            <div className="w-9 h-9 rounded-lg bg-orange-500 flex items-center justify-center shadow-cta-orange">
+              <img
+                src="/logo21go.png"
+                alt="21Go Proteção Patrimonial"
+                className="w-7 h-7 object-contain"
+              />
+            </div>
             <div className="leading-tight">
-              <h1 className="text-base font-display font-extrabold text-dark-50 tracking-tight">21Go</h1>
-              <p className="text-[9px] font-mono font-bold text-orange-500 tracking-[0.2em] uppercase">
+              <h1 className="text-base font-display font-extrabold text-white tracking-tight">21Go</h1>
+              <p className="text-[9px] font-mono font-bold text-orange-300 tracking-[0.2em] uppercase">
                 Proteção Patrimonial
               </p>
             </div>
@@ -155,7 +157,9 @@ export function AppLayout() {
           {NAV_SECTIONS.filter(canSeeSection).map((section, si) => (
             <div key={si}>
               {section.label && (
-                <p className="sidebar-section-label">{section.label}</p>
+                <p className="font-mono text-[10px] font-bold uppercase text-blue-200/60 tracking-[0.2em] pt-5 pb-2 px-3">
+                  {section.label}
+                </p>
               )}
               {section.label === 'Comercial' && ['admin', 'gestor', 'vendedor'].includes(currentRole) && (
                 <>
@@ -170,12 +174,12 @@ export function AppLayout() {
                   <Link
                     key={item.path + item.label}
                     to={item.path}
-                    className={active ? 'sidebar-link-active' : 'sidebar-link-inactive'}
+                    className={`group ${active ? 'sidebar-nav-active' : 'sidebar-nav-inactive'}`}
                   >
-                    <Icon size={18} className={active ? 'text-blue-400' : ''} />
+                    <Icon size={18} className={active ? 'text-orange-400' : 'text-blue-200/70 group-hover:text-white transition-colors'} />
                     <span>{item.label}</span>
                     {active && (
-                      <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400 animate-dot-pulse" />
+                      <div className="ml-auto w-1.5 h-1.5 rounded-full bg-orange-400 animate-dot-pulse" />
                     )}
                   </Link>
                 )
@@ -186,19 +190,19 @@ export function AppLayout() {
         </nav>
 
         {/* User Profile */}
-        <div className="px-3 py-3 border-t border-hairline">
-          <div className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-dark-700 transition-colors duration-200 ease-smooth group">
-            <div className="w-9 h-9 rounded-xl bg-gradient-orange-subtle border border-orange-500/30 flex items-center justify-center text-xs font-bold text-orange-400 flex-shrink-0">
+        <div className="px-3 py-3 border-t border-blue-600/50">
+          <div className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-blue-600/40 transition-colors duration-200 ease-smooth group">
+            <div className="w-9 h-9 rounded-xl bg-orange-500/20 border border-orange-400/40 flex items-center justify-center text-xs font-bold text-orange-300 flex-shrink-0">
               {user?.firstName?.[0]}{user?.lastName?.[0]}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-dark-50 truncate">{user?.firstName} {user?.lastName}</p>
-              <p className="text-[11px] text-dark-400 truncate">{user?.email}</p>
+              <p className="text-sm font-semibold text-white truncate">{user?.firstName} {user?.lastName}</p>
+              <p className="text-[11px] text-blue-200/60 truncate">{user?.email}</p>
             </div>
             <button
               onClick={handleLogout}
               title="Sair"
-              className="p-1.5 text-dark-400 hover:text-error rounded-lg hover:bg-error/10 transition-all duration-200 ease-smooth opacity-0 group-hover:opacity-100"
+              className="p-1.5 text-blue-200/60 hover:text-white rounded-lg hover:bg-error/20 transition-all duration-200 ease-smooth opacity-0 group-hover:opacity-100"
             >
               <LogOut size={15} />
             </button>
@@ -208,45 +212,45 @@ export function AppLayout() {
 
       {/* Main Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header — Xan-style: 64px, sticky, search à esquerda + ações à direita */}
-        <header className="h-16 border-b border-hairline bg-dark-900 flex items-center justify-between px-6 flex-shrink-0">
+        {/* Header — Enterprise navy 21Go: 64px, search + ações */}
+        <header className="h-16 bg-blue-700 flex items-center justify-between px-6 flex-shrink-0 shadow-sm relative z-10">
           {/* Global Search */}
           <GlobalSearch />
 
-          {/* Right Actions */}
+          {/* Right Actions — navy header com elementos claros */}
           <div className="flex items-center gap-2">
             {/* Status de conexao real-time */}
             <SocketStatusBadge />
 
-            <div className="w-px h-6 bg-hairline mx-1" />
+            <div className="w-px h-6 bg-blue-500/40 mx-1" />
 
             {/* Role Selector */}
             <div className="relative">
               <button
                 onClick={() => setRoleMenuOpen(!roleMenuOpen)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-dark-700 border border-hairline hover:border-hairline-strong transition-all duration-200 ease-smooth"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-800/50 border border-blue-500/40 hover:border-blue-400/60 hover:bg-blue-800/70 transition-all duration-200 ease-smooth"
               >
-                <Shield size={14} className={ROLE_LABELS[currentRole].color} />
-                <span className={`text-[11px] font-bold uppercase tracking-wider ${ROLE_LABELS[currentRole].color}`}>
+                <Shield size={14} className="text-orange-300" />
+                <span className="text-[11px] font-bold uppercase tracking-wider text-orange-200">
                   {ROLE_LABELS[currentRole].label}
                 </span>
-                <ChevronDown size={12} className="text-dark-400" />
+                <ChevronDown size={12} className="text-blue-200/70" />
               </button>
               {roleMenuOpen && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setRoleMenuOpen(false)} />
-                  <div className="absolute right-0 mt-2 w-44 bg-dark-800 border border-hairline rounded-xl shadow-glass z-20 py-1 animate-fade-in-down">
+                  <div className="absolute right-0 mt-2 w-44 bg-white border border-slate-200 rounded-xl shadow-lg z-20 py-1 animate-fade-in-down">
                     {(Object.keys(ROLE_LABELS) as UserRole[]).map((role) => (
                       <button
                         key={role}
                         onClick={() => handleRoleChange(role)}
-                        className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-dark-700 transition-colors duration-150 ease-smooth ${
-                          currentRole === role ? 'text-blue-400 font-semibold' : 'text-dark-200'
+                        className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 transition-colors duration-150 ease-smooth ${
+                          currentRole === role ? 'text-blue-700 font-semibold' : 'text-slate-700'
                         }`}
                       >
-                        <Shield size={14} className={ROLE_LABELS[role].color} />
+                        <Shield size={14} className={currentRole === role ? 'text-orange-500' : 'text-slate-400'} />
                         {ROLE_LABELS[role].label}
-                        {currentRole === role && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400 animate-dot-pulse" />}
+                        {currentRole === role && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-orange-500 animate-dot-pulse" />}
                       </button>
                     ))}
                   </div>
@@ -254,31 +258,34 @@ export function AppLayout() {
               )}
             </div>
 
-            <div className="w-px h-6 bg-hairline mx-1" />
+            <div className="w-px h-6 bg-blue-500/40 mx-1" />
 
             <button
               onClick={toggleTheme}
               title={theme === 'light' ? 'Mudar para escuro' : 'Mudar para claro'}
               aria-label="Alternar tema"
-              className="p-2 rounded-xl text-dark-400 hover:text-dark-50 hover:bg-dark-700 transition-all duration-200 ease-smooth"
+              className="p-2 rounded-xl text-blue-200/70 hover:text-white hover:bg-blue-600/40 transition-all duration-200 ease-smooth"
             >
               {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
             </button>
 
-            <button className="relative p-2 rounded-xl text-dark-400 hover:text-dark-50 hover:bg-dark-700 transition-all duration-200 ease-smooth">
+            <button className="relative p-2 rounded-xl text-blue-200/70 hover:text-white hover:bg-blue-600/40 transition-all duration-200 ease-smooth">
               <Bell size={18} />
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-orange-500 rounded-full animate-dot-pulse" />
             </button>
-            <button className="relative p-2 rounded-xl text-dark-400 hover:text-dark-50 hover:bg-dark-700 transition-all duration-200 ease-smooth">
+            <button className="relative p-2 rounded-xl text-blue-200/70 hover:text-white hover:bg-blue-600/40 transition-all duration-200 ease-smooth">
               <Settings size={18} />
             </button>
-            <div className="w-px h-6 bg-hairline mx-1" />
-            <button className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl hover:bg-dark-700 transition-all duration-200 ease-smooth">
-              <div className="w-7 h-7 rounded-lg bg-gradient-orange-subtle border border-orange-500/30 flex items-center justify-center text-[11px] font-bold text-orange-400">
+            <div className="w-px h-6 bg-blue-500/40 mx-1" />
+            <button className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl hover:bg-blue-600/40 transition-all duration-200 ease-smooth">
+              <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-[11px] font-bold text-white border-2 border-orange-300/50">
                 {user?.firstName?.[0]}{user?.lastName?.[0]}
               </div>
-              <span className="text-sm text-dark-100 font-semibold">{user?.firstName}</span>
-              <ChevronDown size={14} className="text-dark-400" />
+              <div className="text-left leading-tight">
+                <p className="text-xs text-white font-semibold">{user?.firstName}</p>
+                <p className="text-[10px] text-blue-200/70 uppercase tracking-wider">{ROLE_LABELS[currentRole].label}</p>
+              </div>
+              <ChevronDown size={14} className="text-blue-200/70" />
             </button>
           </div>
         </header>
@@ -312,12 +319,12 @@ function FunilLink({
   return (
     <Link
       to={path}
-      className={active ? 'sidebar-link-active' : 'sidebar-link-inactive'}
+      className={`group ${active ? 'sidebar-nav-active' : 'sidebar-nav-inactive'}`}
       title={pipe ? '' : 'Funil ainda nao criado — clique pra gerenciar'}
     >
-      <LayoutGrid size={18} className={active ? 'text-blue-400' : ''} />
+      <LayoutGrid size={18} className={active ? 'text-orange-400' : 'text-blue-200/70 group-hover:text-white transition-colors'} />
       <span>{label}</span>
-      {active && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400 animate-dot-pulse" />}
+      {active && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-orange-400 animate-dot-pulse" />}
     </Link>
   )
 }

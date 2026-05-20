@@ -128,8 +128,8 @@ export function GlobalSearch() {
   }
 
   return (
-    <div ref={containerRef} className="relative w-full max-w-md">
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+    <div ref={containerRef} className="relative w-full max-w-xl">
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-200/60" />
       <input
         ref={inputRef}
         type="text"
@@ -137,17 +137,17 @@ export function GlobalSearch() {
         value={q}
         onChange={(e) => { setQ(e.target.value); setOpen(true) }}
         onFocus={() => setOpen(true)}
-        className="w-full pl-9 pr-12 py-2 bg-dark-800/40 border border-dark-700/40 rounded-xl text-sm text-gray-300 placeholder-gray-500 focus:outline-none focus:border-gold-500/30 focus:ring-1 focus:ring-gold-500/20 transition-all"
+        className="w-full pl-9 pr-12 py-2 bg-blue-800/60 border border-blue-500/40 rounded-lg text-sm text-white placeholder-blue-200/60 focus:outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400/40 transition-all"
       />
       {q ? (
         <button
           onClick={() => { setQ(''); setOpen(false); inputRef.current?.focus() }}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-200/60 hover:text-white"
         >
           <X className="w-4 h-4" />
         </button>
       ) : (
-        <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-500 bg-dark-700/50 px-1.5 py-0.5 rounded-md border border-dark-600/30 font-mono">/</kbd>
+        <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-blue-200/80 bg-blue-900/60 px-1.5 py-0.5 rounded-md border border-blue-500/40 font-mono">/</kbd>
       )}
 
       {/* Dropdown via Portal (escapa de overflow:hidden de qualquer parent) */}

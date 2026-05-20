@@ -343,7 +343,8 @@
   }
 
   /* ══════════════════════════════════════════════════════════════
-     SIDEBAR — Xan-style: sub-headers em mono, ativo com indicador
+     SIDEBAR LEGADA — mantida pra páginas que ainda usam estas classes
+     (sidebar nova usa .sidebar-nav-* dentro do bg navy)
      ══════════════════════════════════════════════════════════════ */
   .sidebar-link {
     @apply flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
@@ -363,6 +364,67 @@
   .sidebar-section-label {
     @apply font-mono text-[10px] font-bold uppercase text-dark-400
            tracking-[0.2em] pt-5 pb-2 px-3;
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     SIDEBAR NAVY 21Go — Enterprise dark navy (#293C82 blue-700)
+     com border-left 4px laranja no item ativo (prompt design system)
+     ══════════════════════════════════════════════════════════════ */
+  .sidebar-nav {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+           transition-all duration-200 ease-smooth relative;
+    /* border-left fica reservada (4px) — laranja aparece quando ativo */
+    border-left: 4px solid transparent;
+    padding-left: calc(0.75rem - 4px); /* compensa pra não pular ao ativar */
+  }
+
+  .sidebar-nav-active {
+    @apply sidebar-nav text-white font-semibold;
+    background: rgba(242, 145, 29, 0.12);
+    border-left-color: #F2911D;
+  }
+
+  .sidebar-nav-inactive {
+    @apply sidebar-nav text-blue-100/70 hover:text-white;
+  }
+  .sidebar-nav-inactive:hover {
+    background: rgba(68, 93, 168, 0.25);
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     STATUS PILLS — prompt design system (24px height, 6px dot)
+     ══════════════════════════════════════════════════════════════ */
+  .pill {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full
+           text-[11px] font-semibold;
+    height: 24px;
+  }
+  .pill::before {
+    content: '';
+    @apply w-1.5 h-1.5 rounded-full;
+    background: currentColor;
+    opacity: 0.85;
+  }
+  .pill-progress  { @apply pill bg-emerald-50 text-emerald-700; }
+  .pill-review    { @apply pill bg-amber-50  text-amber-700;   }
+  .pill-onhold    { @apply pill bg-slate-100 text-slate-600;   }
+  .pill-done      { @apply pill bg-blue-50   text-blue-700;    }
+  .pill-lost      { @apply pill bg-rose-50   text-rose-700;    }
+
+  /* ══════════════════════════════════════════════════════════════
+     MINI PROGRESS — barra 6px com track cinza + fill laranja
+     ══════════════════════════════════════════════════════════════ */
+  .mini-progress {
+    @apply w-full max-w-[120px];
+  }
+  .mini-progress-label {
+    @apply text-[11px] text-slate-500 font-medium mb-1;
+  }
+  .mini-progress-track {
+    @apply w-full h-1.5 bg-slate-200 rounded-full overflow-hidden;
+  }
+  .mini-progress-fill {
+    @apply h-full bg-orange-500 rounded-full transition-all duration-300 ease-smooth;
   }
 
   /* ══════════════════════════════════════════════════════════════
