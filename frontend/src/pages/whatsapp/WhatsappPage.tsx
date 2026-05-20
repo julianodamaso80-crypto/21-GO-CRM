@@ -243,13 +243,10 @@ function ConversationsLayout() {
         {/* Header com perfil conectado */}
         <div className="px-4 py-3 border-b border-dark-700/40">
           <div className="flex items-center gap-2.5 mb-3">
-            {instance?.profilePicUrl ? (
-              <img src={instance.profilePicUrl} alt="" className="w-8 h-8 rounded-full" />
-            ) : (
-              <div className="w-8 h-8 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              </div>
-            )}
+            <InstanceAvatar
+              url={instance?.profilePicUrl}
+              name={instance?.profileName}
+            />
             <div className="flex-1 min-w-0">
               <p className="text-xs text-gray-500">Conectado como</p>
               <p className="text-sm font-medium text-white truncate">
@@ -934,4 +931,31 @@ function playBeep() {
   } catch {
     /* silencia — som é nice-to-have */
   }
+}
+
+// Avatar da instância WhatsApp — usa profilePicUrl quando disponível,
+// fallback pra logo 21Go caso a URL falhe ou seja vazia
+function InstanceAvatar({ url, name }: { url?: string | null; name?: string | null }) {
+  const [failed, setFailed] = useState(false)
+  const showImg = url && !failed
+  const initial = (name || 'WA').trim().charAt(0).toUpperCase()
+
+  if (showImg) {
+    return (
+      <img
+        src={url!}
+        alt={name || 'WhatsApp'}
+        onError={() => setFailed(true)}
+        className="w-8 h-8 rounded-full object-cover border border-orange-500/40"
+      />
+    )
+  }
+  return (
+    <div
+      title={name || 'WhatsApp'}
+      className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-[11px] font-bold text-white border-2 border-orange-300/40"
+    >
+      {initial}
+    </div>
+  )
 }
