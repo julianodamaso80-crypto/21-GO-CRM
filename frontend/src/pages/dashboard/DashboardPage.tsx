@@ -1,16 +1,32 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Users, Car, Loader2, TrendingUp, TrendingDown, Wallet,
   ShieldCheck, ArrowUpRight, Sparkles, Target, MessageSquare,
-  Bot, Zap, ClipboardCheck, Handshake, Clock,
+  Bot, Zap, ClipboardCheck, Handshake, Clock, Megaphone,
 } from 'lucide-react'
 import {
-  Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
-  CartesianGrid,
+  Area, AreaChart, Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  CartesianGrid, Legend,
 } from 'recharts'
 import { useDashboardStats } from '../../hooks/useDashboard'
+import { useAnalyticsSources } from '../../hooks/useAnalytics'
+import { DashboardAskAI } from './DashboardAskAI'
 import type { DashboardPeriod } from '../../../../shared/types'
+
+const SOURCE_META: Record<string, { label: string; color: string }> = {
+  google_ads:    { label: 'Google Ads',  color: '#4285F4' },
+  meta_ads:      { label: 'Meta Ads',    color: '#1877F2' },
+  instagram:     { label: 'Instagram',   color: '#E4405F' },
+  whatsapp:      { label: 'WhatsApp',    color: '#25D366' },
+  site_organico: { label: 'Orgânico',     color: '#10B981' },
+  indicacao:     { label: 'Indicação',    color: '#F59E0B' },
+  direto:        { label: 'Direto',      color: '#6366F1' },
+  desconhecido:  { label: 'Desconhecido', color: '#94A3B8' },
+}
+
+const sourceLabel = (key: string) => SOURCE_META[key]?.label ?? key
+const sourceColor = (key: string) => SOURCE_META[key]?.color ?? '#94A3B8'
 
 const PERIOD_OPTIONS: Array<{ value: DashboardPeriod; label: string }> = [
   { value: 1, label: 'Hoje' },
@@ -28,6 +44,15 @@ const formatBRLFull = (v: number) =>
 export function DashboardPage() {
   const [period, setPeriod] = useState<DashboardPeriod>(7)
   const { data: stats, isLoading } = useDashboardStats(period)
+
+  const sourceFilters = useMemo(() => {
+    const end = new Date()
+    end.setMinutes(0, 0, 0)
+    const start = new Date(end)
+    start.setDate(start.getDate() - period)
+    return { startDate: start.toISOString(), endDate: end.toISOString() }
+  }, [period])
+  const { data: sourcesData, isLoading: sourcesLoading } = useAnalyticsSources(sourceFilters)
 
   if (isLoading || !stats) {
     return (
@@ -233,6 +258,14 @@ export function DashboardPage() {
           </ResponsiveContainer>
         </GlassCard>
 
+        {/* === CONVERSAO POR CANAL (ROI de midia) === */}
+        <SourceConversionPanel
+          data={sourcesData?.data ?? []}
+          totals={sourcesData?.totals ?? { leads: 0, converted: 0, revenue: 0 }}
+          isLoading={sourcesLoading}
+          periodLabel={periodLabel}
+        />
+
         {/* === FUNIL + ULTIMOS FECHADOS === */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Funil */}
@@ -293,6 +326,9 @@ export function DashboardPage() {
             <QuickLink icon={<Zap size={18} />} label="Automacoes" to="/automations" tint="yellow" />
           </div>
         </GlassCard>
+
+        {/* === PERGUNTE A IA (Q&A com dados reais) === */}
+        <DashboardAskAI />
       </div>
     </div>
   )
@@ -501,6 +537,180 @@ function QuickLink({ icon, label, to, tint }: { icon: React.ReactNode; label: st
       </div>
       <span className="text-[11px] font-medium text-gray-400 group-hover:text-white transition-colors">{label}</span>
     </Link>
+  )
+}
+
+interface SourceRow {
+  source: string
+  leads: number
+  qualified?: number
+  converted: number
+  conversionRate: number
+}
+
+function SourceConversionPanel({
+  data,
+  totals,
+  isLoading,
+  periodLabel,
+}: {
+  data: SourceRow[]
+  totals: { leads: number; converted: number; revenue: number }
+  isLoading: boolean
+  periodLabel: string
+}) {
+  if (isLoading) {
+    return (
+      <GlassCard>
+        <div className="flex items-center justify-center h-48">
+          <Loader2 className="w-6 h-6 text-gold-400 animate-spin" />
+        </div>
+      </GlassCard>
+    )
+  }
+
+  const hasData = data.length > 0 && totals.leads > 0
+  const avgConversion = totals.leads > 0 ? (totals.converted / totals.leads) * 100 : 0
+
+  const chartData = data.map((d) => ({
+    name: sourceLabel(d.source),
+    sourceKey: d.source,
+    Recebidos: d.leads,
+    Aprovados: d.converted,
+    conversionRate: d.conversionRate,
+    color: sourceColor(d.source),
+  }))
+
+  return (
+    <GlassCard>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Megaphone className="w-4 h-4 text-gold-400" />
+          <div>
+            <h3 className="text-sm font-semibold text-white">Conversão por canal</h3>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Leads recebidos × aprovados — periodo: <span className="text-gold-400">{periodLabel}</span>
+            </p>
+          </div>
+        </div>
+        <Link
+          to="/analytics"
+          className="text-xs text-gold-400 hover:text-gold-300 flex items-center gap-1 transition-colors"
+        >
+          Ver detalhado <ArrowUpRight className="w-3 h-3" />
+        </Link>
+      </div>
+
+      {/* Mini KPIs de totais */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+        <div className="bg-dark-900/40 rounded-lg border border-dark-700/50 p-3">
+          <p className="text-[11px] uppercase tracking-wider text-gray-500">Leads recebidos</p>
+          <p className="text-2xl font-display font-bold text-white mt-1">{totals.leads}</p>
+        </div>
+        <div className="bg-dark-900/40 rounded-lg border border-emerald-500/20 p-3">
+          <p className="text-[11px] uppercase tracking-wider text-gray-500">Aprovados</p>
+          <p className="text-2xl font-display font-bold text-emerald-400 mt-1">{totals.converted}</p>
+        </div>
+        <div className="bg-dark-900/40 rounded-lg border border-gold-500/20 p-3">
+          <p className="text-[11px] uppercase tracking-wider text-gray-500">Conversão média</p>
+          <p className="text-2xl font-display font-bold text-gold-300 mt-1">
+            {avgConversion.toFixed(1)}<span className="text-base text-gold-400/70">%</span>
+          </p>
+        </div>
+      </div>
+
+      {!hasData ? (
+        <div className="text-center py-10 text-sm text-gray-500">
+          Sem leads no período. Quando começarem a chegar, você vai ver aqui de onde vêm e quanto cada canal converte.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+          {/* Chart */}
+          <div className="lg:col-span-3 bg-dark-900/30 rounded-xl border border-dark-700/40 p-4">
+            <ResponsiveContainer width="100%" height={Math.max(260, chartData.length * 44 + 40)}>
+              <BarChart data={chartData} layout="vertical" margin={{ top: 8, right: 24, bottom: 8, left: 12 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1F2937" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 11, fill: '#94A3B8' }} stroke="#334155" />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  tick={{ fontSize: 12, fill: '#CBD5E1' }}
+                  stroke="#334155"
+                  width={110}
+                />
+                <Tooltip
+                  cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                  contentStyle={{
+                    borderRadius: 8,
+                    border: '1px solid rgba(201,168,76,0.25)',
+                    backgroundColor: 'rgba(11,17,32,0.95)',
+                    backdropFilter: 'blur(16px)',
+                    fontSize: 12,
+                  }}
+                  formatter={(value: number, name: string, item: any) => {
+                    if (name === 'Aprovados') {
+                      const rate = item?.payload?.conversionRate ?? 0
+                      return [`${value} (${rate.toFixed(1)}%)`, name]
+                    }
+                    return [value, name]
+                  }}
+                />
+                <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} iconType="circle" />
+                <Bar dataKey="Recebidos" radius={[0, 4, 4, 0]} barSize={14}>
+                  {chartData.map((entry, i) => (
+                    <Cell key={`r-${i}`} fill={entry.color} fillOpacity={0.4} />
+                  ))}
+                </Bar>
+                <Bar dataKey="Aprovados" radius={[0, 4, 4, 0]} barSize={14}>
+                  {chartData.map((entry, i) => (
+                    <Cell key={`a-${i}`} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Tabela */}
+          <div className="lg:col-span-2 bg-dark-900/30 rounded-xl border border-dark-700/40 overflow-hidden">
+            <div className="px-4 py-3 border-b border-dark-700/40 flex items-center justify-between">
+              <h4 className="text-xs font-semibold text-gray-300 uppercase tracking-wider">Detalhamento</h4>
+              <span className="text-[10px] text-gray-500">{data.length} canais</span>
+            </div>
+            <div className="divide-y divide-dark-700/40">
+              {data.map((row) => {
+                const color = sourceColor(row.source)
+                return (
+                  <div key={row.source} className="px-4 py-2.5 hover:bg-dark-800/30 transition-colors">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: color }}
+                        />
+                        <span className="text-sm text-gray-200 truncate">{sourceLabel(row.source)}</span>
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <span className="text-xs text-gray-400 tabular-nums">{row.leads}</span>
+                        <span className="text-xs text-emerald-400 tabular-nums">→ {row.converted}</span>
+                        <span
+                          className={`text-xs font-medium tabular-nums w-12 text-right ${
+                            row.conversionRate >= avgConversion
+                              ? 'text-emerald-300'
+                              : 'text-gray-500'
+                          }`}
+                        >
+                          {row.conversionRate.toFixed(1)}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </GlassCard>
   )
 }
 

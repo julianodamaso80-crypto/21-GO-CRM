@@ -34,6 +34,12 @@ const envSchema = z.object({
   DEFAULT_AI_PROVIDER: z.enum(['openai', 'anthropic', 'google']).default('openai'),
   AI_SERVICE_URL: z.string().default('http://localhost:8100'),
 
+  // OpenRouter (proxy multi-modelo usado no /ai/ask do dashboard)
+  OPENROUTER_API_KEY: z.string().optional(),
+  OPENROUTER_MODEL: z.string().default('anthropic/claude-haiku-4.5'),
+  OPENROUTER_REFERER: z.string().default('https://crm21go.site'),
+  OPENROUTER_APP_TITLE: z.string().default('21Go CRM'),
+
   // WhatsApp
   WHATSAPP_API_TOKEN: z.string().optional(),
   WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
@@ -96,6 +102,12 @@ const envSchema = z.object({
   GOOGLE_ADS_CONVERSION_ACTION: z.string().optional(),
   GOOGLE_ADS_DEVELOPER_TOKEN: z.string().optional(),
   GOOGLE_ADS_ACCESS_TOKEN: z.string().optional(),
+
+  // Webhook: disparado quando um card entra na fase "APROVADO" do funil "Vendas de Associados"
+  WEBHOOK_LEAD_APPROVED_URL: z.string().optional(),
+  WEBHOOK_LEAD_APPROVED_TOKEN: z.string().optional(),
+  WEBHOOK_LEAD_APPROVED_PIPE_NAME: z.string().default('Vendas de Associados'),
+  WEBHOOK_LEAD_APPROVED_PHASE_NAME: z.string().default('APROVADO'),
 })
 
 const _env = envSchema.safeParse(process.env)

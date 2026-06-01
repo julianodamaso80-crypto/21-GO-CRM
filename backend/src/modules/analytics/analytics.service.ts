@@ -70,14 +70,51 @@ export class AnalyticsService {
       _count: { id: true },
     })
 
-    return sources.map(s => ({
-      source: s.origem || 'desconhecido',
-      leads: s._count.id,
-      converted: 0,
-      conversionRate: 0,
-      deals: 0,
-      revenue: 0,
-    }))
+    const data = await Promise.all(
+      sources.map(async (s) => {
+        const [qualified, approved] = await Promise.all([
+          prisma.lead.count({
+            where: {
+              companyId,
+              createdAt: dateFilter,
+              origem: s.origem,
+              etapaFunil: { in: ['qualificado', 'cotacao_enviada', 'negociacao', 'fechado'] },
+            },
+          }),
+          prisma.lead.count({
+            where: {
+              companyId,
+              createdAt: dateFilter,
+              origem: s.origem,
+              cards: { some: { currentPhase: { isWon: true } } },
+            },
+          }),
+        ])
+        const conversionRate = s._count.id > 0 ? (approved / s._count.id) * 100 : 0
+        return {
+          source: s.origem || 'desconhecido',
+          leads: s._count.id,
+          qualified,
+          converted: approved,
+          conversionRate: Math.round(conversionRate * 100) / 100,
+          revenue: 0,
+          avgDealValue: 0,
+          avgTimeToConvert: 0,
+        }
+      }),
+    )
+
+    const sorted = data.sort((a, b) => b.leads - a.leads)
+    const totals = sorted.reduce(
+      (acc, s) => ({
+        leads: acc.leads + s.leads,
+        converted: acc.converted + s.converted,
+        revenue: acc.revenue + s.revenue,
+      }),
+      { leads: 0, converted: 0, revenue: 0 },
+    )
+
+    return { data: sorted, totals }
   }
 
   async getCampaignPerformance(companyId: string, filters: AnalyticsFilters) {

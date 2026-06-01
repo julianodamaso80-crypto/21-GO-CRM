@@ -1,5 +1,7 @@
 import { prisma } from '../../config/database'
+import { env } from '../../config/env'
 import { AppError } from '../../utils/app-error'
+import { fireAndForgetWebhook } from '../../utils/webhook-dispatcher'
 
 export class PipesService {
   // === Pipes ===
@@ -464,13 +466,16 @@ export class PipesService {
     const card = await prisma.card.findFirst({ where: { id: cardId, companyId }, include: { currentPhase: true } })
     if (!card) throw new AppError('Card nao encontrado', 404, 'NOT_FOUND')
 
-    const newPhase = await prisma.phase.findFirst({ where: { id: phaseId, companyId } })
+    const newPhase = await prisma.phase.findFirst({
+      where: { id: phaseId, companyId },
+      include: { pipe: { select: { id: true, name: true } } },
+    })
     if (!newPhase) throw new AppError('Phase nao encontrada', 404, 'NOT_FOUND')
 
     if (card.currentPhaseId === phaseId) return card
 
-    return prisma.$transaction(async (tx) => {
-      const updated = await tx.card.update({
+    const updated = await prisma.$transaction(async (tx) => {
+      return tx.card.update({
         where: { id: cardId },
         data: {
           currentPhaseId: phaseId,
@@ -479,8 +484,93 @@ export class PipesService {
         },
         include: { currentPhase: true },
       })
+    })
 
-      return updated
+    void this.maybeDispatchApprovedWebhook(updated.id, newPhase, userId).catch(() => {})
+
+    return updated
+  }
+
+  /**
+   * Dispara webhook quando um card entra na fase "APROVADO" do funil "Vendas de Associados".
+   * Configurado via env: WEBHOOK_LEAD_APPROVED_URL + _TOKEN + _PIPE_NAME + _PHASE_NAME.
+   * Fire-and-forget: erros nao propagam pro request original.
+   */
+  private async maybeDispatchApprovedWebhook(
+    cardId: string,
+    phase: { id: string; name: string; pipe: { id: string; name: string } | null },
+    userId: string,
+  ) {
+    const url = env.WEBHOOK_LEAD_APPROVED_URL
+    if (!url) return
+
+    const expectedPipe = env.WEBHOOK_LEAD_APPROVED_PIPE_NAME.trim().toLowerCase()
+    const expectedPhase = env.WEBHOOK_LEAD_APPROVED_PHASE_NAME.trim().toLowerCase()
+    if (!phase.pipe) return
+    if (phase.pipe.name.trim().toLowerCase() !== expectedPipe) return
+    if (phase.name.trim().toLowerCase() !== expectedPhase) return
+
+    const card = await prisma.card.findUnique({
+      where: { id: cardId },
+      include: {
+        lead: true,
+        assignedTo: { select: { id: true, firstName: true, lastName: true, email: true } },
+        currentPhase: { select: { id: true, name: true } },
+        pipe: { select: { id: true, name: true } },
+      },
+    })
+    if (!card) return
+
+    const lead = card.lead
+    const payload = {
+      event: 'lead.approved',
+      occurredAt: new Date().toISOString(),
+      card: {
+        id: card.id,
+        title: card.title,
+        description: card.description,
+        status: card.status,
+        createdAt: card.createdAt.toISOString(),
+        completedAt: card.completedAt?.toISOString() ?? null,
+      },
+      pipe: card.pipe ? { id: card.pipe.id, name: card.pipe.name } : null,
+      phase: { id: phase.id, name: phase.name },
+      lead: lead
+        ? {
+            id: lead.id,
+            nome: lead.nome,
+            telefone: lead.telefone,
+            whatsapp: lead.whatsapp,
+            email: lead.email,
+            origem: lead.origem,
+            utm: {
+              source: lead.utmSource,
+              medium: lead.utmMedium,
+              campaign: lead.utmCampaign,
+            },
+            tracking: {
+              gclid: lead.gclid,
+              fbclid: lead.fbclid,
+              fbp: lead.fbp,
+              fbc: lead.fbc,
+            },
+          }
+        : null,
+      assignedTo: card.assignedTo
+        ? {
+            id: card.assignedTo.id,
+            name: `${card.assignedTo.firstName} ${card.assignedTo.lastName}`.trim(),
+            email: card.assignedTo.email,
+          }
+        : null,
+      movedByUserId: userId,
+    }
+
+    fireAndForgetWebhook({
+      url,
+      bearerToken: env.WEBHOOK_LEAD_APPROVED_TOKEN,
+      eventName: 'lead.approved',
+      payload,
     })
   }
 

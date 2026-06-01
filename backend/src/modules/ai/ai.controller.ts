@@ -1,5 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify'
 import { AIService } from './ai.service'
+import { askAIService } from './ai-ask.service'
 import { AppError } from '../../utils/app-error'
 import { env } from '../../config/env'
 
@@ -291,6 +292,14 @@ export class AIController {
     const limit = parseInt(query.limit) || 50
     const queries = await aiService.getRecentQueries(user.companyId, limit)
     return reply.send(queries)
+  }
+
+  /** POST /ai/ask — pergunta em linguagem natural com tool use sobre dados reais */
+  async ask(request: FastifyRequest, reply: FastifyReply) {
+    const user = (request as any).user
+    const { question } = request.body as { question: string }
+    const result = await askAIService.ask(question, { companyId: user.companyId })
+    return reply.send(result)
   }
 
   // === Helpers ===

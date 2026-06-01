@@ -190,6 +190,23 @@ export async function aiRoutes(fastify: FastifyInstance) {
       handler: aiController.proxyQuery.bind(aiController),
     })
 
+    // === Ask (Q&A do dashboard com tool use sobre dados reais do CRM) ===
+    app.post('/ask', {
+      schema: {
+        description: 'Pergunta em linguagem natural sobre vendas, leads, canais, sinistros. Agente usa ferramentas pra consultar dados reais.',
+        tags: ['AI'],
+        security: [{ bearerAuth: [] }],
+        body: {
+          type: 'object',
+          required: ['question'],
+          properties: {
+            question: { type: 'string', minLength: 3, maxLength: 500 },
+          },
+        },
+      },
+      handler: aiController.ask.bind(aiController),
+    })
+
     // === Pipe Builder ===
     app.post('/pipe-suggest', {
       schema: {
