@@ -7,6 +7,7 @@ import { LeadsPage } from './pages/leads/LeadsPage'
 import { AssociadosPage } from './pages/associados/AssociadosPage'
 import { InboxPage } from './pages/inbox/InboxPage'
 import { AITrainingPage } from './pages/ai/AITrainingPage'
+import { AskAIPage } from './pages/ai/AskAIPage'
 import { PipeBuilderPage } from './pages/pipes/PipeBuilderPage'
 import { PipesListPage } from './pages/pipes/PipesListPage'
 import { KanbanPage } from './pages/pipes/KanbanPage'
@@ -88,6 +89,7 @@ export function Router() {
           <Route path="/inbox" element={<Navigate to="/whatsapp" replace />} />
           <Route path="/whatsapp" element={<WhatsappPage />} />
           <Route path="/ai" element={<AITrainingPage />} />
+          <Route path="/ask-ai" element={<AskAIPage />} />
           <Route path="/pipes" element={<PipesListPage />} />
           <Route path="/pipes/new-ai" element={<PipeBuilderPage />} />
           <Route path="/pipes/:pipeId/kanban" element={<KanbanPage />} />

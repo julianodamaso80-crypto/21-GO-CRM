@@ -7,8 +7,8 @@ const analyticsController = new AnalyticsController()
 const filterQuerySchema = {
   type: 'object' as const,
   properties: {
-    startDate: { type: 'string', format: 'date' },
-    endDate: { type: 'string', format: 'date' },
+    startDate: { type: 'string' },
+    endDate: { type: 'string' },
     source: { type: 'string' },
     campaign: { type: 'string' },
     platform: { type: 'string' },

@@ -11,7 +11,6 @@ import {
 } from 'recharts'
 import { useDashboardStats } from '../../hooks/useDashboard'
 import { useAnalyticsSources } from '../../hooks/useAnalytics'
-import { DashboardAskAI } from './DashboardAskAI'
 import type { DashboardPeriod } from '../../../../shared/types'
 
 const SOURCE_META: Record<string, { label: string; color: string }> = {
@@ -327,8 +326,6 @@ export function DashboardPage() {
           </div>
         </GlassCard>
 
-        {/* === PERGUNTE A IA (Q&A com dados reais) === */}
-        <DashboardAskAI />
       </div>
     </div>
   )

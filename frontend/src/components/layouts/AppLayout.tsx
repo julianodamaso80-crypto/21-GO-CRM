@@ -4,7 +4,7 @@ import {
   LayoutGrid, LogOut, Webhook, Zap, BarChart3,
   SmilePlus, Car, FileText, AlertTriangle, Gift, Link2,
   Bell, ChevronDown, ClipboardList, Settings,
-  Shield, Wrench, UserCog, ListChecks, Sun, Moon,
+  Shield, Wrench, UserCog, ListChecks, Sun, Moon, Sparkles,
 } from 'lucide-react'
 import { useAuthStore, type UserRole } from '../../store/auth-store'
 import { useState } from 'react'
@@ -70,7 +70,8 @@ const NAV_SECTIONS: NavSection[] = [
     label: 'Ferramentas',
     roles: ['admin', 'gestor', 'vendedor'],
     items: [
-      { path: '/ai', icon: Brain, label: 'IA & Treinamento' },
+      { path: '/ask-ai', icon: Sparkles, label: 'Pergunte à IA' },
+      { path: '/ai', icon: Brain, label: 'IA & Treinamento', roles: ['admin', 'gestor'] },
       { path: '/automations', icon: Zap, label: 'Automacoes', roles: ['admin', 'gestor'] },
       { path: '/webhooks', icon: Webhook, label: 'Webhooks', roles: ['admin'] },
       { path: '/hinova', icon: Link2, label: 'Hinova (SGA)', roles: ['admin', 'gestor'] },
