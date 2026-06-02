@@ -1,5 +1,6 @@
 import { prisma } from '../../config/database'
 import { getStateFromPhone, UF_TO_NAME } from '../../utils/phone-state'
+import { inferVehicleType } from '../../utils/infer-vehicle-type'
 
 export interface AnalyticsFilters {
   startDate?: string
@@ -256,6 +257,53 @@ export class AnalyticsService {
         conversao: v.leads > 0 ? Math.round((v.aprovados / v.leads) * 10000) / 100 : 0,
       }))
       .sort((a, b) => b.leads - a.leads)
+
+    const totals = data.reduce(
+      (acc, s) => ({ leads: acc.leads + s.leads, aprovados: acc.aprovados + s.aprovados }),
+      { leads: 0, aprovados: 0 },
+    )
+
+    return { data, totals }
+  }
+
+  /**
+   * Agrupa leads por tipo de veículo (carro/moto/indefinido) inferido
+   * da marca + modelo de interesse. Mostra aprovações por tipo.
+   */
+  async getLeadsByVehicleType(companyId: string, filters: AnalyticsFilters) {
+    const dateFilter = this.buildDateFilter(filters)
+
+    const leads = await prisma.lead.findMany({
+      where: { companyId, createdAt: dateFilter },
+      select: {
+        marcaInteresse: true,
+        modeloInteresse: true,
+        cards: { select: { currentPhase: { select: { isWon: true } } } },
+      },
+    })
+
+    const byType: Record<string, { leads: number; aprovados: number }> = {
+      carro: { leads: 0, aprovados: 0 },
+      moto: { leads: 0, aprovados: 0 },
+      indefinido: { leads: 0, aprovados: 0 },
+    }
+
+    for (const lead of leads) {
+      const tipo = inferVehicleType(lead.marcaInteresse, lead.modeloInteresse) ?? 'indefinido'
+      const isApproved = lead.cards.some((c) => c.currentPhase?.isWon === true)
+      byType[tipo].leads += 1
+      if (isApproved) byType[tipo].aprovados += 1
+    }
+
+    const data = (['carro', 'moto', 'indefinido'] as const).map((tipo) => ({
+      tipo,
+      label: tipo === 'carro' ? 'Carro' : tipo === 'moto' ? 'Moto' : 'Indefinido',
+      leads: byType[tipo].leads,
+      aprovados: byType[tipo].aprovados,
+      conversao: byType[tipo].leads > 0
+        ? Math.round((byType[tipo].aprovados / byType[tipo].leads) * 10000) / 100
+        : 0,
+    }))
 
     const totals = data.reduce(
       (acc, s) => ({ leads: acc.leads + s.leads, aprovados: acc.aprovados + s.aprovados }),

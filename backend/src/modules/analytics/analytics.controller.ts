@@ -66,6 +66,20 @@ export class AnalyticsController {
   }
 
   /**
+   * GET /analytics/by-vehicle-type
+   * Distribuição de leads por tipo de veículo (carro/moto) inferido da marca/modelo
+   */
+  async getByVehicleType(request: FastifyRequest, reply: FastifyReply) {
+    const user = (request as any).user
+    const companyId = user.companyId
+    const filters = this.extractFilters(request)
+
+    const byType = await analyticsService.getLeadsByVehicleType(companyId, filters)
+
+    return reply.send(byType)
+  }
+
+  /**
    * GET /analytics/campaigns
    * Analise por campanha
    */

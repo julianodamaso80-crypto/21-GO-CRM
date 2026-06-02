@@ -4,6 +4,7 @@
  */
 import { prisma } from '../../../config/database'
 import { getStateFromPhone, UF_TO_NAME } from '../../../utils/phone-state'
+import { inferVehicleType } from '../../../utils/infer-vehicle-type'
 
 export interface ToolContext {
   companyId: string
@@ -76,6 +77,15 @@ export const CRM_TOOLS: ToolDefinition[] = [
   {
     name: 'get_leads_por_estado',
     description: 'Retorna distribuição de leads e aprovações por estado brasileiro (UF) no período, calculada via DDD do telefone do lead. Use quando perguntam de qual estado vêm os leads, onde fecha mais clientes, qual UF investir mais em mídia.',
+    input_schema: {
+      type: 'object',
+      properties: periodDaysSchema,
+      required: ['period_days'],
+    },
+  },
+  {
+    name: 'get_leads_por_tipo_veiculo',
+    description: 'Retorna quantos leads (e aprovações) são de carro vs moto no período. Classificação é inferida da marca/modelo de interesse do lead. Use quando perguntam sobre carro vs moto, ratio de moto, qual tipo de veículo está vendendo mais.',
     input_schema: {
       type: 'object',
       properties: periodDaysSchema,
@@ -306,6 +316,42 @@ export async function executeToolCall(
         total_leads: leads.length,
         total_aprovados: data.reduce((s, d) => s + d.aprovados, 0),
         por_estado: data,
+      })
+    }
+
+    case 'get_leads_por_tipo_veiculo': {
+      const { start, end } = periodRange(input.period_days)
+      const leads = await prisma.lead.findMany({
+        where: { companyId, createdAt: { gte: start, lte: end } },
+        select: {
+          marcaInteresse: true,
+          modeloInteresse: true,
+          cards: { select: { currentPhase: { select: { isWon: true } } } },
+        },
+      })
+      const counts: Record<string, { leads: number; aprovados: number }> = {
+        carro: { leads: 0, aprovados: 0 },
+        moto: { leads: 0, aprovados: 0 },
+        indefinido: { leads: 0, aprovados: 0 },
+      }
+      for (const lead of leads) {
+        const tipo = inferVehicleType(lead.marcaInteresse, lead.modeloInteresse) ?? 'indefinido'
+        const isApproved = lead.cards.some((c) => c.currentPhase?.isWon === true)
+        counts[tipo].leads += 1
+        if (isApproved) counts[tipo].aprovados += 1
+      }
+      const result = (['carro', 'moto', 'indefinido'] as const).map((t) => ({
+        tipo: t,
+        leads: counts[t].leads,
+        aprovados: counts[t].aprovados,
+        conversao_pct: counts[t].leads > 0
+          ? Math.round((counts[t].aprovados / counts[t].leads) * 10000) / 100
+          : 0,
+      }))
+      return JSON.stringify({
+        periodo_dias: input.period_days,
+        nota: 'Classificacao inferida da marca+modelo. Leads sem essa info caem em "indefinido".',
+        por_tipo: result,
       })
     }
 

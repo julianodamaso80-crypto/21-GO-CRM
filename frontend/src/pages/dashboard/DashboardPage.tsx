@@ -3,14 +3,14 @@ import { Link } from 'react-router-dom'
 import {
   Users, Car, Loader2, TrendingUp, TrendingDown, Wallet,
   ShieldCheck, ArrowUpRight, Sparkles, Target, MessageSquare,
-  Bot, Zap, ClipboardCheck, Handshake, Clock, Megaphone, MapPin, Calendar,
+  Bot, Zap, ClipboardCheck, Handshake, Clock, Megaphone, MapPin, Calendar, Bike,
 } from 'lucide-react'
 import {
   Area, AreaChart, Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis,
   CartesianGrid, Legend,
 } from 'recharts'
 import { useDashboardStats } from '../../hooks/useDashboard'
-import { useAnalyticsSources, useAnalyticsByState } from '../../hooks/useAnalytics'
+import { useAnalyticsSources, useAnalyticsByState, useAnalyticsByVehicleType } from '../../hooks/useAnalytics'
 import type { DashboardPeriod } from '../../../../shared/types'
 
 const SOURCE_META: Record<string, { label: string; color: string }> = {
@@ -100,6 +100,7 @@ export function DashboardPage() {
   const { data: stats, isLoading } = useDashboardStats(effectiveDays)
   const { data: sourcesData, isLoading: sourcesLoading } = useAnalyticsSources(analyticsFilters)
   const { data: stateData, isLoading: stateLoading } = useAnalyticsByState(analyticsFilters)
+  const { data: vehicleTypeData, isLoading: vehicleTypeLoading } = useAnalyticsByVehicleType(analyticsFilters)
 
   if (isLoading || !stats) {
     return (
@@ -354,6 +355,14 @@ export function DashboardPage() {
           data={stateData?.data ?? []}
           totals={stateData?.totals ?? { leads: 0, aprovados: 0 }}
           isLoading={stateLoading}
+          periodLabel={periodLabel}
+        />
+
+        {/* === CARRO vs MOTO === */}
+        <VehicleTypeConversionPanel
+          data={vehicleTypeData?.data ?? []}
+          totals={vehicleTypeData?.totals ?? { leads: 0, aprovados: 0 }}
+          isLoading={vehicleTypeLoading}
           periodLabel={periodLabel}
         />
 
@@ -967,6 +976,184 @@ function StateConversionPanel({
         </div>
       )}
     </GlassCard>
+  )
+}
+
+interface VehicleTypeRow {
+  tipo: 'carro' | 'moto' | 'indefinido'
+  label: string
+  leads: number
+  aprovados: number
+  conversao: number
+}
+
+function VehicleTypeConversionPanel({
+  data,
+  totals,
+  isLoading,
+  periodLabel,
+}: {
+  data: VehicleTypeRow[]
+  totals: { leads: number; aprovados: number }
+  isLoading: boolean
+  periodLabel: string
+}) {
+  if (isLoading) {
+    return (
+      <GlassCard>
+        <div className="flex items-center justify-center h-32">
+          <Loader2 className="w-6 h-6 text-gold-400 animate-spin" />
+        </div>
+      </GlassCard>
+    )
+  }
+
+  const carro = data.find((d) => d.tipo === 'carro') ?? { tipo: 'carro' as const, label: 'Carro', leads: 0, aprovados: 0, conversao: 0 }
+  const moto = data.find((d) => d.tipo === 'moto') ?? { tipo: 'moto' as const, label: 'Moto', leads: 0, aprovados: 0, conversao: 0 }
+  const indefinido = data.find((d) => d.tipo === 'indefinido') ?? { tipo: 'indefinido' as const, label: 'Indefinido', leads: 0, aprovados: 0, conversao: 0 }
+
+  const hasData = totals.leads > 0
+  const classifiedTotal = carro.leads + moto.leads
+  const pctCarro = classifiedTotal > 0 ? (carro.leads / classifiedTotal) * 100 : 0
+  const pctMoto = classifiedTotal > 0 ? (moto.leads / classifiedTotal) * 100 : 0
+
+  return (
+    <GlassCard>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Car className="w-4 h-4 text-blue-400" />
+          <div>
+            <h3 className="text-sm font-semibold text-white">Carro vs Moto</h3>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Tipo de veículo inferido da marca/modelo — periodo: <span className="text-gold-400">{periodLabel}</span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {!hasData ? (
+        <div className="text-center py-10 text-sm text-gray-500">Sem leads no período.</div>
+      ) : (
+        <div className="space-y-4">
+          {/* Barra horizontal stack — proporcao visual */}
+          {classifiedTotal > 0 && (
+            <div className="bg-dark-900/40 rounded-xl border border-dark-700/40 p-4">
+              <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
+                <span>{classifiedTotal} leads classificados</span>
+                <span>
+                  {pctCarro.toFixed(0)}% carro · {pctMoto.toFixed(0)}% moto
+                </span>
+              </div>
+              <div className="h-3 w-full bg-dark-800 rounded-full overflow-hidden flex">
+                <div
+                  className="bg-gradient-to-r from-blue-500 to-blue-400 flex items-center justify-end px-2"
+                  style={{ width: `${pctCarro}%` }}
+                >
+                  {pctCarro >= 15 && (
+                    <span className="text-[10px] font-semibold text-white">{carro.leads}</span>
+                  )}
+                </div>
+                <div
+                  className="bg-gradient-to-r from-orange-500 to-orange-400 flex items-center justify-end px-2"
+                  style={{ width: `${pctMoto}%` }}
+                >
+                  {pctMoto >= 15 && (
+                    <span className="text-[10px] font-semibold text-white">{moto.leads}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Cards: Carro / Moto / Indefinido */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <TypeCard
+              icon={<Car className="w-5 h-5" />}
+              label="Carro"
+              leads={carro.leads}
+              aprovados={carro.aprovados}
+              conversao={carro.conversao}
+              accent="blue"
+            />
+            <TypeCard
+              icon={<Bike className="w-5 h-5" />}
+              label="Moto"
+              leads={moto.leads}
+              aprovados={moto.aprovados}
+              conversao={moto.conversao}
+              accent="orange"
+            />
+            <TypeCard
+              icon={<Clock className="w-5 h-5" />}
+              label="Indefinido"
+              leads={indefinido.leads}
+              aprovados={indefinido.aprovados}
+              conversao={indefinido.conversao}
+              accent="gray"
+              hint="Sem marca/modelo preenchido"
+            />
+          </div>
+
+          {indefinido.leads > 0 && indefinido.leads >= totals.leads * 0.3 && (
+            <p className="text-[11px] text-gray-500 text-center">
+              ⚠ {indefinido.leads} leads ({Math.round((indefinido.leads / totals.leads) * 100)}%) sem marca/modelo preenchido.
+              Pra classificação ficar mais precisa, o formulário do site precisa capturar essa info.
+            </p>
+          )}
+        </div>
+      )}
+    </GlassCard>
+  )
+}
+
+function TypeCard({
+  icon, label, leads, aprovados, conversao, accent, hint,
+}: {
+  icon: React.ReactNode
+  label: string
+  leads: number
+  aprovados: number
+  conversao: number
+  accent: 'blue' | 'orange' | 'gray'
+  hint?: string
+}) {
+  const colors = {
+    blue: { border: 'border-blue-500/30', text: 'text-blue-300', icon: 'text-blue-400', bg: 'bg-blue-500/10' },
+    orange: { border: 'border-orange-500/30', text: 'text-orange-300', icon: 'text-orange-400', bg: 'bg-orange-500/10' },
+    gray: { border: 'border-dark-700/50', text: 'text-gray-400', icon: 'text-gray-500', bg: 'bg-dark-800/40' },
+  }[accent]
+
+  return (
+    <div className={`bg-dark-900/40 rounded-xl border ${colors.border} p-4 relative overflow-hidden`}>
+      <div className={`absolute -top-4 -right-4 w-16 h-16 rounded-full ${colors.bg} opacity-50 blur-2xl`} />
+      <div className="relative z-10">
+        <div className="flex items-center justify-between mb-3">
+          <div className={`w-9 h-9 rounded-lg ${colors.bg} border ${colors.border} flex items-center justify-center ${colors.icon}`}>
+            {icon}
+          </div>
+          <span className={`text-[11px] uppercase tracking-wider ${colors.text} font-semibold`}>
+            {label}
+          </span>
+        </div>
+        <div className="space-y-2">
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-gray-500">Leads</p>
+            <p className="text-xl font-display font-bold text-white">{leads}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2 pt-2 border-t border-dark-700/40">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-gray-500">Aprovados</p>
+              <p className={`text-sm font-semibold ${colors.text}`}>{aprovados}</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-gray-500">Conversão</p>
+              <p className={`text-sm font-semibold ${colors.text}`}>{conversao.toFixed(1)}%</p>
+            </div>
+          </div>
+          {hint && <p className="text-[10px] text-gray-600 pt-1">{hint}</p>}
+        </div>
+      </div>
+    </div>
   )
 }
 

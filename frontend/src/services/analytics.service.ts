@@ -29,6 +29,14 @@ export const analyticsService = {
     return response.data as any
   },
 
+  async getByVehicleType(filters: AnalyticsFilters = {}): Promise<{
+    data: Array<{ tipo: 'carro' | 'moto' | 'indefinido'; label: string; leads: number; aprovados: number; conversao: number }>
+    totals: { leads: number; aprovados: number }
+  }> {
+    const response = await api.get('/analytics/by-vehicle-type', { params: filters })
+    return response.data as any
+  },
+
   async getCampaigns(filters: AnalyticsFilters = {}): Promise<CampaignAnalyticsResponse> {
     const response = await api.get<CampaignAnalyticsResponse>('/analytics/campaigns', { params: filters })
     return response.data

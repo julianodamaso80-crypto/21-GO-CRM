@@ -26,6 +26,14 @@ export function useAnalyticsByState(filters: AnalyticsFilters = {}) {
   })
 }
 
+export function useAnalyticsByVehicleType(filters: AnalyticsFilters = {}) {
+  return useQuery({
+    queryKey: ['analytics', 'by-vehicle-type', filters],
+    queryFn: () => analyticsService.getByVehicleType(filters),
+    staleTime: 1000 * 60 * 5,
+  })
+}
+
 export function useAnalyticsCampaigns(filters: AnalyticsFilters = {}) {
   return useQuery({
     queryKey: ['analytics', 'campaigns', filters],

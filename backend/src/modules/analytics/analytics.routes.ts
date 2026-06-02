@@ -57,6 +57,17 @@ export async function analyticsRoutes(fastify: FastifyInstance) {
     handler: analyticsController.getByState.bind(analyticsController),
   })
 
+  // GET /analytics/by-vehicle-type
+  fastify.get('/by-vehicle-type', {
+    schema: {
+      description: 'Distribuição de leads e aprovações por tipo de veículo (carro/moto)',
+      tags: ['analytics'],
+      security: [{ bearerAuth: [] }],
+      querystring: filterQuerySchema,
+    },
+    handler: analyticsController.getByVehicleType.bind(analyticsController),
+  })
+
   // GET /analytics/campaigns
   fastify.get('/campaigns', {
     schema: {
