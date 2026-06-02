@@ -3,6 +3,7 @@
  * Cada tool tem uma definicao JSON Schema (pra Claude saber chamar) + um handler (executa a query Prisma).
  */
 import { prisma } from '../../../config/database'
+import { getStateFromPhone, UF_TO_NAME } from '../../../utils/phone-state'
 
 export interface ToolContext {
   companyId: string
@@ -70,6 +71,15 @@ export const CRM_TOOLS: ToolDefinition[] = [
         },
       },
       required: ['metric', 'period_days'],
+    },
+  },
+  {
+    name: 'get_leads_por_estado',
+    description: 'Retorna distribuição de leads e aprovações por estado brasileiro (UF) no período, calculada via DDD do telefone do lead. Use quando perguntam de qual estado vêm os leads, onde fecha mais clientes, qual UF investir mais em mídia.',
+    input_schema: {
+      type: 'object',
+      properties: periodDaysSchema,
+      required: ['period_days'],
     },
   },
   {
@@ -260,6 +270,42 @@ export async function executeToolCall(
         delta: metric === 'receita' ? fmtBRL(delta) : delta,
         delta_pct: deltaPct,
         tendencia: delta > 0 ? 'subiu' : delta < 0 ? 'caiu' : 'estavel',
+      })
+    }
+
+    case 'get_leads_por_estado': {
+      const { start, end } = periodRange(input.period_days)
+      const leads = await prisma.lead.findMany({
+        where: { companyId, createdAt: { gte: start, lte: end } },
+        select: {
+          telefone: true,
+          whatsapp: true,
+          cards: { select: { currentPhase: { select: { isWon: true } } } },
+        },
+      })
+      const byState = new Map<string, { leads: number; aprovados: number }>()
+      for (const lead of leads) {
+        const uf = getStateFromPhone(lead.telefone) ?? getStateFromPhone(lead.whatsapp) ?? 'desconhecido'
+        const isApproved = lead.cards.some((c) => c.currentPhase?.isWon === true)
+        const cur = byState.get(uf) ?? { leads: 0, aprovados: 0 }
+        cur.leads += 1
+        if (isApproved) cur.aprovados += 1
+        byState.set(uf, cur)
+      }
+      const data = Array.from(byState.entries())
+        .map(([uf, v]) => ({
+          uf,
+          estado: uf === 'desconhecido' ? 'Sem DDD' : (UF_TO_NAME[uf] ?? uf),
+          leads: v.leads,
+          aprovados: v.aprovados,
+          conversao_pct: v.leads > 0 ? Math.round((v.aprovados / v.leads) * 10000) / 100 : 0,
+        }))
+        .sort((a, b) => b.leads - a.leads)
+      return JSON.stringify({
+        periodo_dias: input.period_days,
+        total_leads: leads.length,
+        total_aprovados: data.reduce((s, d) => s + d.aprovados, 0),
+        por_estado: data,
       })
     }
 

@@ -46,6 +46,17 @@ export async function analyticsRoutes(fastify: FastifyInstance) {
     handler: analyticsController.getSources.bind(analyticsController),
   })
 
+  // GET /analytics/by-state
+  fastify.get('/by-state', {
+    schema: {
+      description: 'Distribuição de leads e aprovações por estado (via DDD do telefone)',
+      tags: ['analytics'],
+      security: [{ bearerAuth: [] }],
+      querystring: filterQuerySchema,
+    },
+    handler: analyticsController.getByState.bind(analyticsController),
+  })
+
   // GET /analytics/campaigns
   fastify.get('/campaigns', {
     schema: {

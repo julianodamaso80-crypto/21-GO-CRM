@@ -18,6 +18,14 @@ export function useAnalyticsSources(filters: AnalyticsFilters = {}) {
   })
 }
 
+export function useAnalyticsByState(filters: AnalyticsFilters = {}) {
+  return useQuery({
+    queryKey: ['analytics', 'by-state', filters],
+    queryFn: () => analyticsService.getByState(filters),
+    staleTime: 1000 * 60 * 5,
+  })
+}
+
 export function useAnalyticsCampaigns(filters: AnalyticsFilters = {}) {
   return useQuery({
     queryKey: ['analytics', 'campaigns', filters],

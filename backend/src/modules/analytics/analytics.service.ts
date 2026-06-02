@@ -1,4 +1,5 @@
 import { prisma } from '../../config/database'
+import { getStateFromPhone, UF_TO_NAME } from '../../utils/phone-state'
 
 export interface AnalyticsFilters {
   startDate?: string
@@ -215,6 +216,53 @@ export class AnalyticsService {
     }
 
     return { metric, data }
+  }
+
+  /**
+   * Agrupa leads por UF (extraída do DDD do telefone) com taxa de aprovação.
+   * Telefones formato 55DDXXXXXXXXX. Leads sem telefone ou DDD desconhecido
+   * caem em "desconhecido".
+   */
+  async getLeadsByState(companyId: string, filters: AnalyticsFilters) {
+    const dateFilter = this.buildDateFilter(filters)
+
+    const leads = await prisma.lead.findMany({
+      where: { companyId, createdAt: dateFilter },
+      select: {
+        id: true,
+        telefone: true,
+        whatsapp: true,
+        cards: { select: { currentPhase: { select: { isWon: true } } } },
+      },
+    })
+
+    const byState = new Map<string, { leads: number; aprovados: number }>()
+
+    for (const lead of leads) {
+      const uf = getStateFromPhone(lead.telefone) ?? getStateFromPhone(lead.whatsapp) ?? 'desconhecido'
+      const isApproved = lead.cards.some((c) => c.currentPhase?.isWon === true)
+      const cur = byState.get(uf) ?? { leads: 0, aprovados: 0 }
+      cur.leads += 1
+      if (isApproved) cur.aprovados += 1
+      byState.set(uf, cur)
+    }
+
+    const data = Array.from(byState.entries())
+      .map(([uf, v]) => ({
+        uf,
+        estado: uf === 'desconhecido' ? 'Sem DDD identificado' : (UF_TO_NAME[uf] ?? uf),
+        leads: v.leads,
+        aprovados: v.aprovados,
+        conversao: v.leads > 0 ? Math.round((v.aprovados / v.leads) * 10000) / 100 : 0,
+      }))
+      .sort((a, b) => b.leads - a.leads)
+
+    const totals = data.reduce(
+      (acc, s) => ({ leads: acc.leads + s.leads, aprovados: acc.aprovados + s.aprovados }),
+      { leads: 0, aprovados: 0 },
+    )
+
+    return { data, totals }
   }
 
   // ---------------------------------------------------------------------------

@@ -21,6 +21,14 @@ export const analyticsService = {
     return response.data
   },
 
+  async getByState(filters: AnalyticsFilters = {}): Promise<{
+    data: Array<{ uf: string; estado: string; leads: number; aprovados: number; conversao: number }>
+    totals: { leads: number; aprovados: number }
+  }> {
+    const response = await api.get('/analytics/by-state', { params: filters })
+    return response.data as any
+  },
+
   async getCampaigns(filters: AnalyticsFilters = {}): Promise<CampaignAnalyticsResponse> {
     const response = await api.get<CampaignAnalyticsResponse>('/analytics/campaigns', { params: filters })
     return response.data

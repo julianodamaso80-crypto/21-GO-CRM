@@ -3,14 +3,14 @@ import { Link } from 'react-router-dom'
 import {
   Users, Car, Loader2, TrendingUp, TrendingDown, Wallet,
   ShieldCheck, ArrowUpRight, Sparkles, Target, MessageSquare,
-  Bot, Zap, ClipboardCheck, Handshake, Clock, Megaphone,
+  Bot, Zap, ClipboardCheck, Handshake, Clock, Megaphone, MapPin, Calendar,
 } from 'lucide-react'
 import {
   Area, AreaChart, Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis,
   CartesianGrid, Legend,
 } from 'recharts'
 import { useDashboardStats } from '../../hooks/useDashboard'
-import { useAnalyticsSources } from '../../hooks/useAnalytics'
+import { useAnalyticsSources, useAnalyticsByState } from '../../hooks/useAnalytics'
 import type { DashboardPeriod } from '../../../../shared/types'
 
 const SOURCE_META: Record<string, { label: string; color: string }> = {
@@ -27,12 +27,18 @@ const SOURCE_META: Record<string, { label: string; color: string }> = {
 const sourceLabel = (key: string) => SOURCE_META[key]?.label ?? key
 const sourceColor = (key: string) => SOURCE_META[key]?.color ?? '#94A3B8'
 
-const PERIOD_OPTIONS: Array<{ value: DashboardPeriod; label: string }> = [
+type PeriodPreset = 1 | 7 | 30 | 90 | 'month' | 'last_month' | 'custom'
+
+const PERIOD_PRESETS: Array<{ value: Exclude<PeriodPreset, 'custom'>; label: string }> = [
   { value: 1, label: 'Hoje' },
   { value: 7, label: '7 dias' },
   { value: 30, label: '30 dias' },
   { value: 90, label: '90 dias' },
+  { value: 'month', label: 'Este mês' },
+  { value: 'last_month', label: 'Mês passado' },
 ]
+
+const toYMD = (d: Date) => d.toISOString().slice(0, 10)
 
 const formatBRL = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
@@ -41,17 +47,59 @@ const formatBRLFull = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
 export function DashboardPage() {
-  const [period, setPeriod] = useState<DashboardPeriod>(7)
-  const { data: stats, isLoading } = useDashboardStats(period)
+  const [preset, setPreset] = useState<PeriodPreset>(7)
+  const [customStart, setCustomStart] = useState<string>(() => {
+    const d = new Date()
+    d.setDate(d.getDate() - 30)
+    return toYMD(d)
+  })
+  const [customEnd, setCustomEnd] = useState<string>(() => toYMD(new Date()))
 
-  const sourceFilters = useMemo(() => {
-    const end = new Date()
-    end.setMinutes(0, 0, 0)
-    const start = new Date(end)
-    start.setDate(start.getDate() - period)
-    return { startDate: start.toISOString(), endDate: end.toISOString() }
-  }, [period])
-  const { data: sourcesData, isLoading: sourcesLoading } = useAnalyticsSources(sourceFilters)
+  const { effectiveDays, periodLabel, analyticsFilters } = useMemo(() => {
+    const now = new Date()
+    const truncatedNow = new Date(now); truncatedNow.setMinutes(0, 0, 0)
+
+    if (preset === 'custom') {
+      const start = new Date(customStart + 'T00:00:00')
+      const end = new Date(customEnd + 'T23:59:59')
+      const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000))
+      return {
+        effectiveDays: days as DashboardPeriod,
+        periodLabel: `${customStart} → ${customEnd}`,
+        analyticsFilters: { startDate: start.toISOString(), endDate: end.toISOString() },
+      }
+    }
+    if (preset === 'month') {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1)
+      const days = Math.max(1, Math.ceil((truncatedNow.getTime() - start.getTime()) / 86400000))
+      return {
+        effectiveDays: days as DashboardPeriod,
+        periodLabel: 'Este mês',
+        analyticsFilters: { startDate: start.toISOString(), endDate: truncatedNow.toISOString() },
+      }
+    }
+    if (preset === 'last_month') {
+      const start = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+      const end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59)
+      const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86400000))
+      return {
+        effectiveDays: days as DashboardPeriod,
+        periodLabel: 'Mês passado',
+        analyticsFilters: { startDate: start.toISOString(), endDate: end.toISOString() },
+      }
+    }
+    const days = preset as number
+    const start = new Date(truncatedNow); start.setDate(start.getDate() - days)
+    return {
+      effectiveDays: days as DashboardPeriod,
+      periodLabel: days === 1 ? 'Hoje' : `${days} dias`,
+      analyticsFilters: { startDate: start.toISOString(), endDate: truncatedNow.toISOString() },
+    }
+  }, [preset, customStart, customEnd])
+
+  const { data: stats, isLoading } = useDashboardStats(effectiveDays)
+  const { data: sourcesData, isLoading: sourcesLoading } = useAnalyticsSources(analyticsFilters)
+  const { data: stateData, isLoading: stateLoading } = useAnalyticsByState(analyticsFilters)
 
   if (isLoading || !stats) {
     return (
@@ -62,7 +110,6 @@ export function DashboardPage() {
   }
 
   const k = stats.kpis
-  const periodLabel = PERIOD_OPTIONS.find((p) => p.value === period)?.label || '7 dias'
 
   // sparklines (mesma serie, recortes diferentes pra cada KPI)
   const sparkReceita = stats.timeline.map((t) => ({ x: t.date, y: t.receita }))
@@ -82,28 +129,65 @@ export function DashboardPage() {
 
       <div className="relative z-10 space-y-6">
         {/* Header com filtro de periodo */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-display font-bold text-white tracking-tight">Dashboard</h1>
-            <p className="text-sm text-gray-400 mt-1">
-              Visao da 21Go — periodo: <span className="text-gold-400 font-medium">{periodLabel}</span>
-            </p>
-          </div>
-          <div className="inline-flex p-1 bg-dark-800/60 backdrop-blur-xl border border-dark-700/40 rounded-xl shadow-lg">
-            {PERIOD_OPTIONS.map((opt) => (
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h1 className="text-2xl font-display font-bold text-white tracking-tight">Dashboard</h1>
+              <p className="text-sm text-gray-400 mt-1">
+                Visao da 21Go — periodo: <span className="text-gold-400 font-medium">{periodLabel}</span>
+              </p>
+            </div>
+            <div className="inline-flex flex-wrap p-1 bg-dark-800/60 backdrop-blur-xl border border-dark-700/40 rounded-xl shadow-lg">
+              {PERIOD_PRESETS.map((opt) => (
+                <button
+                  key={String(opt.value)}
+                  onClick={() => setPreset(opt.value)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    preset === opt.value
+                      ? 'bg-gradient-to-br from-gold-500/20 to-gold-600/10 text-gold-300 shadow-inner border border-gold-500/30'
+                      : 'text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
               <button
-                key={opt.value}
-                onClick={() => setPeriod(opt.value)}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  period === opt.value
+                onClick={() => setPreset('custom')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1 ${
+                  preset === 'custom'
                     ? 'bg-gradient-to-br from-gold-500/20 to-gold-600/10 text-gold-300 shadow-inner border border-gold-500/30'
                     : 'text-gray-400 hover:text-gray-200'
                 }`}
               >
-                {opt.label}
+                <Calendar className="w-3 h-3" />
+                Personalizado
               </button>
-            ))}
+            </div>
           </div>
+          {preset === 'custom' && (
+            <div className="flex flex-wrap items-center gap-2 bg-dark-800/40 backdrop-blur-xl border border-gold-500/20 rounded-xl p-3">
+              <span className="text-xs text-gray-400">De</span>
+              <input
+                type="date"
+                value={customStart}
+                max={customEnd}
+                onChange={(e) => setCustomStart(e.target.value)}
+                className="bg-dark-900/60 border border-dark-700 rounded-lg px-3 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-gold-500/50"
+              />
+              <span className="text-xs text-gray-400">até</span>
+              <input
+                type="date"
+                value={customEnd}
+                min={customStart}
+                max={toYMD(new Date())}
+                onChange={(e) => setCustomEnd(e.target.value)}
+                className="bg-dark-900/60 border border-dark-700 rounded-lg px-3 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-gold-500/50"
+              />
+              <span className="text-xs text-gray-500 ml-2">
+                ({effectiveDays} {effectiveDays === 1 ? 'dia' : 'dias'})
+              </span>
+            </div>
+          )}
         </div>
 
         {/* === KPI HERO (4 cards principais) === */}
@@ -178,7 +262,7 @@ export function DashboardPage() {
             <div>
               <h3 className="text-sm font-semibold text-white">Crescimento de receita</h3>
               <p className="text-xs text-gray-500 mt-0.5">
-                Receita cobrada na ativacao — ultimos {Math.min(period, 30)} dias
+                Receita cobrada na ativacao — ultimos {Math.min(effectiveDays, 30)} dias
               </p>
             </div>
             <div className="text-right">
@@ -262,6 +346,14 @@ export function DashboardPage() {
           data={sourcesData?.data ?? []}
           totals={sourcesData?.totals ?? { leads: 0, converted: 0, revenue: 0 }}
           isLoading={sourcesLoading}
+          periodLabel={periodLabel}
+        />
+
+        {/* === CONVERSAO POR ESTADO (DDD do telefone) === */}
+        <StateConversionPanel
+          data={stateData?.data ?? []}
+          totals={stateData?.totals ?? { leads: 0, aprovados: 0 }}
+          isLoading={stateLoading}
           periodLabel={periodLabel}
         />
 
@@ -703,6 +795,173 @@ function SourceConversionPanel({
                   </div>
                 )
               })}
+            </div>
+          </div>
+        </div>
+      )}
+    </GlassCard>
+  )
+}
+
+interface StateRow {
+  uf: string
+  estado: string
+  leads: number
+  aprovados: number
+  conversao: number
+}
+
+function StateConversionPanel({
+  data,
+  totals,
+  isLoading,
+  periodLabel,
+}: {
+  data: StateRow[]
+  totals: { leads: number; aprovados: number }
+  isLoading: boolean
+  periodLabel: string
+}) {
+  if (isLoading) {
+    return (
+      <GlassCard>
+        <div className="flex items-center justify-center h-48">
+          <Loader2 className="w-6 h-6 text-gold-400 animate-spin" />
+        </div>
+      </GlassCard>
+    )
+  }
+
+  const hasData = data.length > 0 && totals.leads > 0
+  const avgConversion = totals.leads > 0 ? (totals.aprovados / totals.leads) * 100 : 0
+  const top10 = data.slice(0, 10)
+  const topUF = data[0]
+  const topAprovados = [...data].sort((a, b) => b.aprovados - a.aprovados)[0]
+
+  return (
+    <GlassCard>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <MapPin className="w-4 h-4 text-emerald-400" />
+          <div>
+            <h3 className="text-sm font-semibold text-white">Conversão por estado</h3>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Origem geográfica via DDD do telefone — periodo: <span className="text-gold-400">{periodLabel}</span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Mini KPIs */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+        <div className="bg-dark-900/40 rounded-lg border border-dark-700/50 p-3">
+          <p className="text-[11px] uppercase tracking-wider text-gray-500">Estado com mais leads</p>
+          <p className="text-lg font-display font-bold text-white mt-1 truncate">
+            {topUF ? `${topUF.estado} (${topUF.leads})` : '—'}
+          </p>
+        </div>
+        <div className="bg-dark-900/40 rounded-lg border border-emerald-500/20 p-3">
+          <p className="text-[11px] uppercase tracking-wider text-gray-500">Estado com mais fechamentos</p>
+          <p className="text-lg font-display font-bold text-emerald-400 mt-1 truncate">
+            {topAprovados && topAprovados.aprovados > 0
+              ? `${topAprovados.estado} (${topAprovados.aprovados})`
+              : '—'}
+          </p>
+        </div>
+        <div className="bg-dark-900/40 rounded-lg border border-gold-500/20 p-3">
+          <p className="text-[11px] uppercase tracking-wider text-gray-500">Estados ativos</p>
+          <p className="text-lg font-display font-bold text-gold-300 mt-1">
+            {data.filter((d) => d.uf !== 'desconhecido').length}
+          </p>
+        </div>
+      </div>
+
+      {!hasData ? (
+        <div className="text-center py-10 text-sm text-gray-500">
+          Sem leads no período pra mapear por estado.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+          {/* Chart */}
+          <div className="lg:col-span-3 bg-dark-900/30 rounded-xl border border-dark-700/40 p-4">
+            <ResponsiveContainer width="100%" height={Math.max(280, top10.length * 38 + 40)}>
+              <BarChart
+                data={top10.map((d) => ({
+                  name: d.uf,
+                  estado: d.estado,
+                  Leads: d.leads,
+                  Aprovados: d.aprovados,
+                  conversao: d.conversao,
+                }))}
+                layout="vertical"
+                margin={{ top: 8, right: 24, bottom: 8, left: 12 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#1F2937" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 11, fill: '#94A3B8' }} stroke="#334155" />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  tick={{ fontSize: 12, fill: '#CBD5E1', fontWeight: 600 }}
+                  stroke="#334155"
+                  width={50}
+                />
+                <Tooltip
+                  cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                  contentStyle={{
+                    borderRadius: 8,
+                    border: '1px solid rgba(16,185,129,0.25)',
+                    backgroundColor: 'rgba(11,17,32,0.95)',
+                    backdropFilter: 'blur(16px)',
+                    fontSize: 12,
+                  }}
+                  labelFormatter={(uf: string, payload: any[]) =>
+                    payload?.[0]?.payload?.estado || uf
+                  }
+                  formatter={(value: number, name: string, item: any) => {
+                    if (name === 'Aprovados') {
+                      const conv = item?.payload?.conversao ?? 0
+                      return [`${value} (${conv.toFixed(1)}%)`, name]
+                    }
+                    return [value, name]
+                  }}
+                />
+                <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} iconType="circle" />
+                <Bar dataKey="Leads" fill="#3D72DE" radius={[0, 4, 4, 0]} barSize={12} />
+                <Bar dataKey="Aprovados" fill="#10B981" radius={[0, 4, 4, 0]} barSize={12} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Tabela */}
+          <div className="lg:col-span-2 bg-dark-900/30 rounded-xl border border-dark-700/40 overflow-hidden">
+            <div className="px-4 py-3 border-b border-dark-700/40 flex items-center justify-between">
+              <h4 className="text-xs font-semibold text-gray-300 uppercase tracking-wider">Top {top10.length}</h4>
+              <span className="text-[10px] text-gray-500">{data.length} estados</span>
+            </div>
+            <div className="divide-y divide-dark-700/40 max-h-[360px] overflow-y-auto">
+              {top10.map((row) => (
+                <div key={row.uf} className="px-4 py-2.5 hover:bg-dark-800/30 transition-colors">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-[11px] font-mono font-semibold text-gold-400 w-7">
+                        {row.uf}
+                      </span>
+                      <span className="text-xs text-gray-300 truncate">{row.estado}</span>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <span className="text-xs text-gray-400 tabular-nums">{row.leads}</span>
+                      <span className="text-xs text-emerald-400 tabular-nums">→ {row.aprovados}</span>
+                      <span
+                        className={`text-xs font-medium tabular-nums w-12 text-right ${
+                          row.conversao >= avgConversion ? 'text-emerald-300' : 'text-gray-500'
+                        }`}
+                      >
+                        {row.conversao.toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>

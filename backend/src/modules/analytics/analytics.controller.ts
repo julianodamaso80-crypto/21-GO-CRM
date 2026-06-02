@@ -52,6 +52,20 @@ export class AnalyticsController {
   }
 
   /**
+   * GET /analytics/by-state
+   * Distribuição de leads por estado (extraído do DDD do telefone)
+   */
+  async getByState(request: FastifyRequest, reply: FastifyReply) {
+    const user = (request as any).user
+    const companyId = user.companyId
+    const filters = this.extractFilters(request)
+
+    const byState = await analyticsService.getLeadsByState(companyId, filters)
+
+    return reply.send(byState)
+  }
+
+  /**
    * GET /analytics/campaigns
    * Analise por campanha
    */
