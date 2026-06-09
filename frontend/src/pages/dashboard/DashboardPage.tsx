@@ -257,23 +257,26 @@ export function DashboardPage() {
           />
         </div>
 
-        {/* === GRAFICO PRINCIPAL: Receita por dia === */}
+        {/* === ATIVIDADE DO FUNIL (snapshot atual + reprovados periodo) === */}
+        <FunnelActivityStrip kpis={k} />
+
+        {/* === GRAFICO PRINCIPAL: Receita por dia (compacto) === */}
         <GlassCard>
-          <div className="flex items-start justify-between mb-5">
+          <div className="flex items-start justify-between mb-3">
             <div>
               <h3 className="text-sm font-semibold text-white">Crescimento de receita</h3>
               <p className="text-xs text-gray-500 mt-0.5">
-                Receita cobrada na ativacao — ultimos {Math.min(effectiveDays, 30)} dias
+                Receita por dia — ultimos {Math.min(effectiveDays, 30)} dias
               </p>
             </div>
             <div className="text-right">
               <p className="text-[10px] uppercase tracking-wider text-gray-500">Total no periodo</p>
-              <p className="text-2xl font-display font-bold text-transparent bg-clip-text bg-gradient-to-br from-gold-300 to-gold-500">
+              <p className="text-xl font-display font-bold text-transparent bg-clip-text bg-gradient-to-br from-gold-300 to-gold-500">
                 {formatBRLFull(k.receitaPeriodo)}
               </p>
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={260}>
+          <ResponsiveContainer width="100%" height={160}>
             <AreaChart data={stats.timeline} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
               <defs>
                 <linearGradient id="gradReceita" x1="0" y1="0" x2="0" y2="1">
@@ -1153,6 +1156,138 @@ function TypeCard({
           {hint && <p className="text-[10px] text-gray-600 pt-1">{hint}</p>}
         </div>
       </div>
+    </div>
+  )
+}
+
+function FunnelActivityStrip({ kpis }: { kpis: any }) {
+  const stages = [
+    {
+      key: 'entradas',
+      label: 'Entradas',
+      hint: 'no período',
+      value: kpis.entradasPeriodo,
+      delta: kpis.entradasDelta,
+      icon: <Sparkles className="w-4 h-4" />,
+      accent: 'gold' as const,
+    },
+    {
+      key: 'atendendo',
+      label: 'Atendendo',
+      hint: 'agora',
+      value: kpis.emAtendimento,
+      icon: <MessageSquare className="w-4 h-4" />,
+      accent: 'blue' as const,
+    },
+    {
+      key: 'negociando',
+      label: 'Negociando',
+      hint: 'agora',
+      value: kpis.emNegociacao,
+      icon: <Handshake className="w-4 h-4" />,
+      accent: 'purple' as const,
+    },
+    {
+      key: 'linkVistoria',
+      label: 'Link vistoria',
+      hint: 'enviado',
+      value: kpis.linksVistoria,
+      icon: <ArrowUpRight className="w-4 h-4" />,
+      accent: 'cyan' as const,
+    },
+    {
+      key: 'aguardando',
+      label: 'Aguardando aprov.',
+      hint: 'pra fechar',
+      value: kpis.aguardandoAprovacao,
+      icon: <Clock className="w-4 h-4" />,
+      accent: 'amber' as const,
+    },
+    {
+      key: 'aprovados',
+      label: 'Aprovados',
+      hint: 'no período',
+      value: kpis.fechadosPeriodo,
+      delta: kpis.fechadosDelta,
+      icon: <ShieldCheck className="w-4 h-4" />,
+      accent: 'emerald' as const,
+    },
+    {
+      key: 'reprovados',
+      label: 'Reprovados',
+      hint: 'no período',
+      value: kpis.reprovadosPeriodo,
+      icon: <TrendingDown className="w-4 h-4" />,
+      accent: 'rose' as const,
+    },
+  ]
+
+  return (
+    <GlassCard>
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <h3 className="text-sm font-semibold text-white">Atividade do funil</h3>
+          <p className="text-xs text-gray-500 mt-0.5">
+            O que está rolando agora + o que aconteceu no período
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-[10px] uppercase tracking-wider text-gray-500">Prestes a fechar</p>
+          <p className="text-lg font-display font-bold text-gold-300">{kpis.prestesAFechar}</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+        {stages.map(({ key, ...rest }) => (
+          <FunnelStageCard key={key} {...rest} />
+        ))}
+      </div>
+    </GlassCard>
+  )
+}
+
+function FunnelStageCard({
+  label,
+  hint,
+  value,
+  delta,
+  icon,
+  accent,
+}: {
+  label: string
+  hint: string
+  value: number
+  delta?: number
+  icon: React.ReactNode
+  accent: 'gold' | 'blue' | 'purple' | 'cyan' | 'amber' | 'emerald' | 'rose'
+}) {
+  const colors = {
+    gold: { text: 'text-gold-300', icon: 'text-gold-400', border: 'border-gold-500/25', bg: 'bg-gold-500/5' },
+    blue: { text: 'text-blue-300', icon: 'text-blue-400', border: 'border-blue-500/25', bg: 'bg-blue-500/5' },
+    purple: { text: 'text-purple-300', icon: 'text-purple-400', border: 'border-purple-500/25', bg: 'bg-purple-500/5' },
+    cyan: { text: 'text-cyan-300', icon: 'text-cyan-400', border: 'border-cyan-500/25', bg: 'bg-cyan-500/5' },
+    amber: { text: 'text-amber-300', icon: 'text-amber-400', border: 'border-amber-500/25', bg: 'bg-amber-500/5' },
+    emerald: { text: 'text-emerald-300', icon: 'text-emerald-400', border: 'border-emerald-500/25', bg: 'bg-emerald-500/5' },
+    rose: { text: 'text-rose-300', icon: 'text-rose-400', border: 'border-rose-500/25', bg: 'bg-rose-500/5' },
+  }[accent]
+
+  return (
+    <div className={`relative bg-dark-900/40 rounded-lg border ${colors.border} ${colors.bg} p-2.5 hover:bg-dark-800/40 transition-colors`}>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className={colors.icon}>{icon}</span>
+        {delta !== undefined && delta !== 0 && (
+          <span
+            className={`text-[9px] font-semibold tabular-nums ${
+              delta > 0 ? 'text-emerald-400' : 'text-rose-400'
+            }`}
+          >
+            {delta > 0 ? '+' : ''}
+            {delta}%
+          </span>
+        )}
+      </div>
+      <p className={`text-2xl font-display font-bold ${colors.text} leading-none`}>{value}</p>
+      <p className="text-[10px] uppercase tracking-wider text-gray-400 mt-1 truncate">{label}</p>
+      <p className="text-[9px] text-gray-600">{hint}</p>
     </div>
   )
 }

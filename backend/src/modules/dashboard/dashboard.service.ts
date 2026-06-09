@@ -16,8 +16,13 @@ export class DashboardService {
     })
 
     const wonPhaseIds = allPhases.filter((p) => p.isWon).map((p) => p.id)
+    const lostPhaseIds = allPhases.filter((p) => p.isLost && /reprov/i.test(p.name)).map((p) => p.id)
     const vistoriaPhaseIds = allPhases.filter((p) => /vistoria/i.test(p.name)).map((p) => p.id)
     const negociacaoPhaseIds = allPhases.filter((p) => /negocia/i.test(p.name)).map((p) => p.id)
+    const atendimentoPhaseIds = allPhases.filter((p) => /atendiment/i.test(p.name)).map((p) => p.id)
+    const linkVistoriaPhaseIds = allPhases.filter((p) => /mandei.*link|link.*vistoria/i.test(p.name)).map((p) => p.id)
+    const aguardandoAprovPhaseIds = allPhases.filter((p) => /aguardando.*aprov/i.test(p.name)).map((p) => p.id)
+    const pendenciaPhaseIds = allPhases.filter((p) => /pend[eê]ncia/i.test(p.name)).map((p) => p.id)
 
     // ----- Cards "won" no periodo + receita -----
     const [cardsWonInPeriod, cardsWonPrevPeriod] = await Promise.all([
@@ -71,19 +76,41 @@ export class DashboardService {
         ).reduce((sum, l) => sum + (l.valorCompra || 0), 0)
       : 0
 
-    // ----- Estados ativos: em vistoria + em negociacao -----
-    const [emVistoria, emNegociacao] = await Promise.all([
+    // ----- Estados ativos (snapshot atual) -----
+    const [emVistoria, emNegociacao, emAtendimento, linksVistoria, aguardandoAprovacao, pendenciasCliente] = await Promise.all([
       vistoriaPhaseIds.length
-        ? prisma.card.count({
-            where: { companyId, status: 'active', currentPhaseId: { in: vistoriaPhaseIds } },
-          })
+        ? prisma.card.count({ where: { companyId, status: 'active', currentPhaseId: { in: vistoriaPhaseIds } } })
         : 0,
       negociacaoPhaseIds.length
-        ? prisma.card.count({
-            where: { companyId, status: 'active', currentPhaseId: { in: negociacaoPhaseIds } },
-          })
+        ? prisma.card.count({ where: { companyId, status: 'active', currentPhaseId: { in: negociacaoPhaseIds } } })
+        : 0,
+      atendimentoPhaseIds.length
+        ? prisma.card.count({ where: { companyId, status: 'active', currentPhaseId: { in: atendimentoPhaseIds } } })
+        : 0,
+      linkVistoriaPhaseIds.length
+        ? prisma.card.count({ where: { companyId, status: 'active', currentPhaseId: { in: linkVistoriaPhaseIds } } })
+        : 0,
+      aguardandoAprovPhaseIds.length
+        ? prisma.card.count({ where: { companyId, status: 'active', currentPhaseId: { in: aguardandoAprovPhaseIds } } })
+        : 0,
+      pendenciaPhaseIds.length
+        ? prisma.card.count({ where: { companyId, status: 'active', currentPhaseId: { in: pendenciaPhaseIds } } })
         : 0,
     ])
+
+    // ----- Reprovados no período (via completedAt em fase isLost com nome "reprov*") -----
+    const reprovadosPeriodo = lostPhaseIds.length
+      ? await prisma.card.count({
+          where: {
+            companyId,
+            currentPhaseId: { in: lostPhaseIds },
+            completedAt: { gte: periodStart, lte: now },
+          },
+        })
+      : 0
+
+    // Próximos a fechar = em negociação + aguardando aprovação de vistoria + link de vistoria enviado
+    const prestesAFechar = emNegociacao + aguardandoAprovacao + linksVistoria
 
     // ----- Associados (tabela associados, status ativo) -----
     const [associadosTotal, associadosAtivos] = await Promise.all([
@@ -236,6 +263,12 @@ export class DashboardService {
         receitaAnterior: Math.round(receitaAnterior * 100) / 100,
         emVistoria,
         emNegociacao,
+        emAtendimento,
+        linksVistoria,
+        aguardandoAprovacao,
+        pendenciasCliente,
+        prestesAFechar,
+        reprovadosPeriodo,
         entradasPeriodo,
         entradasDelta: calcDelta(entradasPeriodo, entradasAnterior),
         taxaConversao: Math.round(taxaConversao * 10) / 10,

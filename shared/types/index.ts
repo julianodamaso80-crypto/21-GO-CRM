@@ -1124,6 +1124,12 @@ export interface DashboardStats {
     receitaAnterior: number
     emVistoria: number
     emNegociacao: number
+    emAtendimento: number
+    linksVistoria: number
+    aguardandoAprovacao: number
+    pendenciasCliente: number
+    prestesAFechar: number
+    reprovadosPeriodo: number
     entradasPeriodo: number
     entradasDelta: number
     taxaConversao: number // 0-100
