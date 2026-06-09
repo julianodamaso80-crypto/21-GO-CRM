@@ -4,6 +4,14 @@ export type TaskType = 'ligacao' | 'whatsapp' | 'reuniao' | 'visita' | 'follow_u
 export type TaskPriority = 'baixa' | 'media' | 'alta'
 export type TaskStatus = 'pendente' | 'concluida' | 'cancelada'
 
+export interface TaskLead {
+  id: string
+  nome: string
+  telefone: string | null
+  whatsapp: string | null
+  email: string | null
+}
+
 export interface Task {
   id: string
   companyId: string
@@ -13,6 +21,7 @@ export interface Task {
   contactId: string | null
   title: string
   description: string | null
+  observacao: string | null
   type: TaskType
   priority: TaskPriority
   status: TaskStatus
@@ -21,6 +30,7 @@ export interface Task {
   completedAt: string | null
   createdAt: string
   updatedAt: string
+  lead: TaskLead | null
 }
 
 export interface ListTasksParams {
@@ -35,6 +45,7 @@ export interface ListTasksParams {
 export interface CreateTaskRequest {
   title: string
   description?: string
+  observacao?: string
   dueAt: string
   type?: TaskType
   priority?: TaskPriority
@@ -47,6 +58,7 @@ export interface CreateTaskRequest {
 export interface UpdateTaskRequest {
   title?: string
   description?: string | null
+  observacao?: string | null
   dueAt?: string
   type?: TaskType
   priority?: TaskPriority

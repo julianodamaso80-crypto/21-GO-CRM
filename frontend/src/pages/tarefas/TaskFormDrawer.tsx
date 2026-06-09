@@ -37,6 +37,7 @@ export function TaskFormDrawer({ task, defaultLeadId, defaultDueAt, onClose }: P
 
   const [title, setTitle] = useState(task?.title || '')
   const [description, setDescription] = useState(task?.description || '')
+  const [observacao, setObservacao] = useState(task?.observacao || '')
   const [type, setType] = useState<TaskType>(task?.type || 'tarefa')
   const [priority, setPriority] = useState<TaskPriority>(task?.priority || 'media')
   const [leadId, setLeadId] = useState<string>(task?.leadId || defaultLeadId || '')
@@ -54,6 +55,7 @@ export function TaskFormDrawer({ task, defaultLeadId, defaultDueAt, onClose }: P
     if (task) {
       setTitle(task.title)
       setDescription(task.description || '')
+      setObservacao(task.observacao || '')
       setType(task.type)
       setPriority(task.priority)
       setLeadId(task.leadId || '')
@@ -68,6 +70,7 @@ export function TaskFormDrawer({ task, defaultLeadId, defaultDueAt, onClose }: P
     const payload = {
       title: title.trim(),
       description: description.trim() || undefined,
+      observacao: observacao.trim() || undefined,
       dueAt: new Date(dueAt).toISOString(),
       type,
       priority,
@@ -191,17 +194,34 @@ export function TaskFormDrawer({ task, defaultLeadId, defaultDueAt, onClose }: P
             </select>
           </div>
 
-          {/* Descrição */}
+          {/* Descrição (briefing inicial) */}
           <div>
             <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-              Observações
+              Descrição
             </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              rows={4}
+              rows={3}
               placeholder="Detalhes da atividade…"
               className="w-full input resize-none"
+            />
+          </div>
+
+          {/* Observação (notas livres editaveis) */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+              <span>Observação</span>
+              <span className="text-[10px] font-normal normal-case tracking-normal text-gray-600">
+                edita depois quando precisar
+              </span>
+            </label>
+            <textarea
+              value={observacao}
+              onChange={(e) => setObservacao(e.target.value)}
+              rows={3}
+              placeholder="Ex: ele pediu pra ligar amanhã às 14h, conjugê insistente, tá querendo desconto…"
+              className="w-full input resize-none border-amber-500/20 focus:border-amber-500/40"
             />
           </div>
 

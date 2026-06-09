@@ -48,6 +48,7 @@ export async function tasksRoutes(fastify: FastifyInstance) {
         properties: {
           title: { type: 'string', minLength: 1 },
           description: { type: 'string', nullable: true },
+          observacao: { type: 'string', nullable: true },
           dueAt: { type: 'string', format: 'date-time' },
           type: { type: 'string', enum: ['ligacao', 'whatsapp', 'reuniao', 'visita', 'follow_up', 'email', 'tarefa'] },
           priority: { type: 'string', enum: ['baixa', 'media', 'alta'] },

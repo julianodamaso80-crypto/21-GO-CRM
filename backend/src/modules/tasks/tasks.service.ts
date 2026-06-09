@@ -12,6 +12,7 @@ const ALLOWED_STATUSES: TaskStatus[] = ['pendente', 'concluida', 'cancelada']
 export interface CreateTaskDTO {
   title: string
   description?: string | null
+  observacao?: string | null
   dueAt: string
   type?: TaskType
   priority?: TaskPriority
@@ -24,6 +25,7 @@ export interface CreateTaskDTO {
 export interface UpdateTaskDTO {
   title?: string
   description?: string | null
+  observacao?: string | null
   dueAt?: string
   type?: TaskType
   priority?: TaskPriority
@@ -33,6 +35,10 @@ export interface UpdateTaskDTO {
   contactId?: string | null
   userId?: string
 }
+
+const LEAD_INCLUDE = {
+  lead: { select: { id: true, nome: true, telefone: true, whatsapp: true, email: true } },
+} as const
 
 export interface ListTasksQuery {
   period?: 'today' | 'overdue' | '7d' | '30d' | 'month'
@@ -101,6 +107,7 @@ export class TasksService {
       where,
       orderBy: { dueAt: 'asc' },
       take: 500,
+      include: LEAD_INCLUDE,
     })
 
     return { data: tasks.map(this.shape), total: tasks.length }
@@ -110,12 +117,13 @@ export class TasksService {
     const tasks = await prisma.task.findMany({
       where: { leadId, companyId },
       orderBy: { dueAt: 'asc' },
+      include: LEAD_INCLUDE,
     })
     return { data: tasks.map(this.shape), total: tasks.length }
   }
 
   async getById(id: string, companyId: string, userId: string, userRole: string) {
-    const task = await prisma.task.findFirst({ where: { id, companyId } })
+    const task = await prisma.task.findFirst({ where: { id, companyId }, include: LEAD_INCLUDE })
     if (!task) throw new AppError('Tarefa nao encontrada', 404, 'NOT_FOUND')
     if (userRole === 'vendedor' && task.userId !== userId) {
       throw new AppError('Voce so pode acessar suas proprias tarefas', 403, 'FORBIDDEN')
@@ -143,12 +151,14 @@ export class TasksService {
         contactId: data.contactId || null,
         title: data.title.trim(),
         description: data.description || null,
+        observacao: data.observacao || null,
         type,
         priority,
         status: 'pendente',
         dueAt: new Date(data.dueAt),
         durationMin: data.durationMin ?? null,
       },
+      include: LEAD_INCLUDE,
     })
 
     return this.shape(task)
@@ -170,6 +180,7 @@ export class TasksService {
     const update: any = {}
     if (data.title !== undefined) update.title = String(data.title).trim()
     if (data.description !== undefined) update.description = data.description || null
+    if (data.observacao !== undefined) update.observacao = data.observacao || null
     if (data.dueAt !== undefined) update.dueAt = new Date(data.dueAt)
     if (data.durationMin !== undefined) update.durationMin = data.durationMin
     if (data.type !== undefined && ALLOWED_TYPES.includes(data.type)) update.type = data.type
@@ -183,7 +194,7 @@ export class TasksService {
     if (data.leadId !== undefined) update.leadId = data.leadId || null
     if (data.contactId !== undefined) update.contactId = data.contactId || null
 
-    const task = await prisma.task.update({ where: { id }, data: update })
+    const task = await prisma.task.update({ where: { id }, data: update, include: LEAD_INCLUDE })
     return this.shape(task)
   }
 
@@ -197,7 +208,7 @@ export class TasksService {
   }
 
   /** Mapeia model Prisma → shape API consistente com o frontend */
-  private shape(t: any) {
+  private shape = (t: any) => {
     return {
       id: t.id,
       companyId: t.companyId,
@@ -207,6 +218,7 @@ export class TasksService {
       contactId: t.contactId,
       title: t.title,
       description: t.description,
+      observacao: t.observacao ?? null,
       type: t.type,
       priority: t.priority,
       status: t.status,
@@ -215,6 +227,15 @@ export class TasksService {
       completedAt: t.completedAt instanceof Date ? t.completedAt.toISOString() : t.completedAt,
       createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : t.createdAt,
       updatedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : t.updatedAt,
+      lead: t.lead
+        ? {
+            id: t.lead.id,
+            nome: t.lead.nome,
+            telefone: t.lead.telefone,
+            whatsapp: t.lead.whatsapp,
+            email: t.lead.email,
+          }
+        : null,
     }
   }
 }

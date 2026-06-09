@@ -344,6 +344,9 @@ model Lead {
   // Cards no Kanban (back-reference — regra: 1 lead -> 1 card)
   cards Card[] @relation("LeadCard")
 
+  // Tasks vinculadas a esse lead (back-reference)
+  tasks Task[] @relation("LeadTasks")
+
   // Conversations
   conversations Conversation[]
 
@@ -1091,8 +1094,12 @@ model Task {
   leadId      String? @map("lead_id")
   contactId   String? @map("contact_id")
 
+  // Relacao opcional pra puxar nome+telefone+whatsapp do lead na listagem
+  lead Lead? @relation("LeadTasks", fields: [leadId], references: [id], onDelete: SetNull)
+
   title       String
   description String?
+  observacao  String?  @db.Text  // notas livres editaveis (ex: "ele pediu pra ligar amanha")
   type        String  @default("tarefa") // ligacao, whatsapp, reuniao, visita, follow_up, email, tarefa
   priority    String  @default("media")  // baixa, media, alta
   status      String  @default("pendente") // pendente, concluida, cancelada
