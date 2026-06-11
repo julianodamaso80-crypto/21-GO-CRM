@@ -337,6 +337,9 @@ export function CardDrawer({ cardId, pipeId, onClose }: CardDrawerProps) {
                 {/* Preço cobrado na ativação */}
                 <ActivationPriceCard lead={lead} />
 
+                {/* Pagamento — data e dia de vencimento */}
+                <PaymentInfoCard lead={lead} />
+
                 {/* Ações */}
                 <div className="p-5 space-y-2">
                   <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-2">Ações</p>
@@ -679,6 +682,108 @@ function ActivationPriceCard({ lead }: { lead: any }) {
           </p>
         )}
       </div>
+    </div>
+  )
+}
+
+function PaymentInfoCard({ lead }: { lead: any }) {
+  const queryClient = useQueryClient()
+
+  const initialDate = lead?.dataPagamento
+    ? new Date(lead.dataPagamento).toISOString().slice(0, 10)
+    : ''
+  const initialDia = lead?.diaVencimento != null ? String(lead.diaVencimento) : ''
+
+  const [dataPagamento, setDataPagamento] = useState(initialDate)
+  const [diaVencimento, setDiaVencimento] = useState(initialDia)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    setDataPagamento(
+      lead?.dataPagamento ? new Date(lead.dataPagamento).toISOString().slice(0, 10) : '',
+    )
+    setDiaVencimento(lead?.diaVencimento != null ? String(lead.diaVencimento) : '')
+  }, [lead?.id, lead?.dataPagamento, lead?.diaVencimento])
+
+  const dirty =
+    dataPagamento.trim() !== initialDate.trim() || diaVencimento.trim() !== initialDia.trim()
+
+  const handleSave = async () => {
+    if (!lead?.id) {
+      toast.error('Sem lead vinculado a esse card')
+      return
+    }
+    let diaNum: number | null = null
+    if (diaVencimento.trim()) {
+      diaNum = parseInt(diaVencimento, 10)
+      if (!Number.isInteger(diaNum) || diaNum < 1 || diaNum > 31) {
+        toast.error('Dia do vencimento precisa ser entre 1 e 31')
+        return
+      }
+    }
+    setSaving(true)
+    try {
+      await api.put(`/leads/${lead.id}`, {
+        dataPagamento: dataPagamento ? new Date(dataPagamento + 'T12:00:00').toISOString() : null,
+        diaVencimento: diaNum,
+      })
+      toast.success('Pagamento salvo')
+      queryClient.invalidateQueries({ queryKey: ['cards', 'detail'] })
+      queryClient.invalidateQueries({ queryKey: ['kanban'] })
+      queryClient.invalidateQueries({ queryKey: ['leads'] })
+    } catch (e: any) {
+      const detail = e?.response?.data?.message || e?.message || 'erro'
+      toast.error(`Não consegui salvar: ${detail}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="p-5 border-b border-dark-700/40">
+      <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-3">
+        Pagamento
+      </p>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-[10px] text-gray-500 mb-1">Data do pagamento</label>
+          <input
+            type="date"
+            value={dataPagamento}
+            onChange={(e) => setDataPagamento(e.target.value)}
+            disabled={!lead?.id}
+            className="w-full px-3 py-2 text-sm bg-dark-800 border border-dark-600/50 text-white rounded-lg focus:ring-2 focus:ring-gold-500/30 focus:border-gold-500 disabled:opacity-50"
+          />
+        </div>
+        <div>
+          <label className="block text-[10px] text-gray-500 mb-1">Dia do vencimento</label>
+          <input
+            type="number"
+            min={1}
+            max={31}
+            value={diaVencimento}
+            onChange={(e) => setDiaVencimento(e.target.value.replace(/\D/g, '').slice(0, 2))}
+            placeholder="ex: 15"
+            disabled={!lead?.id}
+            className="w-full px-3 py-2 text-sm bg-dark-800 border border-dark-600/50 text-white rounded-lg focus:ring-2 focus:ring-gold-500/30 focus:border-gold-500 disabled:opacity-50"
+          />
+        </div>
+      </div>
+      <button
+        onClick={handleSave}
+        disabled={saving || !dirty || !lead?.id}
+        className="mt-3 w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg btn-primary text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Calendar className="w-4 h-4" />}
+        {saving ? 'Salvando…' : 'Salvar pagamento'}
+      </button>
+      {!dirty && (lead?.dataPagamento || lead?.diaVencimento) && (
+        <p className="mt-2 text-[10px] text-gray-500 text-center">
+          {lead?.dataPagamento && `Pago em ${new Date(lead.dataPagamento).toLocaleDateString('pt-BR')}`}
+          {lead?.dataPagamento && lead?.diaVencimento && ' · '}
+          {lead?.diaVencimento && `Vence todo dia ${lead.diaVencimento}`}
+        </p>
+      )}
     </div>
   )
 }

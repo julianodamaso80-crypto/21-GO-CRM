@@ -384,21 +384,39 @@ export function KanbanPage() {
                       </div>
                     )}
 
-                    {/* Linha 2.5: badge de origem do lead */}
-                    {(() => {
-                      const ob = originBadgeFor(lead?.origem)
-                      if (!ob) return null
-                      return (
-                        <div className="mb-1.5">
+                    {/* Linha 2.5: badge de origem + pagamento do lead */}
+                    {(lead?.origem || lead?.dataPagamento || lead?.diaVencimento) && (
+                      <div className="flex flex-wrap items-center gap-1 mb-1.5">
+                        {(() => {
+                          const ob = originBadgeFor(lead?.origem)
+                          if (!ob) return null
+                          return (
+                            <span
+                              title={`Origem: ${ob.label}`}
+                              className={`inline-block text-[9px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded border ${ob.cls}`}
+                            >
+                              {ob.label}
+                            </span>
+                          )
+                        })()}
+                        {lead?.dataPagamento && (
                           <span
-                            title={`Origem: ${ob.label}`}
-                            className={`inline-block text-[9px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded border ${ob.cls}`}
+                            title={`Pago em ${new Date(lead.dataPagamento).toLocaleDateString('pt-BR')}`}
+                            className="inline-flex items-center gap-0.5 text-[9px] font-medium tracking-wider px-1.5 py-0.5 rounded border text-emerald-300 bg-emerald-500/10 border-emerald-500/30"
                           >
-                            {ob.label}
+                            💰 {new Date(lead.dataPagamento).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
                           </span>
-                        </div>
-                      )
-                    })()}
+                        )}
+                        {lead?.diaVencimento && (
+                          <span
+                            title={`Vence todo dia ${lead.diaVencimento}`}
+                            className="inline-flex items-center gap-0.5 text-[9px] font-medium tracking-wider px-1.5 py-0.5 rounded border text-amber-300 bg-amber-500/10 border-amber-500/30"
+                          >
+                            ⏰ dia {lead.diaVencimento}
+                          </span>
+                        )}
+                      </div>
+                    )}
 
                     {/* Linha 3: badges + assignedTo */}
                     <div className="flex items-center justify-between gap-2">

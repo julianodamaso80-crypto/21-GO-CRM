@@ -28,6 +28,8 @@ export interface UpdateLeadDTO extends Partial<CreateLeadDTO> {
   qualificadoPor?: string
   valorCompra?: number
   produtoComprado?: string
+  dataPagamento?: string | null  // ISO date — quando pagou
+  diaVencimento?: number | null  // dia do mes (1-31)
 }
 
 export interface ListLeadsQuery {
@@ -243,6 +245,10 @@ export class LeadsService {
         utmCampaign: data.utmCampaign,
         valorCompra: data.valorCompra,
         produtoComprado: data.produtoComprado,
+        dataPagamento: data.dataPagamento === undefined
+          ? undefined
+          : data.dataPagamento === null ? null : new Date(data.dataPagamento),
+        diaVencimento: data.diaVencimento === undefined ? undefined : data.diaVencimento,
       },
     })
 

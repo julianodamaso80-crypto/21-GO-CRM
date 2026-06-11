@@ -235,7 +235,7 @@ export class PipesService {
     const [leads, conversations, taskAgg] = await Promise.all([
       prisma.lead.findMany({
         where: { companyId, nome: { in: titles } },
-        select: { id: true, nome: true, telefone: true, whatsapp: true, email: true, origem: true },
+        select: { id: true, nome: true, telefone: true, whatsapp: true, email: true, origem: true, dataPagamento: true, diaVencimento: true },
       }),
       // Pego o lastMessageAt de todas as conversations linkadas a esses leads
       // Vou indexar depois.
@@ -281,7 +281,7 @@ export class PipesService {
     })
     if (!card) throw new AppError('Card nao encontrado', 404, 'NOT_FOUND')
 
-    const leadSelect = { id: true, nome: true, telefone: true, whatsapp: true, email: true, origem: true, etapaFunil: true, valorCompra: true, produtoComprado: true }
+    const leadSelect = { id: true, nome: true, telefone: true, whatsapp: true, email: true, origem: true, etapaFunil: true, valorCompra: true, produtoComprado: true, dataPagamento: true, diaVencimento: true }
 
     // 1) Preferir FK direta (cards.lead_id) — fonte de verdade pós-migration 20260515
     let lead = card.leadId

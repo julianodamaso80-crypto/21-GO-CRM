@@ -325,6 +325,10 @@ model Lead {
   produtoComprado String?   @map("produto_comprado")
   dataConversao   DateTime? @map("data_conversao")
 
+  // Pagamento (preenchido quando associado paga adesao/mensalidade)
+  dataPagamento  DateTime? @map("data_pagamento")     // data do ultimo pagamento efetivo
+  diaVencimento  Int?      @map("dia_vencimento")     // dia do mes do vencimento mensal (1-31)
+
   // Flags de envio de conversão offline
   metaCapiSent    Boolean   @default(false) @map("meta_capi_sent")
   metaCapiSentAt  DateTime? @map("meta_capi_sent_at")
