@@ -26,6 +26,29 @@ function timeAgoCompact(date: string | Date): string {
   return `${w}sem`
 }
 
+// Mapeia origem do lead -> { label curto, classes Tailwind }
+const ORIGEM_BADGE: Record<string, { label: string; cls: string }> = {
+  google_ads:     { label: 'Google',    cls: 'text-blue-300 bg-blue-500/15 border-blue-500/40' },
+  meta_ads:       { label: 'Meta',      cls: 'text-blue-200 bg-[#1877F2]/20 border-[#1877F2]/40' },
+  facebook:       { label: 'Facebook',  cls: 'text-blue-200 bg-[#1877F2]/20 border-[#1877F2]/40' },
+  instagram:      { label: 'Instagram', cls: 'text-pink-300 bg-pink-500/15 border-pink-500/40' },
+  youtube:        { label: 'YouTube',   cls: 'text-red-300 bg-red-500/15 border-red-500/40' },
+  blog:           { label: 'Blog',      cls: 'text-violet-300 bg-violet-500/15 border-violet-500/40' },
+  site_organico:  { label: 'Orgânico',  cls: 'text-emerald-300 bg-emerald-500/15 border-emerald-500/40' },
+  whatsapp:       { label: 'WhatsApp',  cls: 'text-emerald-200 bg-[#25D366]/15 border-[#25D366]/40' },
+  whatsapp_import:{ label: 'Import',    cls: 'text-gray-400 bg-gray-500/15 border-gray-500/30' },
+  indicacao:      { label: 'Indicação', cls: 'text-amber-300 bg-amber-500/15 border-amber-500/40' },
+  direto:         { label: 'Direto',    cls: 'text-indigo-300 bg-indigo-500/15 border-indigo-500/40' },
+  seja_consultor: { label: 'Consultor', cls: 'text-purple-300 bg-purple-500/15 border-purple-500/40' },
+  manual:         { label: 'Manual',    cls: 'text-gray-400 bg-gray-500/15 border-gray-500/30' },
+  outro:          { label: 'Outro',     cls: 'text-gray-400 bg-gray-500/15 border-gray-500/30' },
+}
+
+function originBadgeFor(origem: string | null | undefined) {
+  if (!origem) return null
+  return ORIGEM_BADGE[origem] ?? { label: origem, cls: 'text-gray-400 bg-gray-500/15 border-gray-500/30' }
+}
+
 // Cor do badge "tempo na fase" — vai esquentando conforme o lead esfria
 function ageColor(date: string | Date): string {
   const days = (Date.now() - new Date(date).getTime()) / (1000 * 60 * 60 * 24)
@@ -360,6 +383,22 @@ export function KanbanPage() {
                         <span className="truncate">{phoneFmt}</span>
                       </div>
                     )}
+
+                    {/* Linha 2.5: badge de origem do lead */}
+                    {(() => {
+                      const ob = originBadgeFor(lead?.origem)
+                      if (!ob) return null
+                      return (
+                        <div className="mb-1.5">
+                          <span
+                            title={`Origem: ${ob.label}`}
+                            className={`inline-block text-[9px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded border ${ob.cls}`}
+                          >
+                            {ob.label}
+                          </span>
+                        </div>
+                      )
+                    })()}
 
                     {/* Linha 3: badges + assignedTo */}
                     <div className="flex items-center justify-between gap-2">
