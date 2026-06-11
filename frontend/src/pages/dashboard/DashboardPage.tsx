@@ -245,11 +245,7 @@ export function DashboardPage() {
             value={`${k.taxaConversao}%`}
             icon={<Target className="w-4 h-4" />}
           />
-          <KpiMini
-            label="Veiculos protegidos"
-            value={k.veiculosProtegidos}
-            icon={<Car className="w-4 h-4" />}
-          />
+          <TopOrigemMini sources={sourcesData?.data ?? []} loading={sourcesLoading} />
           <KpiMini
             label="Total associados"
             value={k.associadosTotal}
@@ -1155,6 +1151,108 @@ function TypeCard({
           </div>
           {hint && <p className="text-[10px] text-gray-600 pt-1">{hint}</p>}
         </div>
+      </div>
+    </div>
+  )
+}
+
+function TopOrigemMini({
+  sources,
+  loading,
+}: {
+  sources: Array<{ source: string; leads: number; converted: number }>
+  loading: boolean
+}) {
+  if (loading) {
+    return (
+      <div className="bg-dark-800/60 backdrop-blur-xl border border-dark-700/40 rounded-xl p-3.5 flex items-center justify-center min-h-[88px]">
+        <Loader2 className="w-4 h-4 text-gold-400 animate-spin" />
+      </div>
+    )
+  }
+
+  // Agrupa origens "desconhecidas/outras" num bucket Outro
+  const OUTRO_BUCKET = new Set(['desconhecido', 'outro', 'manual', 'whatsapp_import'])
+  const ranked: Array<{ source: string; leads: number; converted: number }> = []
+  let outroLeads = 0
+  let outroConv = 0
+  for (const s of sources) {
+    if (OUTRO_BUCKET.has(s.source)) {
+      outroLeads += s.leads
+      outroConv += s.converted
+    } else {
+      ranked.push(s)
+    }
+  }
+  ranked.sort((a, b) => b.leads - a.leads)
+  if (outroLeads > 0) {
+    ranked.push({ source: 'outro', leads: outroLeads, converted: outroConv })
+  }
+
+  const total = ranked.reduce((s, r) => s + r.leads, 0)
+  const top = ranked.slice(0, 3)
+  const restoCount = ranked.slice(3).reduce((s, r) => s + r.leads, 0)
+
+  if (total === 0) {
+    return (
+      <div className="bg-dark-800/60 backdrop-blur-xl border border-dark-700/40 rounded-xl p-3.5 min-h-[88px] flex flex-col justify-center">
+        <div className="flex items-center gap-1.5 text-gray-500 mb-1">
+          <Megaphone className="w-4 h-4" />
+          <span className="text-[10px] uppercase tracking-wider">Origem dos leads</span>
+        </div>
+        <p className="text-xs text-gray-500">Nenhum lead no periodo</p>
+      </div>
+    )
+  }
+
+  const first = top[0]
+  const firstMeta = SOURCE_META[first.source] ?? { label: first.source, color: '#94A3B8' }
+
+  return (
+    <div className="bg-dark-800/60 backdrop-blur-xl border border-dark-700/40 rounded-xl p-3.5 min-h-[88px] flex flex-col justify-between">
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-1.5 text-gray-500">
+          <Megaphone className="w-4 h-4" />
+          <span className="text-[10px] uppercase tracking-wider">Origem dos leads</span>
+        </div>
+        <span className="text-[10px] text-gray-600 tabular-nums">{total} total</span>
+      </div>
+
+      {/* Top 1 em destaque */}
+      <div className="flex items-baseline gap-2 mb-1">
+        <span
+          className="text-lg font-display font-bold tabular-nums"
+          style={{ color: firstMeta.color }}
+        >
+          {first.leads}
+        </span>
+        <span className="text-sm font-semibold text-white truncate">{firstMeta.label}</span>
+        <span className="text-[10px] text-gray-500 tabular-nums ml-auto">
+          {Math.round((first.leads / total) * 100)}%
+        </span>
+      </div>
+
+      {/* Top 2 e 3 + Outros */}
+      <div className="flex flex-wrap gap-1.5 text-[10px]">
+        {top.slice(1).map((s) => {
+          const m = SOURCE_META[s.source] ?? { label: s.source, color: '#94A3B8' }
+          return (
+            <span
+              key={s.source}
+              className="inline-flex items-center gap-1 text-gray-400"
+              title={`${s.leads} leads`}
+            >
+              <span
+                className="w-1.5 h-1.5 rounded-full"
+                style={{ backgroundColor: m.color }}
+              />
+              {m.label} {s.leads}
+            </span>
+          )
+        })}
+        {restoCount > 0 && (
+          <span className="text-gray-500">+{restoCount} outros</span>
+        )}
       </div>
     </div>
   )
