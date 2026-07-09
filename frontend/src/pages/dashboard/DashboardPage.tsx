@@ -276,9 +276,9 @@ export function DashboardPage() {
             <AreaChart data={stats.timeline} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
               <defs>
                 <linearGradient id="gradReceita" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#C9A84C" stopOpacity={0.5} />
-                  <stop offset="60%" stopColor="#C9A84C" stopOpacity={0.15} />
-                  <stop offset="100%" stopColor="#C9A84C" stopOpacity={0} />
+                  <stop offset="0%" stopColor="#F2911D" stopOpacity={0.5} />
+                  <stop offset="60%" stopColor="#F2911D" stopOpacity={0.15} />
+                  <stop offset="100%" stopColor="#F2911D" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="gradFechados" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#10B981" stopOpacity={0.3} />
@@ -305,7 +305,7 @@ export function DashboardPage() {
               <Tooltip
                 contentStyle={{
                   borderRadius: 12,
-                  border: '1px solid rgba(201, 168, 76, 0.25)',
+                  border: '1px solid rgba(242, 145, 29, 0.25)',
                   backgroundColor: 'rgba(11, 17, 32, 0.95)',
                   backdropFilter: 'blur(16px)',
                   fontSize: 12,
@@ -324,7 +324,7 @@ export function DashboardPage() {
               <Area
                 type="monotone"
                 dataKey="receita"
-                stroke="#C9A84C"
+                stroke="#F2911D"
                 strokeWidth={2.5}
                 fill="url(#gradReceita)"
                 animationDuration={800}
@@ -448,9 +448,9 @@ function GlassCard({ children, className = '' }: { children: React.ReactNode; cl
 type Accent = 'gold' | 'emerald' | 'blue' | 'purple' | 'rose' | 'cyan' | 'amber' | 'yellow'
 
 const accentMap: Record<Accent, { text: string; bg: string; border: string; glow: string; gradId: string; stroke: string }> = {
-  gold: { text: 'text-gold-300', bg: 'bg-gold-500/10', border: 'border-gold-500/25', glow: 'shadow-gold-500/10', gradId: 'sparkGold', stroke: '#C9A84C' },
-  emerald: { text: 'text-emerald-300', bg: 'bg-emerald-500/10', border: 'border-emerald-500/25', glow: 'shadow-emerald-500/10', gradId: 'sparkEmerald', stroke: '#10B981' },
-  blue: { text: 'text-sky-300', bg: 'bg-sky-500/10', border: 'border-sky-500/25', glow: 'shadow-sky-500/10', gradId: 'sparkBlue', stroke: '#0EA5E9' },
+  gold: { text: 'text-orange-300', bg: 'bg-orange-500/10', border: 'border-orange-500/25', glow: 'shadow-glow-orange', gradId: 'sparkGold', stroke: '#F2911D' },
+  emerald: { text: 'text-emerald-300', bg: 'bg-emerald-500/10', border: 'border-emerald-500/25', glow: 'shadow-emerald-500/10', gradId: 'sparkEmerald', stroke: '#34D399' },
+  blue: { text: 'text-blue-300', bg: 'bg-blue-500/10', border: 'border-blue-500/25', glow: 'shadow-glow-blue', gradId: 'sparkBlue', stroke: '#445DA8' },
   purple: { text: 'text-violet-300', bg: 'bg-violet-500/10', border: 'border-violet-500/25', glow: 'shadow-violet-500/10', gradId: 'sparkPurple', stroke: '#8B5CF6' },
   rose: { text: 'text-rose-300', bg: 'bg-rose-500/10', border: 'border-rose-500/25', glow: 'shadow-rose-500/10', gradId: 'sparkRose', stroke: '#F43F5E' },
   cyan: { text: 'text-cyan-300', bg: 'bg-cyan-500/10', border: 'border-cyan-500/25', glow: 'shadow-cyan-500/10', gradId: 'sparkCyan', stroke: '#06B6D4' },
@@ -545,7 +545,7 @@ function KpiMini({
           <div className="w-20 h-7">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={sparkline}>
-                <Area type="monotone" dataKey="y" stroke="#C9A84C" strokeWidth={1.3} fill="rgba(201,168,76,0.15)" />
+                <Area type="monotone" dataKey="y" stroke="#F2911D" strokeWidth={1.3} fill="rgba(242,145,29,0.15)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -739,7 +739,7 @@ function SourceConversionPanel({
                   cursor={{ fill: 'rgba(255,255,255,0.03)' }}
                   contentStyle={{
                     borderRadius: 8,
-                    border: '1px solid rgba(201,168,76,0.25)',
+                    border: '1px solid rgba(242,145,29,0.25)',
                     backgroundColor: 'rgba(11,17,32,0.95)',
                     backdropFilter: 'blur(16px)',
                     fontSize: 12,
@@ -934,7 +934,7 @@ function StateConversionPanel({
                   }}
                 />
                 <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} iconType="circle" />
-                <Bar dataKey="Leads" fill="#3D72DE" radius={[0, 4, 4, 0]} barSize={12} />
+                <Bar dataKey="Leads" fill="#445DA8" radius={[0, 4, 4, 0]} barSize={12} />
                 <Bar dataKey="Aprovados" fill="#10B981" radius={[0, 4, 4, 0]} barSize={12} />
               </BarChart>
             </ResponsiveContainer>
