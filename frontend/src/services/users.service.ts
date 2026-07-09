@@ -47,6 +47,12 @@ export const usersService = {
     return response.data
   },
 
+  /** Time direto do usuario logado (para a tela "Meu Time" de vendedor/gestor). */
+  async myTeam(): Promise<{ data: TeamMember[]; total: number }> {
+    const response = await api.get('/users/my-team')
+    return response.data
+  },
+
   async create(data: CreateTeamMemberRequest): Promise<TeamMemberWithCredential> {
     const response = await api.post('/users', data)
     return response.data

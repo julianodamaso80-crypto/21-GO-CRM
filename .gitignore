@@ -65,3 +65,6 @@ generate_pptx.py
 # Arquivos sensiveis (credenciais, tokens) — NUNCA commitar
 scripts/_search_supabase_creds.sh
 DEPLOY_EASYPANEL.md
+
+# dados de time (PII) usados nos scripts de importacao
+scripts/data/

@@ -10,6 +10,7 @@ import { useAuthStore } from '../../store/auth-store'
 import type { TeamMember, TeamMemberWithCredential, TeamRole } from '../../services/users.service'
 import { TeamMemberDrawer } from './TeamMemberDrawer'
 import { CredentialsModal } from './CredentialsModal'
+import { MyTeamView } from './MyTeamView'
 
 const ROLE_META: Record<TeamRole, { label: string; description: string; icon: any; color: string; bg: string }> = {
   admin: {
@@ -113,43 +114,9 @@ export function TeamPage() {
     await deactivateMutation.mutateAsync(m.id)
   }
 
-  // Nao-admin (vendedor): ve apenas o proprio cadastro, sem a lista da equipe.
+  // Nao-admin (vendedor/gestor): ve o PROPRIO time em "Meu Time" (hierarquia por managerId).
   if (!isAdmin) {
-    const meMeta = ROLE_META[myRole] ?? ROLE_META.vendedor
-    const MeIcon = meMeta.icon
-    return (
-      <div className="p-6 max-w-2xl mx-auto page-enter">
-        <div className="mb-6">
-          <h1 className="text-3xl font-display font-bold text-white">Meu Time</h1>
-          <p className="mt-2 text-dark-400">Seu acesso e informacoes de perfil.</p>
-        </div>
-        <div className="card relative overflow-hidden">
-          <div
-            className="pointer-events-none absolute inset-0 opacity-70"
-            style={{ background: 'radial-gradient(ellipse 60% 80% at 12% 0%, rgba(41,60,130,0.16), transparent 60%), radial-gradient(ellipse 50% 60% at 100% 20%, rgba(242,145,29,0.10), transparent 55%)' }}
-          />
-          <div className="relative flex items-center gap-4">
-            <div className="h-16 w-16 rounded-2xl bg-gradient-blue flex items-center justify-center text-white font-display font-bold text-xl shadow-glow-blue shrink-0">
-              {(me?.firstName?.[0] || '') + (me?.lastName?.[0] || '') || 'EU'}
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-xl font-display font-bold text-white truncate">
-                {me?.firstName} {me?.lastName}
-              </h2>
-              <p className="text-sm text-dark-400 truncate">{me?.email}</p>
-              <span className={`mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border ${meMeta.bg} ${meMeta.color}`}>
-                <MeIcon className="w-3.5 h-3.5" />
-                {meMeta.label}
-              </span>
-            </div>
-          </div>
-          <div className="relative mt-5 pt-5 border-t border-hairline">
-            <p className="text-xs font-bold uppercase tracking-wider text-dark-300 mb-1.5">O que voce acessa</p>
-            <p className="text-sm text-dark-300">{meMeta.description}. Voce ve apenas os seus associados, leads e funis.</p>
-          </div>
-        </div>
-      </div>
-    )
+    return <MyTeamView me={me} />
   }
 
   return (

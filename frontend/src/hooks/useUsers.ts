@@ -11,6 +11,16 @@ export function useTeamMembers() {
   })
 }
 
+/** Time direto do usuario logado (Meu Time). `enabled` evita chamada quando nao precisa. */
+export function useMyTeam(enabled = true) {
+  return useQuery({
+    queryKey: ['my-team'],
+    queryFn: () => usersService.myTeam(),
+    enabled,
+    staleTime: 60_000,
+  })
+}
+
 export function useCreateTeamMember() {
   const qc = useQueryClient()
   return useMutation({

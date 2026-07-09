@@ -20,6 +20,13 @@ export class UsersController {
     return reply.send(result)
   }
 
+  /** GET /users/my-team — time direto do usuario logado (qualquer role autenticado) */
+  async myTeam(request: FastifyRequest, reply: FastifyReply) {
+    const user = (request as any).user
+    const result = await usersService.listMyTeam(user.id, user.companyId)
+    return reply.send(result)
+  }
+
   /** GET /users/:id (admin only) */
   async getById(request: FastifyRequest, reply: FastifyReply) {
     const user = requireAdmin(request)

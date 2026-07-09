@@ -77,6 +77,12 @@ model User {
   companyId String  @map("company_id")
   company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
+  // Hierarquia de time: gerente/lider direto (auto-relacao). Um vendedor (ex: Leticya)
+  // enxerga em "Meu Time" os users cujo managerId aponta pra ele.
+  managerId String? @map("manager_id")
+  manager   User?   @relation("UserManager", fields: [managerId], references: [id], onDelete: SetNull)
+  team      User[]  @relation("UserManager")
+
   // Auth
   refreshTokens RefreshToken[]
 
@@ -103,6 +109,7 @@ model User {
 
   @@index([companyId])
   @@index([role])
+  @@index([managerId])
   @@map("users")
 }
 

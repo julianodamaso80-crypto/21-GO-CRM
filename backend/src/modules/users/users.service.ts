@@ -68,6 +68,19 @@ export class UsersService {
     return { data: users.map(shape), total: users.length }
   }
 
+  /**
+   * Time direto de um usuario (para a tela "Meu Time" do vendedor/gestor).
+   * Retorna os users cujo managerId aponta pra ele, na mesma company.
+   * Acessivel por qualquer usuario autenticado (ve apenas o proprio time).
+   */
+  async listMyTeam(managerId: string, companyId: string) {
+    const users = await prisma.user.findMany({
+      where: { managerId, companyId },
+      orderBy: [{ isActive: 'desc' }, { firstName: 'asc' }],
+    })
+    return { data: users.map(shape), total: users.length }
+  }
+
   async getById(id: string, companyId: string) {
     const user = await prisma.user.findFirst({ where: { id, companyId } })
     if (!user) throw new AppError('Usuario nao encontrado', 404, 'NOT_FOUND')
