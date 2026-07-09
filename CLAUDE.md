@@ -109,12 +109,13 @@ Cada agente tem um system prompt completo em `21go-squad/agents/`. Todos os 11 a
 ### O que FALTA fazer (em ordem de prioridade):
 
 **Arquitetura de Dominios:**
-- **app.21go.site** → CRM interno (React+Fastify) — deploy Railway
+- **crm21go.site** → CRM interno (React+Fastify) — deploy Easypanel (Docker Swarm) no servidor `167.71.31.77`
+- `www.crm21go.site` redireciona pro apex
 - Cloudflare gerencia DNS
 
 **URGENTE — Deploy:**
-- [x] CRM rodando em app.21go.site (Railway)
-- [ ] Configurar DNS no Cloudflare (app.21go.site -> Railway)
+- [x] CRM rodando em crm21go.site (Easypanel)
+- [x] DNS configurado no Cloudflare
 
 **Fase 3 — Contacts -> Associados:**
 - [ ] Adaptar modelo Contact com campos veiculares (CPF, status, hinova_id, origem, UTM)
@@ -156,7 +157,7 @@ Cada agente tem um system prompt completo em `21go-squad/agents/`. Todos os 11 a
 - **Validação**: Zod (backend), React Hook Form (frontend)
 - **IA**: Módulo em backend/src/modules/ai/ com CRUD de agentes
 - **Padrão de módulos**: service -> controller -> routes (backend)
-- **CRM Deploy**: Railway (Postgres + Redis + App) em app.21go.site — Cloudflare DNS
+- **CRM Deploy**: Easypanel (Docker Swarm) em crm21go.site no servidor `167.71.31.77` — Cloudflare DNS. Deploy manual via SSH (sem webhook GitHub): `git pull && docker build -t easypanel/social-21go/crm-21go:latest . && docker service update --force --image easypanel/social-21go/crm-21go:latest social-21go_crm-21go`
 
 ---
 

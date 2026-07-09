@@ -5,7 +5,6 @@ import {
   Loader2,
   Bot,
   User,
-  Circle,
   CheckCheck,
   Search,
 } from 'lucide-react'
@@ -46,7 +45,7 @@ export function InboxPage() {
 
   const handleSelect = (conv: Conversation) => {
     setSelectedId(conv.id)
-    if (conv.isUnread) markAsRead.mutate(conv.id)
+    if ((conv.unreadCount ?? 0) > 0) markAsRead.mutate(conv.id)
   }
 
   return (
@@ -93,11 +92,14 @@ export function InboxPage() {
               <p className="text-sm text-gray-500">Nenhuma conversa</p>
             </div>
           ) : (
-            filtered.map((conv) => (
+            filtered.map((conv) => {
+              const unread = conv.unreadCount ?? 0
+              const hasUnread = unread > 0
+              return (
               <button
                 key={conv.id}
                 onClick={() => handleSelect(conv)}
-                className={`w-full text-left px-4 py-3 border-b border-dark-700/40 hover:bg-dark-700/50 transition-colors ${
+                className={`w-full text-left px-4 py-3 border-b border-dark-700/40 hover:bg-dark-700/50 transition-colors relative ${
                   selectedId === conv.id ? 'bg-gold-500/10 border-l-2 border-l-gold-500' : ''
                 }`}
               >
@@ -107,11 +109,11 @@ export function InboxPage() {
                     {conv.contact?.firstName?.[0]}{conv.contact?.lastName?.[0]}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <span className={`text-sm font-medium ${conv.isUnread ? 'text-white' : 'text-gray-300'}`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={`text-sm truncate ${hasUnread ? 'font-bold text-white' : 'font-medium text-gray-300'}`}>
                         {conv.contact?.fullName || conv.contact?.firstName || 'Contato'}
                       </span>
-                      <span className="text-[10px] text-gray-500 whitespace-nowrap">
+                      <span className={`text-[10px] whitespace-nowrap ${hasUnread ? 'text-gold-400 font-semibold' : 'text-gray-500'}`}>
                         {formatTimeAgo(conv.lastMessageAt || conv.createdAt)}
                       </span>
                     </div>
@@ -119,17 +121,20 @@ export function InboxPage() {
                       <span className="text-[10px] px-1 py-0.5 rounded bg-dark-700 text-gray-400 font-medium">
                         {CHANNEL_ICON[conv.channel?.type] || conv.channel?.type}
                       </span>
-                      <p className={`text-xs truncate ${conv.isUnread ? 'text-gray-100 font-medium' : 'text-gray-400'}`}>
+                      <p className={`text-xs truncate flex-1 ${hasUnread ? 'text-gray-50 font-semibold' : 'text-gray-400'}`}>
                         {(conv as any).lastMessagePreview || 'Sem mensagens'}
                       </p>
+                      {hasUnread && (
+                        <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full bg-gold-500 text-dark-900 text-[10px] font-bold leading-none flex-shrink-0">
+                          {unread > 99 ? '99+' : unread}
+                        </span>
+                      )}
                     </div>
-                    {conv.isUnread && (
-                      <Circle className="absolute right-3 top-4 w-2 h-2 fill-gold-500 text-gold-500" />
-                    )}
                   </div>
                 </div>
               </button>
-            ))
+              )
+            })
           )}
         </div>
       </div>

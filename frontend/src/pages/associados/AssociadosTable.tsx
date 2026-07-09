@@ -17,10 +17,13 @@ const STATUS_CONFIG: Record<string, { label: string; dot: string; cls: string; a
   cancelado:    { label: 'Cancelado',    dot: 'bg-rose-400',    cls: 'text-rose-400 bg-rose-500/12',       avatar: 'from-rose-500/25 to-rose-600/10 text-rose-300 ring-rose-500/20' },
 }
 
-const ORIGEM_LABEL: Record<string, string> = {
-  google_ads: 'Google Ads', meta_ads: 'Meta Ads', instagram: 'Instagram',
-  site_organico: 'Site Orgânico', indicacao: 'Indicação', whatsapp: 'WhatsApp',
-  direto: 'Direto', outro: 'Outro',
+// Vencimento do boleto (SGA) guardado em customFields.vencimento (YYYY-MM-DD).
+const fmtData = (venc: string) => { const [y, m, d] = venc.split('-'); return `${d}/${m}/${y}` }
+const diasAtraso = (venc: string) => {
+  const [y, m, d] = venc.split('-').map(Number)
+  const dv = new Date(y, (m || 1) - 1, d || 1)
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0)
+  return Math.floor((hoje.getTime() - dv.getTime()) / 86400000)
 }
 
 const initials = (name: string) =>
@@ -61,7 +64,7 @@ export function AssociadosTable({ associados, onEdit, onView }: AssociadosTableP
               <th>WhatsApp</th>
               <th>Status</th>
               <th className="text-center">Veículos</th>
-              <th>Origem</th>
+              <th>Vencimento</th>
               <th className="text-center">NPS</th>
               <th className="text-right">Ações</th>
             </tr>
@@ -116,11 +119,26 @@ export function AssociadosTable({ associados, onEdit, onView }: AssociadosTableP
                     </span>
                   </td>
 
-                  {/* Origem */}
+                  {/* Vencimento / dias em atraso */}
                   <td>
-                    <span className="text-sm text-dark-300">
-                      {associado.origem ? ORIGEM_LABEL[associado.origem] || associado.origem : <span className="text-dark-500">—</span>}
-                    </span>
+                    {(() => {
+                      const venc = (associado.customFields as Record<string, any> | undefined)?.vencimento as string | undefined
+                      if (!venc) return <span className="text-dark-500">—</span>
+                      const dias = diasAtraso(venc)
+                      const atrasado = dias > 0 && associado.status === 'inadimplente'
+                      return (
+                        <div className="flex flex-col gap-1">
+                          <span className="text-sm text-dark-200 tabular-nums">{fmtData(venc)}</span>
+                          {atrasado ? (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[11px] font-semibold text-rose-400 bg-rose-500/12 w-fit">
+                              {dias} {dias === 1 ? 'dia' : 'dias'} em atraso
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-emerald-400">Em dia</span>
+                          )}
+                        </div>
+                      )
+                    })()}
                   </td>
 
                   {/* NPS */}
