@@ -20,7 +20,7 @@ export class AssociadosController {
       sortOrder: query.sortOrder,
     }
 
-    const result = await associadosService.listAssociados(companyId, filters)
+    const result = await associadosService.listAssociados(companyId, filters, user)
     return reply.send(result)
   }
 
@@ -29,7 +29,7 @@ export class AssociadosController {
     const companyId = user.companyId
     const { id } = request.params as { id: string }
 
-    const associado = await associadosService.getAssociadoById(id, companyId)
+    const associado = await associadosService.getAssociadoById(id, companyId, user)
     return reply.send(associado)
   }
 
@@ -73,7 +73,7 @@ export class AssociadosController {
     const user = (request as any).user
     const companyId = user.companyId
 
-    const stats = await associadosService.getStats(companyId)
+    const stats = await associadosService.getStats(companyId, user)
     return reply.send(stats)
   }
 }

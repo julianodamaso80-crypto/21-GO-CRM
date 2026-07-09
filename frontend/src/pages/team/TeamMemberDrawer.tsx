@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
-import { X, Loader2, Eye, EyeOff, ShieldAlert, ShieldCheck, Shield, Wrench } from 'lucide-react'
+import { X, Loader2, Eye, EyeOff, ShieldAlert, Shield } from 'lucide-react'
 import type { TeamMember, TeamRole, CreateTeamMemberRequest, UpdateTeamMemberRequest } from '../../services/users.service'
 
+// Papeis ativos no sistema (definido pelo cliente): apenas Admin e Vendedor.
 const ROLE_OPTIONS: Array<{ value: TeamRole; label: string; description: string; icon: any; color: string }> = [
-  { value: 'admin', label: 'Administrador', description: 'Acesso total + gestao de usuarios', icon: ShieldAlert, color: 'text-red-400' },
-  { value: 'gestor', label: 'Gestor', description: 'Dashboards, NPS, financeiro, equipe comercial', icon: ShieldCheck, color: 'text-purple-400' },
-  { value: 'vendedor', label: 'Vendedor', description: 'Leads, cotacoes, funil e seus associados', icon: Shield, color: 'text-blue-400' },
-  { value: 'operacao', label: 'Operacao', description: 'Sinistros, vistorias e oficina (mobile)', icon: Wrench, color: 'text-cyan-400' },
+  { value: 'admin', label: 'Administrador', description: 'Ve tudo da empresa + gestao de usuarios', icon: ShieldAlert, color: 'text-red-400' },
+  { value: 'vendedor', label: 'Vendedor', description: 'Ve apenas os seus leads, associados e funil', icon: Shield, color: 'text-blue-400' },
 ]
 
 interface Props {

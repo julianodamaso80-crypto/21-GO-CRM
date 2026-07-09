@@ -17,7 +17,7 @@ export class DashboardController {
     const parsed = q.periodDays ? Number(q.periodDays) : 7
     const period: DashboardPeriod = (VALID_PERIODS.has(parsed) ? parsed : 7) as DashboardPeriod
 
-    const stats = await dashboardService.getStats(companyId, period)
+    const stats = await dashboardService.getStats(companyId, period, user)
     return reply.send(stats)
   }
 }

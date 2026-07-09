@@ -41,6 +41,9 @@ const ROLE_META: Record<TeamRole, { label: string; description: string; icon: an
   },
 }
 
+// Papeis ativos no sistema (definido pelo cliente): apenas Admin e Vendedor.
+const VISIBLE_ROLES: TeamRole[] = ['admin', 'vendedor']
+
 export function TeamPage() {
   const me = useAuthStore((s) => s.user)
   const myRole = (me?.role?.name as TeamRole) || 'vendedor'
@@ -105,13 +108,40 @@ export function TeamPage() {
     await deactivateMutation.mutateAsync(m.id)
   }
 
+  // Nao-admin (vendedor): ve apenas o proprio cadastro, sem a lista da equipe.
   if (!isAdmin) {
+    const meMeta = ROLE_META[myRole] ?? ROLE_META.vendedor
+    const MeIcon = meMeta.icon
     return (
-      <div className="p-6 max-w-3xl mx-auto page-enter">
-        <div className="card border-red-500/20 p-12 text-center">
-          <ShieldAlert className="w-12 h-12 text-red-400 mx-auto mb-4" />
-          <h2 className="text-xl font-display font-bold text-white mb-2">Acesso restrito</h2>
-          <p className="text-gray-400">Apenas administradores podem gerenciar a equipe.</p>
+      <div className="p-6 max-w-2xl mx-auto page-enter">
+        <div className="mb-6">
+          <h1 className="text-3xl font-display font-bold text-white">Meu Time</h1>
+          <p className="mt-2 text-dark-400">Seu acesso e informacoes de perfil.</p>
+        </div>
+        <div className="card relative overflow-hidden">
+          <div
+            className="pointer-events-none absolute inset-0 opacity-70"
+            style={{ background: 'radial-gradient(ellipse 60% 80% at 12% 0%, rgba(41,60,130,0.16), transparent 60%), radial-gradient(ellipse 50% 60% at 100% 20%, rgba(242,145,29,0.10), transparent 55%)' }}
+          />
+          <div className="relative flex items-center gap-4">
+            <div className="h-16 w-16 rounded-2xl bg-gradient-blue flex items-center justify-center text-white font-display font-bold text-xl shadow-glow-blue shrink-0">
+              {(me?.firstName?.[0] || '') + (me?.lastName?.[0] || '') || 'EU'}
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-xl font-display font-bold text-white truncate">
+                {me?.firstName} {me?.lastName}
+              </h2>
+              <p className="text-sm text-dark-400 truncate">{me?.email}</p>
+              <span className={`mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border ${meMeta.bg} ${meMeta.color}`}>
+                <MeIcon className="w-3.5 h-3.5" />
+                {meMeta.label}
+              </span>
+            </div>
+          </div>
+          <div className="relative mt-5 pt-5 border-t border-hairline">
+            <p className="text-xs font-bold uppercase tracking-wider text-dark-300 mb-1.5">O que voce acessa</p>
+            <p className="text-sm text-dark-300">{meMeta.description}. Voce ve apenas os seus associados, leads e funis.</p>
+          </div>
         </div>
       </div>
     )
@@ -135,15 +165,15 @@ export function TeamPage() {
         </div>
 
         {/* Stat cards por role */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 stagger-children">
-          {(Object.keys(ROLE_META) as TeamRole[]).map((role) => {
+        <div className="grid grid-cols-2 gap-4 mt-6 stagger-children">
+          {VISIBLE_ROLES.map((role) => {
             const meta = ROLE_META[role]
             const Icon = meta.icon
             return (
               <button
                 key={role}
                 onClick={() => setRoleFilter(roleFilter === role ? '' : role)}
-                className={`stat-card text-left transition-all ${roleFilter === role ? 'ring-2 ring-gold-500/40' : ''}`}
+                className={`stat-card text-left transition-all ${roleFilter === role ? 'ring-2 ring-orange-500/40' : ''}`}
               >
                 <div className="flex items-center justify-between">
                   <div>
@@ -164,7 +194,7 @@ export function TeamPage() {
       <div className="card mb-6">
         <h3 className="text-sm font-semibold text-gray-300 mb-4 uppercase tracking-wider">Niveis de acesso</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {(Object.keys(ROLE_META) as TeamRole[]).map((role) => {
+          {VISIBLE_ROLES.map((role) => {
             const meta = ROLE_META[role]
             const Icon = meta.icon
             return (
@@ -200,9 +230,7 @@ export function TeamPage() {
           >
             <option value="">Todos os niveis</option>
             <option value="admin">Administrador</option>
-            <option value="gestor">Gestor</option>
             <option value="vendedor">Vendedor</option>
-            <option value="operacao">Operacao</option>
           </select>
         </div>
       </div>

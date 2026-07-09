@@ -2,6 +2,7 @@ import { prisma } from '../../config/database'
 import { env } from '../../config/env'
 import { AppError } from '../../utils/app-error'
 import { fireAndForgetWebhook } from '../../utils/webhook-dispatcher'
+import { cardOwnerWhere, type AuthUser } from '../../utils/scope'
 
 export class PipesService {
   // === Pipes ===
@@ -165,8 +166,8 @@ export class PipesService {
 
   // === Cards ===
 
-  async listCards(pipeId: string, companyId: string, params: { phaseId?: string; q?: string; page?: number; pageSize?: number; status?: string }) {
-    const where: any = { companyId, pipeId, status: params.status || 'active' }
+  async listCards(pipeId: string, companyId: string, params: { phaseId?: string; q?: string; page?: number; pageSize?: number; status?: string }, user?: AuthUser) {
+    const where: any = { companyId, pipeId, status: params.status || 'active', ...cardOwnerWhere(user) }
     if (params.phaseId) where.currentPhaseId = params.phaseId
     if (params.q) where.title = { contains: params.q, mode: 'insensitive' }
 
@@ -200,10 +201,13 @@ export class PipesService {
     }
   }
 
-  async getKanbanData(pipeId: string, companyId: string) {
+  async getKanbanData(pipeId: string, companyId: string, user?: AuthUser) {
     // Kanban mostra cards ativos E concluidos (status='done' em fases isWon/isLost).
     // Cards 'archived' ficam de fora.
     const kanbanStatusFilter = { in: ['active', 'done'] }
+    // Escopo por dono: vendedor ve so os cards dele; admin ve todos
+    const ownerFilter = cardOwnerWhere(user)
+    const cardWhere = { status: kanbanStatusFilter, ...ownerFilter }
     const pipe = await prisma.pipe.findFirst({
       where: { id: pipeId, companyId },
       include: {
@@ -211,14 +215,14 @@ export class PipesService {
           orderBy: { position: 'asc' },
           include: {
             cards: {
-              where: { status: kanbanStatusFilter },
+              where: cardWhere,
               include: {
                 assignedTo: { select: { id: true, firstName: true, lastName: true, avatar: true } },
                 fieldValues: { include: { fieldDefinition: true } },
               },
               orderBy: { createdAt: 'asc' },
             },
-            _count: { select: { cards: { where: { status: kanbanStatusFilter } } } },
+            _count: { select: { cards: { where: cardWhere } } },
           },
         },
       },

@@ -1,6 +1,7 @@
 import { prisma } from '../../config/database'
 import { AppError } from '../../utils/app-error'
 import { ensureCardForLead } from './lead-card.helper'
+import { ownerWhere, type AuthUser } from '../../utils/scope'
 
 export interface CreateLeadDTO {
   nome: string
@@ -44,12 +45,13 @@ export interface ListLeadsQuery {
 }
 
 export class LeadsService {
-  async listLeads(companyId: string, query: ListLeadsQuery) {
+  async listLeads(companyId: string, query: ListLeadsQuery, user?: AuthUser) {
     const page = Math.max(1, query.page || 1)
     const limit = Math.min(100, Math.max(1, query.limit || 20))
     const skip = (page - 1) * limit
 
-    const where: any = { companyId }
+    // Escopo por dono: vendedor ve so os seus leads; admin ve todos
+    const where: any = { companyId, ...ownerWhere(user) }
 
     if (query.search) {
       where.OR = [
@@ -160,9 +162,9 @@ export class LeadsService {
     }
   }
 
-  async getLeadById(id: string, companyId: string) {
+  async getLeadById(id: string, companyId: string, user?: AuthUser) {
     const lead = await prisma.lead.findFirst({
-      where: { id, companyId },
+      where: { id, companyId, ...ownerWhere(user) },
       include: {
         vendedor: {
           select: { id: true, firstName: true, lastName: true },
@@ -269,16 +271,17 @@ export class LeadsService {
     return { success: true, message: 'Lead deleted' }
   }
 
-  async getStats(companyId: string) {
+  async getStats(companyId: string, user?: AuthUser) {
+    const scope = ownerWhere(user)
     const [total, novo, qualificado, cotacaoEnviada, negociacao, fechado, perdido] =
       await Promise.all([
-        prisma.lead.count({ where: { companyId } }),
-        prisma.lead.count({ where: { companyId, etapaFunil: 'novo' } }),
-        prisma.lead.count({ where: { companyId, etapaFunil: 'qualificado' } }),
-        prisma.lead.count({ where: { companyId, etapaFunil: 'cotacao_enviada' } }),
-        prisma.lead.count({ where: { companyId, etapaFunil: 'negociacao' } }),
-        prisma.lead.count({ where: { companyId, etapaFunil: 'fechado' } }),
-        prisma.lead.count({ where: { companyId, etapaFunil: 'perdido' } }),
+        prisma.lead.count({ where: { companyId, ...scope } }),
+        prisma.lead.count({ where: { companyId, ...scope, etapaFunil: 'novo' } }),
+        prisma.lead.count({ where: { companyId, ...scope, etapaFunil: 'qualificado' } }),
+        prisma.lead.count({ where: { companyId, ...scope, etapaFunil: 'cotacao_enviada' } }),
+        prisma.lead.count({ where: { companyId, ...scope, etapaFunil: 'negociacao' } }),
+        prisma.lead.count({ where: { companyId, ...scope, etapaFunil: 'fechado' } }),
+        prisma.lead.count({ where: { companyId, ...scope, etapaFunil: 'perdido' } }),
       ])
 
     const byStatus = {

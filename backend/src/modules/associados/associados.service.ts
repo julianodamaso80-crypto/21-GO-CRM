@@ -1,5 +1,6 @@
 import { prisma } from '../../config/database'
 import { AppError } from '../../utils/app-error'
+import { ownerWhere, ownerWhereVia, type AuthUser } from '../../utils/scope'
 
 export interface CreateAssociadoDTO {
   firstName?: string
@@ -99,13 +100,15 @@ function toApiFormat(a: any) {
 }
 
 export class AssociadosService {
-  async listAssociados(companyId: string, query: ListAssociadosQuery) {
+  async listAssociados(companyId: string, query: ListAssociadosQuery, user?: AuthUser) {
     const page = Math.max(1, query.page || 1)
     const limit = Math.min(100, Math.max(1, query.limit || 20))
     const skip = (page - 1) * limit
 
     const where: any = {
       companyId,
+      // Escopo por dono: vendedor ve so os seus; admin ve todos
+      ...ownerWhere(user),
     }
 
     if (query.search) {
@@ -169,9 +172,9 @@ export class AssociadosService {
     }
   }
 
-  async getAssociadoById(id: string, companyId: string) {
+  async getAssociadoById(id: string, companyId: string, user?: AuthUser) {
     const associado = await prisma.associado.findFirst({
-      where: { id, companyId },
+      where: { id, companyId, ...ownerWhere(user) },
       include: {
         leads: {
           select: {
@@ -399,23 +402,27 @@ export class AssociadosService {
     return [...new Set(allTags)].sort()
   }
 
-  async getStats(companyId: string) {
+  async getStats(companyId: string, user?: AuthUser) {
+    // Escopo por dono: vendedor conta so os seus associados/veiculos
+    const scope = ownerWhere(user)
+    const vehScope = ownerWhereVia(user, 'associado')
     const [total, ativos, inativos, inadimplentes, emAdesao, recentCount, totalVehicles] =
       await Promise.all([
-        prisma.associado.count({ where: { companyId } }),
-        prisma.associado.count({ where: { companyId, status: 'ativo' } }),
-        prisma.associado.count({ where: { companyId, status: 'inativo' } }),
-        prisma.associado.count({ where: { companyId, status: 'inadimplente' } }),
-        prisma.associado.count({ where: { companyId, status: 'em_adesao' } }),
+        prisma.associado.count({ where: { companyId, ...scope } }),
+        prisma.associado.count({ where: { companyId, ...scope, status: 'ativo' } }),
+        prisma.associado.count({ where: { companyId, ...scope, status: 'inativo' } }),
+        prisma.associado.count({ where: { companyId, ...scope, status: 'inadimplente' } }),
+        prisma.associado.count({ where: { companyId, ...scope, status: 'em_adesao' } }),
         prisma.associado.count({
           where: {
             companyId,
+            ...scope,
             createdAt: {
               gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
             },
           },
         }),
-        prisma.vehicle.count({ where: { companyId, ativo: true } }),
+        prisma.vehicle.count({ where: { companyId, ativo: true, ...vehScope } }),
       ])
 
     return {

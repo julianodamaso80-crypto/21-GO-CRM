@@ -23,7 +23,7 @@ export class LeadsController {
       sortOrder: query.sortOrder,
     }
 
-    const result = await leadsService.listLeads(companyId, filters)
+    const result = await leadsService.listLeads(companyId, filters, user)
 
     return reply.send(result)
   }
@@ -37,7 +37,7 @@ export class LeadsController {
     const companyId = user.companyId
     const { id } = request.params as { id: string }
 
-    const lead = await leadsService.getLeadById(id, companyId)
+    const lead = await leadsService.getLeadById(id, companyId, user)
 
     return reply.send(lead)
   }
@@ -93,7 +93,7 @@ export class LeadsController {
     const user = (request as any).user
     const companyId = user.companyId
 
-    const stats = await leadsService.getStats(companyId)
+    const stats = await leadsService.getStats(companyId, user)
 
     return reply.send(stats)
   }

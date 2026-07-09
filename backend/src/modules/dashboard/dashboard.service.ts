@@ -1,12 +1,19 @@
 import { prisma } from '../../config/database'
+import { ownerWhere, ownerWhereVia, cardOwnerWhere, type AuthUser } from '../../utils/scope'
 
 export type DashboardPeriod = 1 | 7 | 30 | 90 // dias
 
 export class DashboardService {
-  async getStats(companyId: string, periodDays: DashboardPeriod = 7) {
+  async getStats(companyId: string, periodDays: DashboardPeriod = 7, user?: AuthUser) {
     const now = new Date()
     const periodStart = new Date(now.getTime() - periodDays * 86400000)
     const prevPeriodStart = new Date(periodStart.getTime() - periodDays * 86400000)
+
+    // Escopo por dono: vendedor ve so os seus dados; admin ve tudo da empresa
+    const cardScope = cardOwnerWhere(user)   // filtra cards por assignedTo / lead.vendedorId
+    const leadScope = ownerWhere(user)        // filtra leads por vendedorId
+    const assocScope = ownerWhere(user)       // filtra associados por vendedorId
+    const vehScope = ownerWhereVia(user, 'associado') // veiculos via associado.vendedorId
 
     // Resolve fases especiais do funil (por nome) — independente do pipe especifico
     const allPhases = await prisma.phase.findMany({
@@ -29,6 +36,7 @@ export class DashboardService {
       prisma.card.findMany({
         where: {
           companyId,
+          ...cardScope,
           currentPhaseId: { in: wonPhaseIds.length ? wonPhaseIds : ['___none___'] },
           completedAt: { gte: periodStart, lte: now },
         },
@@ -37,6 +45,7 @@ export class DashboardService {
       prisma.card.count({
         where: {
           companyId,
+          ...cardScope,
           currentPhaseId: { in: wonPhaseIds.length ? wonPhaseIds : ['___none___'] },
           completedAt: { gte: prevPeriodStart, lt: periodStart },
         },
@@ -58,6 +67,7 @@ export class DashboardService {
       await prisma.card.findMany({
         where: {
           companyId,
+          ...cardScope,
           currentPhaseId: { in: wonPhaseIds.length ? wonPhaseIds : ['___none___'] },
           completedAt: { gte: prevPeriodStart, lt: periodStart },
         },
@@ -79,22 +89,22 @@ export class DashboardService {
     // ----- Estados ativos (snapshot atual) -----
     const [emVistoria, emNegociacao, emAtendimento, linksVistoria, aguardandoAprovacao, pendenciasCliente] = await Promise.all([
       vistoriaPhaseIds.length
-        ? prisma.card.count({ where: { companyId, status: 'active', currentPhaseId: { in: vistoriaPhaseIds } } })
+        ? prisma.card.count({ where: { companyId, ...cardScope, status: 'active', currentPhaseId: { in:vistoriaPhaseIds } } })
         : 0,
       negociacaoPhaseIds.length
-        ? prisma.card.count({ where: { companyId, status: 'active', currentPhaseId: { in: negociacaoPhaseIds } } })
+        ? prisma.card.count({ where: { companyId, ...cardScope, status: 'active', currentPhaseId: { in:negociacaoPhaseIds } } })
         : 0,
       atendimentoPhaseIds.length
-        ? prisma.card.count({ where: { companyId, status: 'active', currentPhaseId: { in: atendimentoPhaseIds } } })
+        ? prisma.card.count({ where: { companyId, ...cardScope, status: 'active', currentPhaseId: { in:atendimentoPhaseIds } } })
         : 0,
       linkVistoriaPhaseIds.length
-        ? prisma.card.count({ where: { companyId, status: 'active', currentPhaseId: { in: linkVistoriaPhaseIds } } })
+        ? prisma.card.count({ where: { companyId, ...cardScope, status: 'active', currentPhaseId: { in:linkVistoriaPhaseIds } } })
         : 0,
       aguardandoAprovPhaseIds.length
-        ? prisma.card.count({ where: { companyId, status: 'active', currentPhaseId: { in: aguardandoAprovPhaseIds } } })
+        ? prisma.card.count({ where: { companyId, ...cardScope, status: 'active', currentPhaseId: { in:aguardandoAprovPhaseIds } } })
         : 0,
       pendenciaPhaseIds.length
-        ? prisma.card.count({ where: { companyId, status: 'active', currentPhaseId: { in: pendenciaPhaseIds } } })
+        ? prisma.card.count({ where: { companyId, ...cardScope, status: 'active', currentPhaseId: { in:pendenciaPhaseIds } } })
         : 0,
     ])
 
@@ -103,6 +113,7 @@ export class DashboardService {
       ? await prisma.card.count({
           where: {
             companyId,
+            ...cardScope,
             currentPhaseId: { in: lostPhaseIds },
             completedAt: { gte: periodStart, lte: now },
           },
@@ -114,15 +125,15 @@ export class DashboardService {
 
     // ----- Associados (tabela associados, status ativo) -----
     const [associadosTotal, associadosAtivos] = await Promise.all([
-      prisma.associado.count({ where: { companyId } }),
-      prisma.associado.count({ where: { companyId, status: 'ativo' } }),
+      prisma.associado.count({ where: { companyId, ...assocScope } }),
+      prisma.associado.count({ where: { companyId, ...assocScope, status: 'ativo' } }),
     ])
 
     // ----- Entradas no periodo (leads novos) -----
     const [entradasPeriodo, entradasAnterior] = await Promise.all([
-      prisma.lead.count({ where: { companyId, createdAt: { gte: periodStart, lte: now } } }),
+      prisma.lead.count({ where: { companyId, ...leadScope, createdAt: { gte: periodStart, lte: now } } }),
       prisma.lead.count({
-        where: { companyId, createdAt: { gte: prevPeriodStart, lt: periodStart } },
+        where: { companyId, ...leadScope, createdAt: { gte: prevPeriodStart, lt: periodStart } },
       }),
     ])
 
@@ -130,7 +141,7 @@ export class DashboardService {
     // Pego cards por fase com status active OR done (kanban-style)
     const cardsByPhase = await prisma.card.groupBy({
       by: ['currentPhaseId'],
-      where: { companyId, status: { in: ['active', 'done'] } },
+      where: { companyId, ...cardScope, status: { in: ['active', 'done'] } },
       _count: { _all: true },
     })
     const cardCountByPhaseId = new Map(cardsByPhase.map((c) => [c.currentPhaseId, c._count._all]))
@@ -176,6 +187,7 @@ export class DashboardService {
       const dayCards = await prisma.card.findMany({
         where: {
           companyId,
+          ...cardScope,
           currentPhaseId: { in: wonPhaseIds.length ? wonPhaseIds : ['___none___'] },
           completedAt: { gte: dayStart, lte: dayEnd },
         },
@@ -193,7 +205,7 @@ export class DashboardService {
         : 0
 
       const dayEntradas = await prisma.lead.count({
-        where: { companyId, createdAt: { gte: dayStart, lte: dayEnd } },
+        where: { companyId, ...leadScope, createdAt: { gte: dayStart, lte: dayEnd } },
       })
 
       timeline.push({
@@ -208,6 +220,7 @@ export class DashboardService {
     const ultimosFechadosRaw = await prisma.card.findMany({
       where: {
         companyId,
+        ...cardScope,
         currentPhaseId: { in: wonPhaseIds.length ? wonPhaseIds : ['___none___'] },
         completedAt: { not: null },
       },
@@ -239,7 +252,7 @@ export class DashboardService {
     })
 
     // ----- Veiculos protegidos -----
-    const veiculosProtegidos = await prisma.vehicle.count({ where: { companyId, ativo: true } })
+    const veiculosProtegidos = await prisma.vehicle.count({ where: { companyId, ativo: true, ...vehScope } })
 
     // ----- Taxa de conversao: fechados / entradas no periodo -----
     const taxaConversao =

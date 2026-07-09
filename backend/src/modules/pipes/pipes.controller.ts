@@ -81,14 +81,14 @@ export class PipesController {
       page: query.page ? parseInt(query.page) : undefined,
       pageSize: query.pageSize ? parseInt(query.pageSize) : undefined,
       status: query.status,
-    })
+    }, user)
     return reply.send(result)
   }
 
   async getKanbanData(request: FastifyRequest, reply: FastifyReply) {
     const user = (request as any).user
     const { pipeId } = request.params as { pipeId: string }
-    const data = await pipesService.getKanbanData(pipeId, user.companyId)
+    const data = await pipesService.getKanbanData(pipeId, user.companyId, user)
     return reply.send(data)
   }
 

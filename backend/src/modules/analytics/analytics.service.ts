@@ -1,6 +1,7 @@
 import { prisma } from '../../config/database'
 import { getStateFromPhone, UF_TO_NAME } from '../../utils/phone-state'
 import { inferVehicleType } from '../../utils/infer-vehicle-type'
+import { ownerWhere, type AuthUser } from '../../utils/scope'
 
 export interface AnalyticsFilters {
   startDate?: string
@@ -63,12 +64,13 @@ export class AnalyticsService {
     }
   }
 
-  async getLeadsBySource(companyId: string, filters: AnalyticsFilters) {
+  async getLeadsBySource(companyId: string, filters: AnalyticsFilters, user?: AuthUser) {
     const dateFilter = this.buildDateFilter(filters)
+    const scope = ownerWhere(user)
 
     const sources = await prisma.lead.groupBy({
       by: ['origem'],
-      where: { companyId, createdAt: dateFilter },
+      where: { companyId, ...scope, createdAt: dateFilter },
       _count: { id: true },
     })
 
@@ -78,6 +80,7 @@ export class AnalyticsService {
           prisma.lead.count({
             where: {
               companyId,
+              ...scope,
               createdAt: dateFilter,
               origem: s.origem,
               etapaFunil: { in: ['qualificado', 'cotacao_enviada', 'negociacao', 'fechado'] },
@@ -86,6 +89,7 @@ export class AnalyticsService {
           prisma.lead.count({
             where: {
               companyId,
+              ...scope,
               createdAt: dateFilter,
               origem: s.origem,
               cards: { some: { currentPhase: { isWon: true } } },
@@ -224,11 +228,11 @@ export class AnalyticsService {
    * Telefones formato 55DDXXXXXXXXX. Leads sem telefone ou DDD desconhecido
    * caem em "desconhecido".
    */
-  async getLeadsByState(companyId: string, filters: AnalyticsFilters) {
+  async getLeadsByState(companyId: string, filters: AnalyticsFilters, user?: AuthUser) {
     const dateFilter = this.buildDateFilter(filters)
 
     const leads = await prisma.lead.findMany({
-      where: { companyId, createdAt: dateFilter },
+      where: { companyId, ...ownerWhere(user), createdAt: dateFilter },
       select: {
         id: true,
         telefone: true,
@@ -270,11 +274,11 @@ export class AnalyticsService {
    * Agrupa leads por tipo de veículo (carro/moto/indefinido) inferido
    * da marca + modelo de interesse. Mostra aprovações por tipo.
    */
-  async getLeadsByVehicleType(companyId: string, filters: AnalyticsFilters) {
+  async getLeadsByVehicleType(companyId: string, filters: AnalyticsFilters, user?: AuthUser) {
     const dateFilter = this.buildDateFilter(filters)
 
     const leads = await prisma.lead.findMany({
-      where: { companyId, createdAt: dateFilter },
+      where: { companyId, ...ownerWhere(user), createdAt: dateFilter },
       select: {
         marcaInteresse: true,
         modeloInteresse: true,
@@ -319,8 +323,8 @@ export class AnalyticsService {
   // controller chamava getSources/getCampaigns/etc → 500 em produção.
   // ---------------------------------------------------------------------------
 
-  async getSources(companyId: string, filters: AnalyticsFilters) {
-    return this.getLeadsBySource(companyId, filters)
+  async getSources(companyId: string, filters: AnalyticsFilters, user?: AuthUser) {
+    return this.getLeadsBySource(companyId, filters, user)
   }
 
   async getCampaigns(companyId: string, filters: AnalyticsFilters) {

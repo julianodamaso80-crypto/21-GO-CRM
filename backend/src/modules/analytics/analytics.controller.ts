@@ -46,7 +46,7 @@ export class AnalyticsController {
     const companyId = user.companyId
     const filters = this.extractFilters(request)
 
-    const sources = await analyticsService.getSources(companyId, filters)
+    const sources = await analyticsService.getSources(companyId, filters, user)
 
     return reply.send(sources)
   }
@@ -60,7 +60,7 @@ export class AnalyticsController {
     const companyId = user.companyId
     const filters = this.extractFilters(request)
 
-    const byState = await analyticsService.getLeadsByState(companyId, filters)
+    const byState = await analyticsService.getLeadsByState(companyId, filters, user)
 
     return reply.send(byState)
   }
@@ -74,7 +74,7 @@ export class AnalyticsController {
     const companyId = user.companyId
     const filters = this.extractFilters(request)
 
-    const byType = await analyticsService.getLeadsByVehicleType(companyId, filters)
+    const byType = await analyticsService.getLeadsByVehicleType(companyId, filters, user)
 
     return reply.send(byType)
   }
