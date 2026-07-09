@@ -20,10 +20,10 @@ export class UsersController {
     return reply.send(result)
   }
 
-  /** GET /users/my-team — time direto do usuario logado (qualquer role autenticado) */
+  /** GET /users/my-team — downline multinivel (arvore inteira por nivel) do usuario logado */
   async myTeam(request: FastifyRequest, reply: FastifyReply) {
     const user = (request as any).user
-    const result = await usersService.listMyTeam(user.id, user.companyId)
+    const result = await usersService.listMyTeamTree(user.id, user.companyId)
     return reply.send(result)
   }
 

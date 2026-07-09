@@ -81,6 +81,46 @@ export class UsersService {
     return { data: users.map(shape), total: users.length }
   }
 
+  /**
+   * Downline MULTINIVEL do usuario logado (Meu Time): percorre a arvore inteira
+   * (nivel 1 = diretos, 2 = diretos dos diretos, ...) via CTE recursiva e calcula
+   * o nivel relativo de cada pessoa. Cap de profundidade p/ seguranca anti-ciclo.
+   */
+  async listMyTeamTree(managerId: string, companyId: string) {
+    const rows: any[] = await prisma.$queryRaw`
+      WITH RECURSIVE dl AS (
+        SELECT id, email, first_name, last_name, phone, avatar, role, is_active,
+               manager_id, last_login_at, 1 AS level
+        FROM users
+        WHERE manager_id = ${managerId} AND company_id = ${companyId}
+        UNION ALL
+        SELECT u.id, u.email, u.first_name, u.last_name, u.phone, u.avatar, u.role, u.is_active,
+               u.manager_id, u.last_login_at, dl.level + 1
+        FROM users u
+        INNER JOIN dl ON u.manager_id = dl.id
+        WHERE u.company_id = ${companyId} AND dl.level < 25
+      )
+      SELECT * FROM dl ORDER BY level ASC, first_name ASC
+    `
+    const data = rows.map((u) => ({
+      id: u.id,
+      email: u.email,
+      firstName: u.first_name,
+      lastName: u.last_name,
+      phone: u.phone,
+      avatar: u.avatar,
+      role: (u.role as Role) || 'vendedor',
+      isActive: u.is_active,
+      managerId: u.manager_id,
+      lastLoginAt: u.last_login_at,
+      level: Number(u.level),
+    }))
+    const byLevel: Record<number, number> = {}
+    for (const p of data) byLevel[p.level] = (byLevel[p.level] || 0) + 1
+    const maxLevel = data.reduce((m, p) => Math.max(m, p.level), 0)
+    return { data, total: data.length, byLevel, maxLevel }
+  }
+
   async getById(id: string, companyId: string) {
     const user = await prisma.user.findFirst({ where: { id, companyId } })
     if (!user) throw new AppError('Usuario nao encontrado', 404, 'NOT_FOUND')

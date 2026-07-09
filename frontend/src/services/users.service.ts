@@ -23,6 +23,28 @@ export interface TeamMemberWithCredential extends TeamMember {
   tempPassword?: string
 }
 
+/** Membro da downline multinivel — inclui o nivel relativo e o patrocinador direto. */
+export interface TeamTreeMember {
+  id: string
+  email: string
+  firstName: string
+  lastName: string
+  phone: string | null
+  avatar: string | null
+  role: TeamRole
+  isActive: boolean
+  managerId: string | null
+  lastLoginAt: string | null
+  level: number
+}
+
+export interface MyTeamResponse {
+  data: TeamTreeMember[]
+  total: number
+  byLevel: Record<string, number>
+  maxLevel: number
+}
+
 export interface CreateTeamMemberRequest {
   email: string
   password?: string // vazio = backend gera senha temporaria e forca troca no 1o login
@@ -47,8 +69,8 @@ export const usersService = {
     return response.data
   },
 
-  /** Time direto do usuario logado (para a tela "Meu Time" de vendedor/gestor). */
-  async myTeam(): Promise<{ data: TeamMember[]; total: number }> {
+  /** Downline multinivel do usuario logado (arvore por nivel) — tela "Meu Time". */
+  async myTeam(): Promise<MyTeamResponse> {
     const response = await api.get('/users/my-team')
     return response.data
   },
