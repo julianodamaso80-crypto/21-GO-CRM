@@ -11,15 +11,21 @@ export interface TeamMember {
   avatar: string | null
   role: TeamRole
   isActive: boolean
+  mustChangePassword?: boolean
   companyId: string
   createdAt: string
   updatedAt: string
   lastLoginAt: string | null
 }
 
+/** Retorno da criacao/reset: inclui a senha em claro UMA vez, so pra o admin repassar. */
+export interface TeamMemberWithCredential extends TeamMember {
+  tempPassword?: string
+}
+
 export interface CreateTeamMemberRequest {
   email: string
-  password: string
+  password?: string // vazio = backend gera senha temporaria e forca troca no 1o login
   firstName: string
   lastName: string
   phone?: string
@@ -41,12 +47,12 @@ export const usersService = {
     return response.data
   },
 
-  async create(data: CreateTeamMemberRequest): Promise<TeamMember> {
+  async create(data: CreateTeamMemberRequest): Promise<TeamMemberWithCredential> {
     const response = await api.post('/users', data)
     return response.data
   },
 
-  async update(id: string, data: UpdateTeamMemberRequest): Promise<TeamMember> {
+  async update(id: string, data: UpdateTeamMemberRequest): Promise<TeamMemberWithCredential> {
     const response = await api.patch(`/users/${id}`, data)
     return response.data
   },

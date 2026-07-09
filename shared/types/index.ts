@@ -15,6 +15,7 @@ export interface User {
   timezone: string
   language: string
   isActive: boolean
+  mustChangePassword?: boolean
   companyId: string
   roleId: string
   createdAt: string

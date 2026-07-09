@@ -122,6 +122,7 @@ export class AuthService {
     return {
       user: {
         ...userWithoutPassword,
+        mustChangePassword: (user as any).mustChangePassword ?? false,
         role: {
           id: user.role,
           name: user.role,
@@ -197,6 +198,7 @@ export class AuthService {
         avatar: true,
         phone: true,
         isActive: true,
+        mustChangePassword: true,
         companyId: true,
         role: true,
         company: {
@@ -241,5 +243,33 @@ export class AuthService {
         level: roleLevels[user.role] || 1,
       },
     }
+  }
+
+  /**
+   * Troca de senha do proprio usuario logado. Usado no fluxo de 1o acesso
+   * (mustChangePassword) e tambem numa troca voluntaria. Zera a flag.
+   */
+  async changePassword(userId: string, currentPassword: string | undefined, newPassword: string) {
+    if (!newPassword || newPassword.length < 6) {
+      throw AppError.badRequest('A nova senha precisa ter ao menos 6 caracteres')
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } })
+    if (!user) throw AppError.notFound('User not found')
+
+    // Se NAO for 1o acesso, exigimos a senha atual pra confirmar identidade.
+    if (!user.mustChangePassword) {
+      if (!currentPassword) throw AppError.badRequest('Informe a senha atual')
+      const ok = await bcrypt.compare(currentPassword, user.password)
+      if (!ok) throw AppError.unauthorized('Senha atual incorreta')
+    }
+
+    const hashed = await bcrypt.hash(newPassword, 10)
+    await prisma.user.update({
+      where: { id: userId },
+      data: { password: hashed, mustChangePassword: false },
+    })
+
+    return { message: 'Senha alterada com sucesso' }
   }
 }

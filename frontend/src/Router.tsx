@@ -12,6 +12,7 @@ import { PipeBuilderPage } from './pages/pipes/PipeBuilderPage'
 import { PipesListPage } from './pages/pipes/PipesListPage'
 import { KanbanPage } from './pages/pipes/KanbanPage'
 import { LoginPage } from './pages/auth/LoginPage'
+import { ForcePasswordChange } from './pages/auth/ForcePasswordChange'
 import { WebhooksPage } from './pages/webhooks/WebhooksPage'
 import { AutomationsPage } from './pages/automations/AutomationsPage'
 import { AnalyticsPage } from './pages/analytics/AnalyticsPage'
@@ -30,7 +31,10 @@ import { AppLayout } from './components/layouts/AppLayout'
 
 function PrivateRoute() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const user = useAuthStore((s) => s.user)
   if (!isAuthenticated) return <Navigate to="/login" replace />
+  // 1o acesso: obriga a criar a senha propria antes de liberar qualquer rota.
+  if (user?.mustChangePassword) return <ForcePasswordChange />
   return <Outlet />
 }
 

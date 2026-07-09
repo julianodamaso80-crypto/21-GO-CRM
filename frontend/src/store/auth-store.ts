@@ -9,6 +9,7 @@ interface User {
   avatar?: string
   companyId: string
   roleId: string
+  mustChangePassword?: boolean
   role?: { id: string; name: string; displayName: string; level: number }
 }
 

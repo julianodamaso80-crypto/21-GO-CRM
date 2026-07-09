@@ -72,6 +72,7 @@ model User {
   phone     String? // LGPD: dado pessoal
   role      String  @default("vendedor") // admin, gestor, vendedor, operacao
   isActive  Boolean @default(true) @map("is_active")
+  mustChangePassword Boolean @default(false) @map("must_change_password") // forca troca no 1o login (acesso criado pelo admin)
 
   companyId String  @map("company_id")
   company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)

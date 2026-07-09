@@ -56,7 +56,7 @@ export function TeamMemberDrawer({ isOpen, member, onClose, onSubmit, isSubmitti
     } else {
       await onSubmit({
         email: email.trim().toLowerCase(),
-        password: password.trim(),
+        password: password.trim() || undefined, // vazio = backend gera senha temporaria
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         phone: phone.trim() || undefined,
@@ -115,15 +115,14 @@ export function TeamMemberDrawer({ isOpen, member, onClose, onSubmit, isSubmitti
           </div>
 
           <div>
-            <label className="label">{isEdit ? 'Nova senha (deixar vazio pra manter)' : 'Senha *'}</label>
+            <label className="label">{isEdit ? 'Nova senha (deixar vazio pra manter)' : 'Senha (opcional)'}</label>
             <div className="relative">
               <input
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                required={!isEdit}
                 minLength={6}
-                placeholder={isEdit ? 'Manter atual' : 'Minimo 6 caracteres'}
+                placeholder={isEdit ? 'Manter atual' : 'Deixe vazio pra gerar automatica'}
                 className="input pr-10"
               />
               <button
@@ -134,7 +133,7 @@ export function TeamMemberDrawer({ isOpen, member, onClose, onSubmit, isSubmitti
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
-            {!isEdit && <p className="text-xs text-gray-500 mt-1">Compartilhe essa senha com o membro de forma segura. Ele pode trocar depois.</p>}
+            {!isEdit && <p className="text-xs text-gray-500 mt-1">Deixe vazio: o sistema gera uma senha temporaria e mostra a URL + login + senha pra voce enviar. No 1o login a pessoa cria a senha dela.</p>}
           </div>
 
           <div>

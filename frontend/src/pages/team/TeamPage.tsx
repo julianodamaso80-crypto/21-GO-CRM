@@ -7,8 +7,9 @@ import {
   useTeamMembers, useCreateTeamMember, useUpdateTeamMember, useDeactivateTeamMember,
 } from '../../hooks/useUsers'
 import { useAuthStore } from '../../store/auth-store'
-import type { TeamMember, TeamRole } from '../../services/users.service'
+import type { TeamMember, TeamMemberWithCredential, TeamRole } from '../../services/users.service'
 import { TeamMemberDrawer } from './TeamMemberDrawer'
+import { CredentialsModal } from './CredentialsModal'
 
 const ROLE_META: Record<TeamRole, { label: string; description: string; icon: any; color: string; bg: string }> = {
   admin: {
@@ -54,6 +55,7 @@ export function TeamPage() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [editing, setEditing] = useState<TeamMember | null>(null)
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null)
+  const [credential, setCredential] = useState<TeamMemberWithCredential | null>(null)
 
   const { data, isLoading, error } = useTeamMembers()
   const createMutation = useCreateTeamMember()
@@ -88,9 +90,12 @@ export function TeamPage() {
 
   const handleSubmit = async (formData: any) => {
     if (editing) {
-      await updateMutation.mutateAsync({ id: editing.id, data: formData })
+      const updated = await updateMutation.mutateAsync({ id: editing.id, data: formData })
+      // Admin redefiniu a senha: mostra as credenciais pra repassar.
+      if (updated?.tempPassword) setCredential(updated)
     } else {
-      await createMutation.mutateAsync(formData)
+      const created = await createMutation.mutateAsync(formData)
+      if (created?.tempPassword) setCredential(created)
     }
     setDrawerOpen(false); setEditing(null)
   }
@@ -358,6 +363,11 @@ export function TeamPage() {
         onSubmit={handleSubmit}
         isSubmitting={createMutation.isPending || updateMutation.isPending}
       />
+
+      {/* Modal com URL + login + senha temporaria (copiar / enviar WhatsApp) */}
+      {credential && (
+        <CredentialsModal member={credential} onClose={() => setCredential(null)} />
+      )}
     </div>
   )
 }

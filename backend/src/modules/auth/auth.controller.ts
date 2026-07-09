@@ -22,6 +22,11 @@ const refreshTokenSchema = z.object({
   refreshToken: z.string(),
 })
 
+const changePasswordSchema = z.object({
+  currentPassword: z.string().optional(),
+  newPassword: z.string().min(6),
+})
+
 export class AuthController {
   async register(request: FastifyRequest, reply: FastifyReply) {
     const data = registerSchema.parse(request.body) as RegisterDTO
@@ -63,5 +68,13 @@ export class AuthController {
     const user = await authService.me(request.user.id)
 
     return reply.send(user)
+  }
+
+  async changePassword(request: FastifyRequest, reply: FastifyReply) {
+    const { currentPassword, newPassword } = changePasswordSchema.parse(request.body)
+
+    const result = await authService.changePassword(request.user.id, currentPassword, newPassword)
+
+    return reply.send(result)
   }
 }

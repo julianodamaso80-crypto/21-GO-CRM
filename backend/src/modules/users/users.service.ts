@@ -7,11 +7,24 @@ export type Role = typeof VALID_ROLES[number]
 
 export interface CreateUserDTO {
   email: string
-  password: string
+  password?: string | null
   firstName: string
   lastName: string
   phone?: string | null
   role: Role
+}
+
+/**
+ * Gera senha temporaria legivel (sem caracteres ambiguos como 0/O, 1/l/I).
+ * Formato: 21go-XXXX9 — facil de ditar por WhatsApp, forte o bastante pra 1o acesso.
+ */
+function genTempPassword(): string {
+  const letters = 'abcdefghjkmnpqrstuvwxyz'
+  const digits = '23456789'
+  let core = ''
+  for (let i = 0; i < 4; i++) core += letters[Math.floor(Math.random() * letters.length)]
+  for (let i = 0; i < 2; i++) core += digits[Math.floor(Math.random() * digits.length)]
+  return `21go-${core}`
 }
 
 export interface UpdateUserDTO {
@@ -38,6 +51,7 @@ function shape(u: any) {
     avatar: u.avatar,
     role: (u.role as Role) || 'vendedor',
     isActive: u.isActive,
+    mustChangePassword: u.mustChangePassword ?? false,
     companyId: u.companyId,
     createdAt: u.createdAt,
     updatedAt: u.updatedAt,
@@ -62,14 +76,18 @@ export class UsersService {
 
   async create(companyId: string, data: CreateUserDTO) {
     const email = String(data.email || '').toLowerCase().trim()
-    const password = String(data.password || '')
     const firstName = String(data.firstName || '').trim()
     const lastName = String(data.lastName || '').trim()
     const phone = data.phone ? String(data.phone).trim() : null
     const role = data.role
 
+    // Senha: se o admin nao informar, geramos uma temporaria e forcamos troca no 1o login.
+    const provided = String(data.password || '').trim()
+    const isTemp = provided.length === 0
+    const password = isTemp ? genTempPassword() : provided
+
     if (!email || !email.includes('@')) throw new AppError('Email invalido', 400, 'VALIDATION_ERROR')
-    if (!password || password.length < 6) throw new AppError('Senha precisa ter ao menos 6 caracteres', 400, 'VALIDATION_ERROR')
+    if (!isTemp && password.length < 6) throw new AppError('Senha precisa ter ao menos 6 caracteres', 400, 'VALIDATION_ERROR')
     if (!firstName || !lastName) throw new AppError('Nome e sobrenome sao obrigatorios', 400, 'VALIDATION_ERROR')
     if (!VALID_ROLES.includes(role)) throw new AppError('Role invalido', 400, 'VALIDATION_ERROR')
 
@@ -86,10 +104,14 @@ export class UsersService {
         phone,
         role,
         isActive: true,
+        // Sempre forca troca no 1o acesso: quem cria o acesso e o admin, nunca o proprio dono.
+        mustChangePassword: true,
         companyId,
       },
     })
-    return shape(user)
+    // tempPassword so vai na resposta da criacao (nunca fica salvo em claro).
+    // Se o admin definiu a senha manualmente, ela tambem volta pra ele copiar/enviar.
+    return { ...shape(user), tempPassword: password }
   }
 
   async update(id: string, companyId: string, currentUserId: string, data: UpdateUserDTO) {
@@ -113,13 +135,18 @@ export class UsersService {
       }
       update.isActive = !!data.isActive
     }
+    let resetPassword: string | null = null
     if (data.password) {
       if (String(data.password).length < 6) throw new AppError('Senha precisa ter ao menos 6 caracteres', 400, 'VALIDATION_ERROR')
-      update.password = await bcrypt.hash(String(data.password), 10)
+      resetPassword = String(data.password)
+      update.password = await bcrypt.hash(resetPassword, 10)
+      // Admin redefiniu a senha de alguem: forca troca no proximo login desse usuario.
+      if (user.id !== currentUserId) update.mustChangePassword = true
     }
 
     const updated = await prisma.user.update({ where: { id }, data: update })
-    return shape(updated)
+    const out = shape(updated)
+    return resetPassword ? { ...out, tempPassword: resetPassword } : out
   }
 
   /** Soft delete: is_active = false */

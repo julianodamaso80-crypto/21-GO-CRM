@@ -81,4 +81,22 @@ export async function authRoutes(fastify: FastifyInstance) {
     },
     handler: authController.me.bind(authController),
   })
+
+  fastify.post('/change-password', {
+    onRequest: [authenticate],
+    schema: {
+      description: 'Change own password (used on first-access forced change)',
+      tags: ['auth'],
+      security: [{ bearerAuth: [] }],
+      body: {
+        type: 'object',
+        required: ['newPassword'],
+        properties: {
+          currentPassword: { type: 'string' },
+          newPassword: { type: 'string', minLength: 6 },
+        },
+      },
+    },
+    handler: authController.changePassword.bind(authController),
+  })
 }
