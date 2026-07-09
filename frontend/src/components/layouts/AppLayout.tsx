@@ -2,9 +2,9 @@ import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, Users, MessageSquare, Brain,
   LayoutGrid, LogOut, Webhook, Zap, BarChart3,
-  SmilePlus, Car, FileText, AlertTriangle, Gift, Link2,
+  SmilePlus, FileText, AlertTriangle, Link2,
   Bell, ChevronDown, ClipboardList, Settings,
-  Shield, Wrench, UserCog, ListChecks, Sun, Moon, Sparkles,
+  Shield, Wrench, UserCog, UsersRound, ListChecks, Sun, Moon, Sparkles,
 } from 'lucide-react'
 import { useAuthStore, type UserRole } from '../../store/auth-store'
 import { useState } from 'react'
@@ -38,9 +38,8 @@ const NAV_SECTIONS: NavSection[] = [
     roles: ['admin', 'gestor', 'vendedor'],
     items: [
       { path: '/associados', icon: Users, label: 'Associados' },
-      { path: '/vehicles', icon: Car, label: 'Veiculos' },
+      { path: '/equipe', icon: UsersRound, label: 'Meu Time' },
       { path: '/nps', icon: SmilePlus, label: 'Satisfacao (NPS)', roles: ['admin', 'gestor'] },
-      { path: '/indicacoes', icon: Gift, label: 'Indicacoes (MGM)' },
     ],
   },
   {
