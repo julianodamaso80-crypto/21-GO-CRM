@@ -2,9 +2,11 @@ import { useMemo, useRef, useState } from 'react'
 import {
   Search, Users, Crown, Phone, Mail, MessageCircle,
   Loader2, Sparkles, UsersRound, Network, ChevronRight, Coins,
+  LayoutList, GitBranch,
 } from 'lucide-react'
 import { useMyTeam } from '../../hooks/useUsers'
 import type { TeamTreeMember } from '../../services/users.service'
+import { TeamTree } from './TeamTree'
 
 interface Me {
   id?: string
@@ -107,6 +109,7 @@ export function MyTeamView({ me }: { me: Me | null }) {
   const [q, setQ] = useState('')
   const [onlyActive, setOnlyActive] = useState(true)
   const [levelSel, setLevelSel] = useState(0) // 0 = todos os niveis
+  const [view, setView] = useState<'niveis' | 'arvore'>('niveis')
   const heroRef = useRef<HTMLDivElement>(null)
 
   // id -> nome, pra resolver o patrocinador direto (upline) de cada card
@@ -223,8 +226,17 @@ export function MyTeamView({ me }: { me: Me | null }) {
         </div>
       )}
 
-      {/* ═══ CONTROLES ═══ */}
-      <div className="mt-5 flex flex-col sm:flex-row sm:items-center gap-3">
+      {/* ═══ MODO DE VISUALIZACAO ═══ */}
+      <div className="mt-5 flex items-center gap-2 flex-wrap">
+        <span className="text-xs text-dark-400 mr-1">Visualizar:</span>
+        <div className="inline-flex rounded-xl border border-hairline bg-dark-800 p-1">
+          <button onClick={() => setView('niveis')} className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm transition-all ${view === 'niveis' ? 'bg-blue-500 text-white font-semibold shadow-cta-blue' : 'text-dark-300 hover:text-dark-50 font-medium'}`}><LayoutList className="w-4 h-4" /> Níveis</button>
+          <button onClick={() => setView('arvore')} className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm transition-all ${view === 'arvore' ? 'bg-blue-500 text-white font-semibold shadow-cta-blue' : 'text-dark-300 hover:text-dark-50 font-medium'}`}><GitBranch className="w-4 h-4" /> Árvore</button>
+        </div>
+      </div>
+
+      {/* ═══ CONTROLES (busca + status, compartilhados) ═══ */}
+      <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-400" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar em toda a rede por nome, e-mail ou telefone..." className="input pl-10" />
@@ -235,6 +247,8 @@ export function MyTeamView({ me }: { me: Me | null }) {
         </div>
       </div>
 
+      {view === 'niveis' ? (
+      <>
       {/* chips de nivel */}
       {maxLevel > 1 && (
         <div className="mt-3 flex flex-wrap gap-2">
@@ -278,6 +292,10 @@ export function MyTeamView({ me }: { me: Me | null }) {
             </section>
           ))}
         </div>
+      )}
+      </>
+      ) : (
+        <TeamTree members={members} me={me} q={q} onlyActive={onlyActive} />
       )}
     </div>
   )
