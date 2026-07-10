@@ -160,10 +160,18 @@ export function MyTeamView({ me }: { me: Me | null }) {
     }`
 
   if (isLoading) {
-    return <div className="p-6 max-w-6xl mx-auto"><div className="card p-12 flex justify-center"><Loader2 className="w-8 h-8 text-blue-400 animate-spin" /></div></div>
+    return (
+      <div data-theme="dark" className="min-h-full bg-dark-950">
+        <div className="p-6 max-w-6xl mx-auto"><div className="card p-12 flex justify-center"><Loader2 className="w-8 h-8 text-blue-400 animate-spin" /></div></div>
+      </div>
+    )
   }
 
   return (
+    // Esta tela foi projetada em tema escuro (tokens dark-* + text-white).
+    // Forçamos data-theme="dark" localmente pra ela renderizar com o contraste
+    // premium pretendido, independente do tema claro/escuro global do app.
+    <div data-theme="dark" className="min-h-full bg-dark-950">
     <div className="p-6 max-w-6xl mx-auto page-enter">
       {/* ═══ HERO ═══ */}
       <div style={{ perspective: '1200px' }}>
@@ -297,6 +305,7 @@ export function MyTeamView({ me }: { me: Me | null }) {
       ) : (
         <TeamTree members={members} me={me} q={q} onlyActive={onlyActive} />
       )}
+    </div>
     </div>
   )
 }
