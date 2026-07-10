@@ -7,11 +7,16 @@ import {
   Shield, Wrench, UserCog, UsersRound, ListChecks, Sun, Moon, Sparkles,
 } from 'lucide-react'
 import { useAuthStore, type UserRole } from '../../store/auth-store'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { usePipes } from '../../hooks/usePipes'
 import { GlobalSearch } from '../GlobalSearch'
 import { SocketStatusBadge } from '../SocketStatusBadge'
 import { useTheme } from '../../contexts'
+
+// Ao ABRIR o CRM (carregamento da página), sempre cair no Dashboard — mesmo que
+// a URL salva/bookmark aponte pra outra tela. Reseta a cada reload (module state),
+// então a navegação normal dentro da sessão continua livre.
+let hasBootedToDashboard = false
 
 type NavItem = {
   path: string
@@ -104,6 +109,17 @@ export function AppLayout() {
 
   const currentRole = (user?.role?.name as UserRole) || 'admin'
 
+  // No primeiro render após carregar a página, força o Dashboard.
+  useEffect(() => {
+    if (!hasBootedToDashboard) {
+      hasBootedToDashboard = true
+      if (location.pathname !== '/') {
+        navigate('/', { replace: true })
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const handleLogout = () => {
     clearAuth()
     navigate('/login', { replace: true })
@@ -133,23 +149,16 @@ export function AppLayout() {
     <div className="flex h-screen bg-slate-50">
       {/* Sidebar — Azul Institucional oficial 21Go (#293C82 = blue-500 do manual) */}
       <aside className="w-[260px] bg-blue-500 flex flex-col shadow-sidebar relative z-10">
-        {/* Logo block — mesmo navy oficial */}
+        {/* Logo block — logomarca oficial 21Go sobre o navy (wordmark branco). Clique volta pro Dashboard. */}
         <div className="h-16 flex items-center px-5 border-b border-blue-400/30 bg-blue-500">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-orange-500 flex items-center justify-center shadow-cta-orange">
-              <img
-                src="/logo21go.png"
-                alt="21Go Proteção Patrimonial"
-                className="w-7 h-7 object-contain"
-              />
-            </div>
-            <div className="leading-tight">
-              <h1 className="text-base font-display font-extrabold text-white tracking-tight">21Go</h1>
-              <p className="text-[9px] font-mono font-bold text-orange-300 tracking-[0.2em] uppercase">
-                Proteção Patrimonial
-              </p>
-            </div>
-          </div>
+          <Link to="/" className="flex items-center" title="Ir para o Dashboard">
+            <img
+              src="/logo21go.png"
+              alt="21Go Proteção Patrimonial"
+              className="h-10 w-auto object-contain"
+              style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.25))' }}
+            />
+          </Link>
         </div>
 
         {/* Navigation */}
