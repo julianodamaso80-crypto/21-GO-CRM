@@ -151,11 +151,11 @@ export function AppLayout() {
       <aside className="w-[260px] bg-blue-500 flex flex-col shadow-sidebar relative z-10">
         {/* Logo block — logomarca oficial 21Go sobre o navy (wordmark branco). Clique volta pro Dashboard. */}
         <div className="h-16 flex items-center px-5 border-b border-blue-400/30 bg-blue-500">
-          <Link to="/" className="flex items-center" title="Ir para o Dashboard">
+          <Link to="/" className="flex items-center h-full py-2" title="Ir para o Dashboard">
             <img
-              src="/logo21go.png"
+              src="/logo21go-trim.png"
               alt="21Go Proteção Patrimonial"
-              className="h-10 w-auto object-contain"
+              className="h-full w-auto object-contain"
               style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.25))' }}
             />
           </Link>
