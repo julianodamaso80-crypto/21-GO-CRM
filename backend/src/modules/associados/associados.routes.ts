@@ -105,7 +105,7 @@ export async function associadosRoutes(fastify: FastifyInstance) {
         properties: {
           firstName: { type: 'string' },
           lastName: { type: 'string' },
-          email: { type: 'string', format: 'email' },
+          email: { type: 'string' },
           phone: { type: 'string' },
           whatsapp: { type: 'string' },
           cpf: { type: 'string' },
@@ -154,7 +154,7 @@ export async function associadosRoutes(fastify: FastifyInstance) {
         properties: {
           firstName: { type: 'string' },
           lastName: { type: 'string' },
-          email: { type: 'string', format: 'email' },
+          email: { type: 'string' },
           phone: { type: 'string' },
           whatsapp: { type: 'string' },
           cpf: { type: 'string' },

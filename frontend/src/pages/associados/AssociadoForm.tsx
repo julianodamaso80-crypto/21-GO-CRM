@@ -78,7 +78,13 @@ export function AssociadoForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    onSubmit(formData)
+    // Remove campos de texto vazios ('') antes de enviar: o backend valida
+    // formatos (ex.: email) e string vazia quebra a validacao. Campos nao
+    // preenchidos devem ir como ausentes, nao como ''.
+    const cleaned = Object.fromEntries(
+      Object.entries(formData).filter(([, value]) => value !== '' && value !== undefined),
+    ) as CreateAssociadoRequest
+    onSubmit(cleaned)
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {

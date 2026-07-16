@@ -1,6 +1,6 @@
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom'
 import {
-  LayoutDashboard, Users, MessageSquare, Brain,
+  LayoutDashboard, Users, Brain,
   LayoutGrid, LogOut, Webhook, Zap, BarChart3,
   SmilePlus, FileText, AlertTriangle, Link2,
   Bell, ChevronDown, ClipboardList, Settings,
@@ -62,12 +62,6 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { path: '/sinistros', icon: AlertTriangle, label: 'Sinistros' },
       { path: '/vehicles', icon: Wrench, label: 'Vistorias', roles: ['operacao'] },
-    ],
-  },
-  {
-    label: 'Comunicacao',
-    items: [
-      { path: '/whatsapp', icon: MessageSquare, label: 'WhatsApp' },
     ],
   },
   {
