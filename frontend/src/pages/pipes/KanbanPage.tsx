@@ -125,7 +125,7 @@ export function KanbanPage() {
 
   const handleCreateCard = () => {
     if (!newCardTitle.trim() || !newCardPhaseId) return
-    createCard.mutate({ title: newCardTitle.trim() }, {
+    createCard.mutate({ title: newCardTitle.trim(), phaseId: newCardPhaseId }, {
       onSuccess: () => {
         setNewCardTitle('')
         setNewCardPhaseId(null)

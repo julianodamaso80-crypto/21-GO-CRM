@@ -40,14 +40,54 @@ export function CreateLeadModal({ isOpen, onClose, defaultPipeId }: Props) {
 
   const create = useMutation({
     mutationFn: (data: any) => pipesService.createCard(pipeId, data),
+    // Update otimista: insere o card na fase escolhida na hora, sem esperar o
+    // refetch do kanban (que e lento, ~2-4s). Reconcilia depois no onSettled.
+    onMutate: async (vars: any) => {
+      const key = ['kanban', pipeId]
+      await queryClient.cancelQueries({ queryKey: key })
+      const previous = queryClient.getQueryData<any>(key)
+      if (previous?.phases && vars.phaseId) {
+        const now = new Date().toISOString()
+        const tempCard = {
+          id: `temp-${now}`,
+          title: vars.title,
+          createdAt: now,
+          updatedAt: now,
+          assignedTo: null,
+          tasksPending: 0,
+          lead: {
+            nome: vars.lead?.nome,
+            telefone: vars.lead?.telefone,
+            whatsapp: vars.lead?.whatsapp,
+            email: vars.lead?.email,
+            origem: 'manual',
+          },
+          _optimistic: true,
+        }
+        const phases = previous.phases.map((ph: any) =>
+          ph.id === vars.phaseId
+            ? {
+                ...ph,
+                cards: [...(ph.cards || []), tempCard],
+                _count: { ...(ph._count || {}), cards: (ph._count?.cards ?? ph.cards?.length ?? 0) + 1 },
+              }
+            : ph,
+        )
+        queryClient.setQueryData(key, { ...previous, phases })
+      }
+      return { previous, key }
+    },
+    onError: (err: any, _vars, context: any) => {
+      if (context?.previous) queryClient.setQueryData(context.key, context.previous)
+      toast.error(err.response?.data?.message || 'Erro ao criar lead')
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['kanban', pipeId] })
-      queryClient.invalidateQueries({ queryKey: ['cards', pipeId] })
       toast.success('Lead criado e adicionado ao funil!')
       handleClose()
     },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.message || 'Erro ao criar lead')
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['kanban', pipeId] })
+      queryClient.invalidateQueries({ queryKey: ['cards', pipeId] })
     },
   })
 

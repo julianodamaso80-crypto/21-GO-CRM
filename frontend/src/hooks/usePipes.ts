@@ -176,15 +176,49 @@ export function useCard(cardId: string) {
 
 export function useCreateCard(pipeId: string) {
   const queryClient = useQueryClient()
+  const key = ['kanban', pipeId]
   return useMutation({
     mutationFn: (data: CreateCardRequest) => pipesService.createCard(pipeId, data),
+    // Update otimista: card aparece na fase escolhida na hora (refetch reconcilia)
+    onMutate: async (vars: CreateCardRequest) => {
+      await queryClient.cancelQueries({ queryKey: key })
+      const previous = queryClient.getQueryData<any>(key)
+      const targetPhaseId = (vars as any).phaseId
+      if (previous?.phases && targetPhaseId) {
+        const now = new Date().toISOString()
+        const tempCard = {
+          id: `temp-${now}`,
+          title: vars.title,
+          createdAt: now,
+          updatedAt: now,
+          assignedTo: null,
+          tasksPending: 0,
+          lead: vars.lead ? { ...vars.lead, origem: 'manual' } : null,
+          _optimistic: true,
+        }
+        const phases = previous.phases.map((ph: any) =>
+          ph.id === targetPhaseId
+            ? {
+                ...ph,
+                cards: [...(ph.cards || []), tempCard],
+                _count: { ...(ph._count || {}), cards: (ph._count?.cards ?? ph.cards?.length ?? 0) + 1 },
+              }
+            : ph,
+        )
+        queryClient.setQueryData(key, { ...previous, phases })
+      }
+      return { previous }
+    },
+    onError: (error: any, _vars, context: any) => {
+      if (context?.previous) queryClient.setQueryData(key, context.previous)
+      toast.error(error.response?.data?.message || 'Erro ao criar card')
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['kanban', pipeId] })
-      queryClient.invalidateQueries({ queryKey: ['cards', pipeId] })
       toast.success('Card criado!')
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Erro ao criar card')
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['kanban', pipeId] })
+      queryClient.invalidateQueries({ queryKey: ['cards', pipeId] })
     },
   })
 }
