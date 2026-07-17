@@ -383,6 +383,12 @@ export class PipesService {
         }
         if (existing) {
           leadId = existing.id
+          // Lead reaproveitado sem dono → atribui a quem esta cadastrando.
+          // Sem isso, o card fica fora do escopo do vendedor (ve so os leads
+          // dele) e some do kanban dele apos o refetch.
+          if (!existing.vendedorId) {
+            await tx.lead.update({ where: { id: existing.id }, data: { vendedorId: userId } })
+          }
         } else {
           const created = await tx.lead.create({
             data: {
@@ -408,7 +414,9 @@ export class PipesService {
           title: data.title,
           description: data.description,
           createdById: userId,
-          assignedToId: data.assignedToId,
+          // Atribui ao criador por padrao — garante que ele veja o card que
+          // acabou de criar, mesmo que o lead reaproveitado seja de outro dono.
+          assignedToId: data.assignedToId ?? userId,
           dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
           leadId,
         },
