@@ -368,42 +368,25 @@ export class PipesService {
     if (!targetPhase) throw new AppError('Pipe nao tem fases. Crie pelo menos uma fase.', 400, 'BAD_REQUEST')
 
     return prisma.$transaction(async (tx) => {
-      // Cria lead se vieram dados (e tenta reaproveitar por whatsapp/telefone se já existir)
+      // Cadastro manual: cria SEMPRE um lead novo, dono = quem cadastrou.
+      // NAO reaproveita lead existente por telefone — isso vinculava o card a
+      // um lead de outro dono/orfao e ele sumia do kanban do vendedor (que ve
+      // so os leads dele). Manual = previsivel: aparece onde ela cadastrou.
       let leadId: string | undefined
       if (data.lead?.nome?.trim()) {
-        const phoneDigits = (data.lead.whatsapp || data.lead.telefone || '').replace(/\D/g, '')
-        let existing = null
-        if (phoneDigits) {
-          existing = await tx.lead.findFirst({
-            where: {
-              companyId,
-              OR: [{ whatsapp: { contains: phoneDigits } }, { telefone: { contains: phoneDigits } }],
-            },
-          })
-        }
-        if (existing) {
-          leadId = existing.id
-          // Lead reaproveitado sem dono → atribui a quem esta cadastrando.
-          // Sem isso, o card fica fora do escopo do vendedor (ve so os leads
-          // dele) e some do kanban dele apos o refetch.
-          if (!existing.vendedorId) {
-            await tx.lead.update({ where: { id: existing.id }, data: { vendedorId: userId } })
-          }
-        } else {
-          const created = await tx.lead.create({
-            data: {
-              companyId,
-              nome: data.lead.nome.trim(),
-              telefone: data.lead.telefone || null,
-              whatsapp: data.lead.whatsapp || data.lead.telefone || null,
-              email: data.lead.email || null,
-              origem: 'manual',
-              qualificadoPor: 'manual',
-              vendedorId: userId,
-            },
-          })
-          leadId = created.id
-        }
+        const created = await tx.lead.create({
+          data: {
+            companyId,
+            nome: data.lead.nome.trim(),
+            telefone: data.lead.telefone || null,
+            whatsapp: data.lead.whatsapp || data.lead.telefone || null,
+            email: data.lead.email || null,
+            origem: 'manual',
+            qualificadoPor: 'manual',
+            vendedorId: userId,
+          },
+        })
+        leadId = created.id
       }
 
       const card = await tx.card.create({
