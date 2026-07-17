@@ -219,6 +219,7 @@ export function useCreateCard(pipeId: string) {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['kanban', pipeId] })
       queryClient.invalidateQueries({ queryKey: ['cards', pipeId] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     },
   })
 }
@@ -261,6 +262,7 @@ export function useMoveCard(pipeId: string) {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     },
   })
 }
@@ -273,6 +275,7 @@ export function useUpdateCard(pipeId: string) {
     onSuccess: (_, vars) => {
       queryClient.invalidateQueries({ queryKey: ['kanban', pipeId] })
       queryClient.invalidateQueries({ queryKey: ['cards', 'detail', vars.cardId] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Erro ao atualizar card')
@@ -286,6 +289,7 @@ export function useDeleteCard(pipeId: string) {
     mutationFn: (cardId: string) => pipesService.deleteCard(cardId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kanban', pipeId] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       toast.success('Card removido!')
     },
     onError: (error: any) => {
@@ -304,6 +308,7 @@ export function useTransferCard(currentPipeId: string) {
       queryClient.invalidateQueries({ queryKey: ['kanban', currentPipeId] })
       queryClient.invalidateQueries({ queryKey: ['kanban', vars.targetPipeId] })
       queryClient.invalidateQueries({ queryKey: ['pipes'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       toast.success('Card transferido!')
     },
     onError: (error: any) => {

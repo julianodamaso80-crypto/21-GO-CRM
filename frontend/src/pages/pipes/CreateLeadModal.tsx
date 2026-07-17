@@ -88,6 +88,7 @@ export function CreateLeadModal({ isOpen, onClose, defaultPipeId }: Props) {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['kanban', pipeId] })
       queryClient.invalidateQueries({ queryKey: ['cards', pipeId] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
     },
   })
 

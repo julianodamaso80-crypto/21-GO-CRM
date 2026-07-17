@@ -389,6 +389,11 @@ export class PipesService {
         leadId = created.id
       }
 
+      // Se o card ja nasce numa fase de fechamento (won) ou perda (lost),
+      // marca como concluido AGORA — igual ao moveCard. Sem isso, cadastrar um
+      // cliente ja "Aprovado" nao contava como fechado no dashboard.
+      const nasceConcluido = targetPhase.isWon || targetPhase.isLost
+
       const card = await tx.card.create({
         data: {
           companyId,
@@ -402,6 +407,8 @@ export class PipesService {
           assignedToId: data.assignedToId ?? userId,
           dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
           leadId,
+          status: nasceConcluido ? 'done' : 'active',
+          completedAt: nasceConcluido ? new Date() : undefined,
         },
         include: { currentPhase: true },
       })
