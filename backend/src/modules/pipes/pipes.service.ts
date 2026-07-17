@@ -394,24 +394,36 @@ export class PipesService {
       // cliente ja "Aprovado" nao contava como fechado no dashboard.
       const nasceConcluido = targetPhase.isWon || targetPhase.isLost
 
-      const card = await tx.card.create({
-        data: {
-          companyId,
-          pipeId,
-          currentPhaseId: targetPhase.id,
-          title: data.title,
-          description: data.description,
-          createdById: userId,
-          // Atribui ao criador por padrao — garante que ele veja o card que
-          // acabou de criar, mesmo que o lead reaproveitado seja de outro dono.
-          assignedToId: data.assignedToId ?? userId,
-          dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
-          leadId,
-          status: nasceConcluido ? 'done' : 'active',
-          completedAt: nasceConcluido ? new Date() : undefined,
-        },
-        include: { currentPhase: true },
-      })
+      // O trigger de banco `trg_ensure_card_on_lead` cria um card automatico pra
+      // TODO lead novo (regra "todo lead vira card"). Como acabamos de inserir o
+      // lead acima, esse card ja existe NESTA transacao. Criar outro aqui gera 2
+      // cards no mesmo lead — era exatamente o bug de "lead duplicado no funil".
+      // Entao: se o trigger ja criou o card, REAPROVEITAMOS ele (movendo pro
+      // funil/fase/titulo escolhidos no modal). Sem lead (quick-add inline) ou se
+      // o trigger pulou (sem pipe/phase compativel), caimos no create normal.
+      const cardData = {
+        companyId,
+        pipeId,
+        currentPhaseId: targetPhase.id,
+        title: data.title,
+        description: data.description,
+        createdById: userId,
+        // Atribui ao criador por padrao — garante que ele veja o card que
+        // acabou de criar, mesmo que o lead reaproveitado seja de outro dono.
+        assignedToId: data.assignedToId ?? userId,
+        dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
+        leadId,
+        status: nasceConcluido ? 'done' : ('active' as const),
+        completedAt: nasceConcluido ? new Date() : null,
+      }
+
+      const autoCard = leadId
+        ? await tx.card.findFirst({ where: { leadId, companyId }, orderBy: { createdAt: 'asc' } })
+        : null
+
+      const card = autoCard
+        ? await tx.card.update({ where: { id: autoCard.id }, data: cardData, include: { currentPhase: true } })
+        : await tx.card.create({ data: cardData, include: { currentPhase: true } })
 
       // Create field values
       if (data.fieldValues?.length) {
