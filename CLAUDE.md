@@ -331,3 +331,97 @@ deals:read:all    -> todos da empresa
 deals:delete      -> pode deletar
 settings:billing  -> acesso a faturamento
 ```
+
+---
+
+## 13. PLANO MULTINÍVEL (UNILEVEL) — COMO A EMPRESA REMUNERA
+
+> Esta é a mecânica comercial real da 21Go. Toda tela, cálculo ou relatório que
+> envolva rede de consultores tem que obedecer o que está aqui.
+
+### 13.1 A regra, em uma linha
+
+**Venda própria vale 1 placa. Venda de quem está do nível 1 ao 6 vale 0,5 placa. Do 7º nível em diante não paga nada.**
+
+```
+placas_ponderadas = próprias × 1,0  +  Σ (placas de cada membro em N1..N6) × 0,5
+```
+
+Duas vendas da equipe equivalem a uma placa própria. A unidade de medida é a **placa**
+(veículo protegido), não o contrato nem o associado — um associado com dois carros
+são duas placas.
+
+### 13.2 A rede cresce pro lado, não pra baixo
+
+Cada nível é uma **coluna**. Se um consultor chama 3, 10 ou 50 pessoas, todas ficam
+lado a lado **no mesmo nível** — o time alarga a coluna, não desce. Um nível novo só
+abre quando alguém daquele time também começa a chamar os seus.
+
+### 13.3 Nível é relativo — o corte desce em diagonal
+
+A mesma pessoa é N1 de quem a chamou e N2 do chefe dele. **Cada dono conta os seis
+níveis a partir de si mesmo.** Quem está mais embaixo alcança mais fundo na árvore
+do que quem está acima.
+
+```
+Dono do time    1ª ger  2ª ger  3ª ger  4ª ger  5ª ger  6ª ger  7ª ger  8ª ger
+Juliano (topo)    N1      N2      N3      N4      N5      N6       ✕       ✕
+Leticya (N1)      —       N1      N2      N3      N4      N5      N6       ✕
+Marcos  (N2)      —       —       N1      N2      N3      N4      N5      N6
+```
+
+Nunca calcular profundidade a partir do topo da empresa: sempre a partir do consultor
+que está olhando a tela.
+
+### 13.4 Quando uma placa conta
+
+**Contrato no mês X + boleto pago no mês Y.** Contratou e não pagou, não conta.
+A fonte de verdade é o SGA — nunca marcação manual no CRM.
+
+Três precisões que mudam o número (cada uma já produziu resultado errado e plausível):
+
+1. **A data é a do VEÍCULO (`data_contrato`), não a do associado.** Cada placa é um
+   contrato: associado de 2024 que põe placa nova em maio conta como venda de maio.
+   Usar a data do associado erra ~26%.
+2. **Contar todas as situações (1..8), não só a ativa.** Placa vendida em maio pode
+   estar cancelada hoje e ainda assim foi venda de maio.
+3. **Cruzar pagamento com venda por `codigo_veiculo`** — a chave que existe nos dois
+   lados. Nunca por placa nem por nome do cliente.
+
+### 13.5 De onde vem a rede
+
+**Power CRM, campo gerente — gerente = quem chamou.** A hierarquia do painel é a própria
+rede de comissionamento, não uma estrutura de gestão paralela.
+
+Navegar por **ID** (`managerIds` no `POST /company/userListFilter`), descendo nível a
+nível com trava anti-ciclo e **incluindo bloqueados** — quem está bloqueado hoje vendeu
+no mês apurado.
+
+⚠️ **Nunca montar a árvore pelo nome.** O campo `responsibleUser` guarda o *nome de
+tratamento*, não o nome completo, e às vezes um apelido ("Luiz Gustavo", "João Lanziere",
+"ROMARIN"). A base tem 56 nomes de tratamento duplicados.
+
+⚠️ **Casar Power × SGA por CPF, nunca por nome.** `/listar/veiculo` devolve
+`cpf_voluntario`; o painel devolve `registration`. Uma apuração por nome já colocou um
+"Leonardo da Cruz Ferreira" no lugar de um "Leonardo da Cruz Gonçalves".
+
+### 13.6 Referência validada
+
+Time de **Rodrigo Souza de Lima** (id 100280 no Power, voluntário 115 no SGA),
+contrato maio/2026 + pagamento junho/2026:
+
+| Métrica | Valor |
+|---|---:|
+| Placas próprias | 40 |
+| Placas do time (N1..N6) | 569 |
+| **Bruto** | **609** |
+| **Ponderado (o que remunera)** | **324,5** |
+| Consultores com ≥1 placa | 118 |
+| Contratadas em maio e não pagas em junho | 244 |
+
+Conferência independente da 21Go no mesmo recorte: 603 placas. A diferença está
+documentada no spec (`docs/superpowers/specs/2026-07-22-rede-multinivel-placas-design.md`).
+
+**Credenciais do SGA e do Power estão em `backend/.env`** (nomes em `backend/.env.example`).
+Só o `POWER_APP_BEARER` expira (~10h). Scripts de coleta ficam no projeto
+`21 GO - SGA HINOVA`, em `src/` — todos somente leitura.
