@@ -17,106 +17,117 @@ diagonal — quem está mais abaixo alcança mais fundo que quem está acima.
 Na unidade de medida do negócio isso vira **placa**: uma venda própria vale 1 placa, uma
 venda da equipe vale 0,5 placa. Duas vendas da equipe equivalem a uma placa própria.
 
-Hoje esse número não existe em lugar nenhum. O CRM tem a árvore de time (`users.manager_id`
-com CTE recursiva) mas nenhuma contagem; o projeto `21 GO - SGA HINOVA` tem os relatórios de
-placas mas nenhuma noção de nível; e os scripts de rede que existem estavam devolvendo
-downline vazia por um bug de casamento de nome.
+O primeiro time a rodar é o de **Rodrigo Souza de Lima** (id 100280 no Power CRM,
+voluntário 115 no SGA), pelo login `rodrigo@gmail.com` criado no CRM.
 
-O primeiro time a rodar é o de **Rodrigo Souza de Lima** (voluntário SGA 115), pelo login
-`rodrigo@gmail.com` criado no CRM.
+Trabalho anterior relevante: o projeto **21 GO - CONTROLE DE ACESSO** já apurou esse
+mesmo recorte manualmente e documentou o caminho em `docs/GUIA-ACHAR-TIME-E-PAGAMENTOS.md`
+e `docs/RELATORIO-PLACAS-POR-TIME-SGA.md`. Este spec parte dali, corrige o que estava
+frágil e automatiza o que era manual.
 
-## Descobertas que sustentam o desenho
+## O que é uma placa contada
 
-### 1. O campo de patrocínio do Power CRM guarda o nome de tratamento
+**Contrato no mês X + pagamento no mês Y.** A placa entra quando o boleto dela foi pago.
+Contratou e não pagou, não conta.
 
-`responsibleUser` contém o `name` (nome de tratamento), não o `fullName`. Rodrigo Souza de
-Lima aparece como `"Rodrigo Souza"`. Os scripts `timeArvore.js` e `vendasTime.js` casavam
-contra `fullName` e por isso devolviam 0 diretos para ele — quando na verdade são 25.
+Três precisões que mudam o número:
 
-Consequência: o arquivo `vendas_time_rodrigo_souza_junho.csv` (479 vendas, 111 vendedores)
-**não é o time do Rodrigo** e não deve ser usado como referência.
-
-### 2. Casar por nome é frágil; casar por CPF é exato
-
-A base do Power tem 56 nomes de tratamento duplicados (115 pessoas). "ALEXANDRE" identifica
-5 pessoas distintas. Um BFS por nome cola sub-redes que não se relacionam: 86 das 765
-pessoas da downline do Rodrigo entram por um nó ambíguo.
-
-O SGA expõe o CPF do voluntário e o Power expõe o CPF do consultor (`registration`).
-**O CPF é a chave de casamento.** Elimina homônimo e apelido de uma vez, e dispensa a
-tabela de aliases que os scripts antigos mantinham à mão.
-
-### 3. Os endpoints que listam voluntários estão bloqueados; o por código não está
-
-| Endpoint | Resultado |
-|---|---|
-| `GET /listar/voluntario/:situacao` | 406 — "Usuário não possui permissão em nenhuma cooperativa" |
-| `POST /listar/voluntario-por-data-cadastro` | 406 — mesma permissão (com data em DD/MM/YYYY) |
-| `GET /buscar/voluntario/:cpfOuCodigo` | 406 — "Parâmetros Inválidos" |
-| `GET /listar/situacao-adesao-voluntario/:codigo` | **200** — nome, CPF, e todas as adesões |
-| `POST /listar/placas-por-voluntario/` | **200** — placas por código (`participa_fechamento` = Y/N) |
-
-O caminho viável é varrer `situacao-adesao-voluntario` por código. A faixa útil vai de 1 a
-~1999 (2000 em diante retorna 406). Cada resposta traz `codigo_voluntario`,
-`nome_voluntario`, `cpf_voluntario`, `quantidade_adesoes` e a lista de adesões com veículo,
-situação e data de adesão — tudo em uma chamada, sem depender da permissão de cooperativa.
-
-### 4. Números de referência do Rodrigo (vol. 115)
-
-- 681 placas ativas (participam do fechamento) e 349 canceladas/inativas — 1030 adesões.
-- 373 associados com boleto pago em junho.
-- Downline no Power: 765 pessoas em 7 níveis (N1=25, N2=126, N3=245, N4=256, N5=99, N6=12,
-  N7=2); 679 por vínculo confiável; 684 ativas.
-- Junho, casando por nome (cobertura parcial): 15 placas próprias + 507 da downline N1–N6,
-  com 122 consultores do time produzindo.
-
-O dono do negócio estima **~602 placas e ~172 consultores produzindo em junho**. A diferença
-para os 522/122 acima é exatamente o que o casamento por nome perde, e é o que a passagem
-para CPF precisa recuperar. **Esse é o critério de aceite do cálculo.**
+1. **A data é a do veículo, não a do associado.** Em proteção veicular cada placa é um
+   contrato. Um associado de 2024 que põe placa nova em maio conta como venda de maio.
+   Usar `data_contrato_associado` erra em ~26% (447 em vez de 602).
+2. **Todas as situações (1..8), não só a ativa.** Placa vendida em maio pode estar
+   cancelada hoje e ainda assim foi venda de maio. Só a situação 1 perde ~20%.
+3. **O cruzamento é por `codigo_veiculo`**, a chave que aparece nos dois lados (no
+   veículo e dentro do boleto). Nunca por placa nem por nome do cliente.
 
 ## Decisões
 
+### A rede vem do Power CRM, por ID do gerente
+
+O usuário confirmou: **gerente = quem chamou**. A hierarquia do Power é a própria rede de
+comissionamento, não uma estrutura de gestão paralela.
+
+A navegação é pelo filtro `managerIds` do endpoint `POST /company/userListFilter` — o mesmo
+que alimenta a tela Minha Empresa → Usuários. Descendo nível a nível por id, com trava
+anti-ciclo, e **incluindo bloqueados** (quem está bloqueado hoje vendeu no mês apurado).
+
+Não montar por nome: `responsibleUser` guarda o **nome de tratamento** (`name`), não o
+`fullName` — Rodrigo Souza de Lima aparece como "Rodrigo Souza". Foi isso que fazia
+`timeArvore.js` e `vendasTime.js` devolverem downline vazia para ele, e é por isso que o
+arquivo `vendas_time_rodrigo_souza_junho.csv` (479 vendas, 111 vendedores) **não é o time
+dele** e não deve ser usado como referência.
+
+### O casamento entre Power e SGA é por CPF
+
+`POST /listar/veiculo` devolve `cpf_voluntario` em cada veículo; o painel do Power devolve
+`registration`. Casar por CPF elimina homônimo e apelido, e dispensa a tabela de aliases
+mantida à mão nos scripts antigos.
+
+Casar por nome não serve para valor financeiro: na apuração anterior 165 de 173 bateram
+(95%) e **um casou com a pessoa errada** — um "Leonardo da Cruz Ferreira" entrou no lugar
+de um "Leonardo da Cruz Gonçalves".
+
 ### A rede é dado espelhado, não usuário do CRM
 
-Os 765 membros do time não viram registros em `users`. Eles não logam, não têm email
-próprio garantido, e criá-los poluiria a gestão de acessos e a tabela de autenticação.
+Os membros do time não viram registros em `users`. Eles não logam, não têm email próprio
+garantido, e criá-los poluiria a gestão de acessos. A rede vira tabela espelho; o vínculo
+com o CRM acontece só na raiz.
 
-A rede vira uma tabela espelho, sincronizada a partir do Power CRM + SGA. O vínculo com o
-CRM acontece só na raiz: o usuário `rodrigo@gmail.com` aponta para o voluntário 115.
-
-### O escopo é o time do Rodrigo, não a base inteira
+### Escopo: o time do Rodrigo
 
 3.331 consultores existem no Power. Sincronizamos apenas a downline do Rodrigo e ele
-próprio — 766 registros. A estrutura suporta outros líderes depois, mas nada é importado
-antes de alguém pedir.
+próprio. A estrutura suporta outros líderes depois, mas nada é importado antes de alguém
+pedir.
 
 ### A placa entra pelo SGA, nunca por marcação manual
 
-A fonte de verdade é a adesão no SGA. O CRM não oferece botão de "marcar como pago" para
-esta contagem — se o SGA não reconhece, a placa não conta.
+Se o SGA não reconhece o pagamento, a placa não conta. O CRM não oferece botão de "marcar
+como pago" para esta contagem.
 
-### Período de apuração: mês fechado
+## Divergência conhecida: 173 × 764
 
-O placar mostra um mês por vez (primeiro alvo: junho/2026), pela `data_adesao` da placa.
-Carteira acumulada fica de fora desta entrega.
+A apuração anterior usou uma lista de **173 pessoas** (`scratch_time_oficial.txt`), montada
+à mão filtrando o painel nome por nome. A navegação por id via API devolve **764**.
+
+| | Lista manual (21/07) | Árvore por ID (22/07) |
+|---|---|---|
+| Diretos (N1) | 22 | 25 |
+| Total | 173 | 764 |
+| Níveis | 4 | 7 |
+
+A explicação mais provável é que a coleta manual parou cedo: já no N1 faltam 3 pessoas, e
+cada uma carrega a sub-rede inteira abaixo dela.
+
+**O impacto no resultado é pequeno**, e isso é o mais importante: as placas de maio do time
+dão **853** pela árvore de 764, contra **840** apuradas com a lista de 173. Diferença de 13
+placas (1,5%). Os 607 membros a mais quase não vendem — a produção vem essencialmente das
+mesmas pessoas. Os dois caminhos se confirmam mutuamente.
 
 ## Arquitetura
 
 ### Camada 1 — Coleta (projeto `21 GO - SGA HINOVA`, offline)
 
 ```
-usuarios_power_<data>.json ──┐
-  (árvore, CPF, nome)        ├──► casamento por CPF ──► rede_rodrigo.json
-voluntarios_sga.json ────────┘                          (766 pessoas, nível,
-  (código, CPF, adesões)                                 código SGA, placas do mês)
+Power CRM  ──managerIds──►  time_por_id_<lider>.json   (764 pessoas: id, nível, CPF)
+                                        │
+SGA /listar/veiculo ──►  placas_contrato_<mes>.json    (4.061 placas de maio + cpf_voluntario)
+                                        │  cruza por CPF (consultor)
+SGA /listar/boleto-associado/periodo ──► boletos_pagos_<mes>.json  (placas quitadas)
+                                        │  cruza por codigo_veiculo (placa)
+                                        ▼
+                              placas_<lider>_<mes>_<mes>.{json,csv}
 ```
 
-Scripts:
-- `src/timeMultinivel.js` — monta a cascata a partir de um líder, corrigindo o casamento
-  para `name` e marcando cada vínculo como `confiavel` ou `ambiguo`. **Já existe.**
-- `src/varrerVoluntarios.js` — varre `situacao-adesao-voluntario` 1..1999 com retomada por
-  checkpoint e faixas paralelas. **Já existe.**
-- `src/redePlacas.js` — casa por CPF, aplica a regra unilevel, exporta JSON + Excel. **A criar.**
+Scripts (todos somente leitura, com checkpoint retomável):
+
+| Script | Função |
+|---|---|
+| `src/timePorId.js` | monta a cascata por id do gerente, com trava anti-ciclo |
+| `src/placasContratoMes.js` | placas contratadas no mês, situações 1..8, dia a dia |
+| `src/boletosPagosPeriodo.js` | placas com pagamento no período |
+| `src/redePlacas.js` | cruza tudo e aplica a regra unilevel |
+| `src/timeMultinivel.js` | versão por nome — mantida só para conferência |
+| `src/varrerVoluntarios.js` | mapa CPF → código/adesões do SGA, por varredura de códigos |
 
 Regra do cálculo, por consultor:
 
@@ -124,85 +135,101 @@ Regra do cálculo, por consultor:
 placas_ponderadas = próprias × 1,0 + Σ (placas de cada membro em N1..N6) × 0,5
 ```
 
-Cada consultor calcula os seis níveis a partir de si mesmo. O nível é relativo: quem é N2 do
-Rodrigo é N1 de quem o chamou.
+O nível é relativo: quem é N2 do Rodrigo é N1 de quem o chamou.
+
+### Armadilhas da API do SGA (custaram números errados)
+
+- **`inicio_paginacao` é o NÚMERO DA PÁGINA, não o offset.** Passar `pagina * 500` devolve
+  erro ou nada. Conferido: página 1 traz registros novos, offset 500 dá 406.
+- **500 por página.** Com 3.000 a resposta estoura a memória.
+- **Boletos: período máximo de 31 dias.** Um mês por execução.
+- **Uma chamada por vez.** Concorrência satura a API e começa a falhar.
+- **`data_contrato` do `/listar/veiculo` filtra por dia exato** — varrer dia a dia sai
+  muito mais barato que paginar a base inteira.
+- **Endpoints que *listam* voluntários exigem permissão de cooperativa** que o login atual
+  não tem (`/listar/voluntario/:situacao`, `/listar/voluntario-por-data-cadastro`,
+  `/buscar/voluntario/:cpfOuCodigo` → 406). Já
+  `GET /listar/situacao-adesao-voluntario/:codigo` e `POST /listar/placas-por-voluntario/`
+  respondem normalmente. Como `/listar/veiculo` já traz `cpf_voluntario`, a varredura de
+  voluntários deixou de ser necessária para este cálculo.
 
 ### Camada 2 — Banco (Supabase)
 
 Duas tabelas novas, ambas com `company_id` (multi-tenant, regra do projeto):
 
 `rede_consultores` — uma linha por pessoa da rede
-: `id`, `company_id`, `cpf`, `nome`, `nome_tratamento`, `codigo_voluntario`,
-  `patrocinador_cpf`, `nivel_raiz` (nível em relação à raiz sincronizada),
-  `raiz_cpf`, `status`, `vinculo` (`confiavel` | `ambiguo`), `user_id` (nulo, exceto na raiz),
-  `sincronizado_em`.
+: `id`, `company_id`, `power_id`, `cpf`, `nome`, `nome_tratamento`, `codigo_voluntario`,
+  `patrocinador_power_id`, `nivel_raiz`, `raiz_cpf`, `status`, `user_id` (nulo, exceto na
+  raiz), `sincronizado_em`.
 
 `rede_placas` — uma linha por placa contabilizada
-: `id`, `company_id`, `cpf_consultor`, `codigo_veiculo`, `placa`, `situacao`,
-  `data_adesao`, `mes_referencia`, `sincronizado_em`.
+: `id`, `company_id`, `cpf_consultor`, `codigo_veiculo`, `placa`, `associado`,
+  `data_contrato`, `data_pagamento`, `mes_referencia`, `valor`, `situacao`,
+  `sincronizado_em`.
 
-A migration é **aditiva** (`CREATE TABLE IF NOT EXISTS`), aplicada via DDL explícita —
-nunca `drizzle-kit push` nem seed contra produção.
+Migration **aditiva** (`CREATE TABLE IF NOT EXISTS`), via DDL explícita — nunca
+`drizzle-kit push` nem seed contra produção.
 
 ### Camada 3 — API
 
-`GET /api/rede/minha?mes=YYYY-MM`
+`GET /api/rede/minha?contrato=YYYY-MM&pagamento=YYYY-MM`
 
 Resolve o consultor raiz pelo `user_id` do token, monta a subárvore por CTE recursiva sobre
 `rede_consultores` e devolve:
 
 ```json
 {
-  "raiz": { "nome": "...", "codigoVoluntario": 115, "placasProprias": 15 },
-  "placar": { "proprias": 15, "equipe": 507, "ponderado": 268.5, "mes": "2026-06" },
-  "porNivel": [{ "nivel": 1, "pessoas": 25, "placas": 93, "produzindo": 12 }],
-  "membros": [{ "nome": "...", "nivel": 2, "placas": 3, "vinculo": "confiavel" }]
+  "raiz": { "nome": "...", "codigoVoluntario": 115 },
+  "placar": { "proprias": 0, "equipe": 0, "ponderado": 0, "consultoresProduzindo": 0 },
+  "porNivel": [{ "nivel": 1, "pessoas": 25, "placas": 0 }],
+  "membros": [{ "nome": "...", "nivel": 2, "placas": 0 }]
 }
 ```
 
-Escopo de acesso segue a regra vigente: o consultor vê a própria rede; admin vê qualquer uma.
+Escopo de acesso: o consultor vê a própria rede; admin vê qualquer uma.
 
 ### Camada 4 — Tela
 
 `MyTeamView.tsx` já tem a árvore, a cor por nível e a constante `PAY_DEPTH = 6`. Acrescenta:
 
-- Cabeçalho com o placar do mês: **próprias**, **meia-placa do time**, **total ponderado**.
+- Cabeçalho com o placar: **próprias**, **meia-placa do time**, **total ponderado**.
 - Coluna de placas em cada card de membro.
-- Marcação visual do corte no N6 (N7+ aparece esmaecido, com legenda "fora do alcance").
-- Aviso discreto nos membros com `vinculo = ambiguo`, para o consultor saber que aquele
-  ramo veio de um nome duplicado e pode não ser dele.
+- Marcação do corte no N6 (N7+ esmaecido, legenda "fora do alcance").
+- Indicação de quantas placas foram contratadas e **não** pagas no mês — é o dinheiro que
+  está na mesa e depende de cobrança.
 
 ## Tratamento de erro
 
-- **Voluntário sem CPF no SGA** — cai para casamento por nome e é marcado como `ambiguo`.
-  Nunca é descartado em silêncio.
-- **Consultor do Power sem voluntário correspondente** — entra na rede com 0 placas. É o
-  caso de quem nunca vendeu, e é o comportamento correto.
-- **Varredura interrompida** — o checkpoint por faixa permite retomar sem refazer.
-- **Token do painel Power expirado (~10h)** — a sincronização falha explicitamente pedindo
-  renovação; não usa dump velho fingindo que está fresco.
-- **Divergência com o esperado** — se o total de junho ficar longe de ~602 placas / ~172
-  consultores, o script reporta a diferença em vez de publicar o número.
+- **Consultor sem placa** — entra na rede com 0. É o caso de quem não vendeu, e é correto.
+- **Placa sem CPF de voluntário** — fica fora do cálculo e é reportada na contagem de
+  descartes, nunca somada a alguém por aproximação.
+- **Coleta interrompida** — checkpoint por dia/página permite retomar sem refazer.
+- **Token do painel Power expirado (~10h)** — a sincronização falha pedindo renovação; não
+  usa dump velho fingindo que está fresco.
+- **Divergência com a apuração manual** — o script reporta a diferença em vez de publicar
+  o número silenciosamente.
 
 ## Verificação
 
-1. Rodrigo tem 25 diretos e 765 na downline (7 níveis) — confere com `timeMultinivel.js`.
-2. Rodrigo tem 681 placas ativas e 1030 adesões — confere com o SGA em duas rotas
-   independentes (`placas-por-voluntario` e `situacao-adesao-voluntario`).
-3. Junho fecha em ~602 placas brutas e ~172 consultores produzindo.
-4. Nenhum membro em N7+ entra no ponderado.
-5. A tela do login `rodrigo@gmail.com` mostra a rede dele e só a dele.
+| Prova | Esperado | Fonte independente |
+|---|---|---|
+| Placas de maio na base | ~4.058 | apuração manual anterior (obtido: 4.061) |
+| Placas de maio do time | ~840 | apuração manual (obtido: 853 pela árvore por id) |
+| Contrato maio + pago junho | ~602 | conferência manual do cliente: 603 |
+| Consultores com ≥1 placa | ~117 | apuração manual |
+| Rodrigo: placas ativas | 681 | duas rotas do SGA |
+| Nenhum N7+ no ponderado | 0 | regra do plano |
 
 ## Fora de escopo
 
 - Cálculo de valor em reais da comissão (a entrega é em placas).
 - Sincronização automática agendada — a primeira carga é manual e conferida.
-- Rede dos outros 3.331 consultores.
-- Carteira acumulada (só mês fechado).
+- Rede dos outros consultores fora do time do Rodrigo.
 - Qualquer escrita no SGA ou no Power CRM. Ambos são somente leitura.
 
 ## Links relacionados
 
+- `21 GO - CONTROLE DE ACESSO/docs/GUIA-ACHAR-TIME-E-PAGAMENTOS.md`
+- `21 GO - CONTROLE DE ACESSO/docs/RELATORIO-PLACAS-POR-TIME-SGA.md`
 - `21 GO - SGA HINOVA/docs/BASE-CONHECIMENTO-SGA.md`
-- `21 GO - SGA HINOVA/docs/rede-multinivel.pdf`
 - [[MEMORIA-21Go]]
