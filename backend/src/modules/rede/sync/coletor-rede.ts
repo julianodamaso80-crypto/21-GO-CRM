@@ -11,7 +11,7 @@ type BuscarPagina = (page: number) => Promise<PaginaPower>
  * Diretos de um gerente, juntando as paginas.
  * Para tanto por `totalPages` quanto por pagina vazia — a API ja mentiu no totalPages antes.
  */
-export async function diretosDePaginado(powerId: number, buscar: BuscarPagina): Promise<UsuarioPower[]> {
+export async function diretosDePaginado(_powerId: number, buscar: BuscarPagina): Promise<UsuarioPower[]> {
   const todos: UsuarioPower[] = []
   let page = 0
   let totalPages = 1

@@ -27,6 +27,7 @@ import { pipesRoutes } from './modules/pipes/pipes.routes'
 import { leadsRoutes } from './modules/leads/leads.routes'
 import { tasksRoutes, leadTasksRoutes } from './modules/tasks/tasks.routes'
 import { usersRoutes } from './modules/users/users.routes'
+import { redeRoutes } from './modules/rede/rede.routes'
 import { whatsappRoutes } from './modules/whatsapp/whatsapp.routes'
 import { searchRoutes } from './modules/search/search.routes'
 import { inboxRoutes } from './modules/inbox/inbox.routes'
@@ -173,6 +174,7 @@ async function bootstrap() {
     await fastify.register(leadTasksRoutes, { prefix: '/api/leads' })
     await fastify.register(tasksRoutes, { prefix: '/api/tasks' })
     await fastify.register(usersRoutes, { prefix: '/api/users' })
+    await fastify.register(redeRoutes, { prefix: '/api/rede' })
     await fastify.register(whatsappRoutes, { prefix: '/api/whatsapp' })
     await fastify.register(searchRoutes, { prefix: '/api/search' })
     await fastify.register(sinistrosRoutes, { prefix: '/api/sinistros' })
