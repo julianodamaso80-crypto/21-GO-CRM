@@ -4,7 +4,7 @@ import {
   LayoutGrid, LogOut, Webhook, Zap, BarChart3,
   SmilePlus, FileText, AlertTriangle, Link2,
   Bell, ChevronDown, ClipboardList, Settings,
-  Shield, Wrench, UserCog, UsersRound, ListChecks, Sun, Moon, Sparkles,
+  Shield, Wrench, UserCog, UsersRound, ListChecks, Sun, Moon, Sparkles, Network,
 } from 'lucide-react'
 import { useAuthStore, type UserRole } from '../../store/auth-store'
 import { useState, useEffect } from 'react'
@@ -44,6 +44,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { path: '/associados', icon: Users, label: 'Associados' },
       { path: '/equipe', icon: UsersRound, label: 'Meu Time' },
+      { path: '/rede', icon: Network, label: 'Minha Rede', roles: ['admin', 'vendedor'] },
       { path: '/nps', icon: SmilePlus, label: 'Satisfacao (NPS)', roles: ['admin', 'gestor'] },
     ],
   },
