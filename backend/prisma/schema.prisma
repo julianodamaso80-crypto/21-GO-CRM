@@ -1161,3 +1161,85 @@ model WhatsappInstance {
   @@index([status])
   @@map("whatsapp_instances")
 }
+
+// ============================================================================
+// REDE MULTINIVEL (espelho do Power CRM + SGA). Ver spec:
+// docs/superpowers/specs/2026-07-22-minha-rede-crm-rodrigo-design.md
+// Os membros da rede NAO sao usuarios do CRM: eles nao logam. So a raiz tem userId.
+// ============================================================================
+
+model RedeCarga {
+  id           String    @id @default(uuid())
+  companyId    String    @map("company_id")
+  raizPowerId  Int       @map("raiz_power_id")
+  iniciadaEm   DateTime  @default(now()) @map("iniciada_em")
+  concluidaEm  DateTime? @map("concluida_em")
+  disparadaPor String    @map("disparada_por")
+  etapa        String    @default("rede")
+  status       String    @default("rodando")
+  publicada    Boolean   @default(false)
+  totais       Json?
+  erro         String?
+
+  consultores RedeConsultor[]
+  placas      RedePlaca[]
+
+  @@index([companyId, raizPowerId, publicada])
+  @@map("rede_cargas")
+}
+
+model RedeConsultor {
+  id                  String    @id @default(uuid())
+  companyId           String    @map("company_id")
+  cargaId             String    @map("carga_id")
+  carga               RedeCarga @relation(fields: [cargaId], references: [id], onDelete: Cascade)
+
+  powerId             Int     @map("power_id")
+  cpf                 String
+  nome                String
+  nomeTratamento      String  @map("nome_tratamento")
+  email               String?
+  celular             String?
+  funcao              String?
+  cooperativa         String?
+  codigoVoluntario    String? @map("codigo_voluntario")
+  patrocinadorPowerId Int?    @map("patrocinador_power_id")
+  nivelRaiz           Int     @map("nivel_raiz")
+  raizPowerId         Int     @map("raiz_power_id")
+  caminho             String
+  status              String
+  userId              String? @map("user_id")
+
+  @@index([cargaId, nivelRaiz])
+  @@index([cargaId, cpf])
+  @@index([companyId, raizPowerId])
+  @@map("rede_consultores")
+}
+
+model RedePlaca {
+  id                String    @id @default(uuid())
+  companyId         String    @map("company_id")
+  cargaId           String    @map("carga_id")
+  carga             RedeCarga @relation(fields: [cargaId], references: [id], onDelete: Cascade)
+
+  cpfConsultor      String   @map("cpf_consultor")
+  codigoVeiculo     String   @map("codigo_veiculo")
+  placa             String
+  associado         String
+  telefoneAssociado String?  @map("telefone_associado")
+  dataContrato      String   @map("data_contrato")
+  mesContrato       String   @map("mes_contrato")
+  dataPagamento     String?  @map("data_pagamento")
+  mesPagamento      String?  @map("mes_pagamento")
+  dataVencimento    String?  @map("data_vencimento")
+  diasAtraso        Int?     @map("dias_atraso")
+  valor             Decimal? @db.Decimal(12, 2)
+  situacaoVeiculo   String?  @map("situacao_veiculo")
+  situacaoBoleto    String?  @map("situacao_boleto")
+  status            String
+
+  @@index([cargaId, cpfConsultor])
+  @@index([cargaId, mesContrato, mesPagamento])
+  @@index([cargaId, status])
+  @@map("rede_placas")
+}
