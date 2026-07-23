@@ -22,7 +22,6 @@ import { ProjectsPage } from './pages/projects/ProjectsPage'
 import { SinistrosPage } from './pages/sinistros/SinistrosPage'
 import { CotacoesPage } from './pages/cotacoes/CotacoesPage'
 import { IndicacoesPage } from './pages/indicacoes/IndicacoesPage'
-import { TeamPage } from './pages/team/TeamPage'
 import { RedePage } from './pages/rede/RedePage'
 import { TarefasPage } from './pages/tarefas/TarefasPage'
 import { WhatsappPage } from './pages/whatsapp/WhatsappPage'
@@ -102,7 +101,8 @@ export function Router() {
           <Route path="/webhooks" element={<WebhooksPage />} />
           <Route path="/automations" element={<AutomationsPage />} />
           <Route path="/projects" element={<ProjectsPage />} />
-          <Route path="/equipe" element={<TeamPage />} />
+          {/* "Meu Time" (managerId em users) foi consolidado na Minha Rede (rede_consultores). */}
+          <Route path="/equipe" element={<Navigate to="/rede" replace />} />
           <Route path="/rede" element={<RedePage />} />
         </Route>
       </Route>

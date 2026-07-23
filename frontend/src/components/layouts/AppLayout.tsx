@@ -43,7 +43,6 @@ const NAV_SECTIONS: NavSection[] = [
     roles: ['admin', 'gestor', 'vendedor'],
     items: [
       { path: '/associados', icon: Users, label: 'Associados' },
-      { path: '/equipe', icon: UsersRound, label: 'Meu Time' },
       { path: '/rede', icon: Network, label: 'Minha Rede', roles: ['admin', 'vendedor'] },
       { path: '/nps', icon: SmilePlus, label: 'Satisfacao (NPS)', roles: ['admin', 'gestor'] },
     ],
