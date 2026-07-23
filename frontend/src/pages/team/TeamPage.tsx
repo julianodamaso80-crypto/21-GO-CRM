@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Navigate } from 'react-router-dom'
 import {
   Plus, Search, Loader2, Users, Shield, ShieldCheck, ShieldAlert,
   Wrench, MoreVertical, Edit3, UserX, KeyRound, CheckCircle2,
@@ -10,7 +11,6 @@ import { useAuthStore } from '../../store/auth-store'
 import type { TeamMember, TeamMemberWithCredential, TeamRole } from '../../services/users.service'
 import { TeamMemberDrawer } from './TeamMemberDrawer'
 import { CredentialsModal } from './CredentialsModal'
-import { MyTeamView } from './MyTeamView'
 
 const ROLE_META: Record<TeamRole, { label: string; description: string; icon: any; color: string; bg: string }> = {
   admin: {
@@ -114,9 +114,10 @@ export function TeamPage() {
     await deactivateMutation.mutateAsync(m.id)
   }
 
-  // Nao-admin (vendedor/gestor): ve o PROPRIO time em "Meu Time" (hierarquia por managerId).
+  // Nao-admin (vendedor): a hierarquia dele agora vive na Minha Rede (rede_consultores),
+  // que substitui o antigo "Meu Time" (managerId, hoje vazio). Manda pra la.
   if (!isAdmin) {
-    return <MyTeamView me={me} />
+    return <Navigate to="/rede" replace />
   }
 
   return (
