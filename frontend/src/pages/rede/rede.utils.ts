@@ -53,6 +53,18 @@ export function classeAtraso(dias: number): string {
 
 export const formatarPlaca = (p: string) => (p || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
 
+/**
+ * Formata o telefone do jeito brasileiro numa linha so, a partir do que veio do SGA.
+ * O SGA guarda com hifen no lugar errado ("(21) 9826-89050"); aqui remontamos pelos
+ * digitos: celular (11) vira (21) 98268-9050, fixo (10) vira (21) 8268-9050.
+ */
+export function formatarTelefone(raw?: string | null): string {
+  const d = soDigitos(raw)
+  if (d.length === 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`
+  if (d.length === 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`
+  return (raw || '').trim()
+}
+
 export interface ColunaCsv<T> { key: keyof T & string; header: string }
 
 /** CSV com ; e BOM — e o que o Excel em pt-BR abre sem perguntar nada. */

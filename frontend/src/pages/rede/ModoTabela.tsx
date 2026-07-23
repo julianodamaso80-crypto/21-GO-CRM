@@ -1,12 +1,16 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { Download, MessageCircle, ArrowUpDown } from 'lucide-react'
+import { Download, MessageCircle, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 import { toast } from 'sonner'
 import type { ArvoreResponse, MembroRede } from '../../services/rede.service'
 import type { SetParam } from './RedePage'
 import { levelColor, levelTextColor, waLink, paraCsv, baixarCsv } from './rede.utils'
 
-const ALTURA_LINHA = 56 // igual ao .table-row do globals.css
+const ALTURA_LINHA = 60
+
+// Header e linhas usam o mesmo grid, entao alinham sempre. min-width evita esmagar o nome.
+const COLS = '64px minmax(220px,2fr) minmax(180px,1.4fr) 116px 92px 92px 72px'
+const MINW = 940
 
 type Coluna = 'nome' | 'nivel' | 'placas' | 'ramo'
 
@@ -64,14 +68,11 @@ export function ModoTabela({ dados, params, setParam, onAbrirPessoa }: {
     count: linhas.length,
     getScrollElement: () => container.current,
     estimateSize: () => ALTURA_LINHA,
-    overscan: 10,
+    overscan: 12,
   })
 
   const ordenarPor = (col: Coluna) =>
     setOrdem((o) => (o.col === col ? { col, asc: !o.asc } : { col, asc: col === 'nome' }))
-
-  const ariaSort = (col: Coluna): 'ascending' | 'descending' | 'none' =>
-    ordem.col !== col ? 'none' : ordem.asc ? 'ascending' : 'descending'
 
   const exportar = () => {
     const csv = paraCsv(
@@ -92,15 +93,22 @@ export function ModoTabela({ dados, params, setParam, onAbrirPessoa }: {
     toast.success(`Arquivo exportado com ${linhas.length} pessoas.`)
   }
 
-  const Cabecalho = ({ col, children }: { col: Coluna; children: ReactNode }) => (
-    <th scope="col" aria-sort={ariaSort(col)}>
-      <button onClick={() => ordenarPor(col)} className="inline-flex items-center gap-1 hover:text-dark-50">
-        {children} <ArrowUpDown className="w-3 h-3 opacity-50" aria-hidden />
-      </button>
-    </th>
-  )
+  const Th = ({ col, children, className = '', title }: { col?: Coluna; children: ReactNode; className?: string; title?: string }) => {
+    const ativo = col && ordem.col === col
+    const Icone = !col ? null : !ativo ? ArrowUpDown : ordem.asc ? ArrowUp : ArrowDown
+    const base = 'px-3 font-mono text-[10px] font-bold uppercase tracking-wider flex items-center gap-1'
+    if (!col) return <div className={`${base} text-dark-400 ${className}`} title={title}>{children}</div>
+    return (
+      <div className={`${base} ${className}`}>
+        <button onClick={() => ordenarPor(col)} title={title}
+          className={`inline-flex items-center gap-1 hover:text-dark-50 ${ativo ? 'text-blue-300' : 'text-dark-400'}`}>
+          {children} {Icone && <Icone className="w-3 h-3 opacity-70" aria-hidden />}
+        </button>
+      </div>
+    )
+  }
 
-  const rotulo = { nome: 'nome', nivel: 'nível', placas: 'placas do ciclo', ramo: 'placas do ramo' }[ordem.col]
+  const rotuloOrdem = { nome: 'nome', nivel: 'nível', placas: 'placas do ciclo', ramo: 'placas do ramo' }[ordem.col]
 
   return (
     <div className="mt-4">
@@ -108,17 +116,21 @@ export function ModoTabela({ dados, params, setParam, onAbrirPessoa }: {
         <label className="inline-flex items-center gap-2 text-sm text-dark-300 cursor-pointer">
           <input type="checkbox" checked={soSemVenda}
             onChange={(e) => setParam('semvenda', e.target.checked ? '1' : null)} />
-          Só sem venda no ciclo
+          Só quem não vendeu no ciclo
         </label>
         {nivelFiltro != null && (
-          <button onClick={() => setParam('nivel', null)} className="badge-info">
-            Nível {nivelFiltro} ×
-          </button>
+          <button onClick={() => setParam('nivel', null)} className="badge-info">Nível {nivelFiltro} ×</button>
         )}
         <button onClick={exportar} className="btn-secondary ml-auto inline-flex items-center gap-2">
           <Download className="w-4 h-4" /> Exportar CSV
         </button>
       </div>
+
+      {/* Legenda das colunas de numero — o que o usuario pediu: explicar */}
+      <p className="text-[11px] text-dark-400 mb-2">
+        <span className="text-dark-200 font-medium">Placas</span> = vendas pagas da pessoa no ciclo ·{' '}
+        <span className="text-orange-400 font-medium">Ramo</span> = placas dela somadas às de todo o time abaixo dela
+      </p>
 
       {linhas.length === 0 ? (
         <div className="card p-12 text-center">
@@ -129,74 +141,87 @@ export function ModoTabela({ dados, params, setParam, onAbrirPessoa }: {
             className="btn-secondary mt-4">Limpar filtros</button>
         </div>
       ) : (
-        <div className="table-container">
+        <div className="rounded-2xl border border-hairline overflow-hidden bg-dark-900/40">
           <div ref={container} className="max-h-[65vh] overflow-auto">
-            <table className="w-full">
-              <thead className="table-header sticky top-0 z-10">
-                <tr>
-                  <Cabecalho col="nome">Nome</Cabecalho>
-                  <Cabecalho col="nivel">Nível</Cabecalho>
-                  <th scope="col">Quem chamou</th>
-                  <th scope="col">Status</th>
-                  <Cabecalho col="placas">Placas</Cabecalho>
-                  <Cabecalho col="ramo">Ramo</Cabecalho>
-                  <th scope="col">Contato</th>
-                </tr>
-              </thead>
-              <tbody style={{ height: virtual.getTotalSize(), position: 'relative', display: 'block' }}>
+            <div style={{ minWidth: MINW }}>
+              {/* Cabecalho */}
+              <div className="grid sticky top-0 z-10 h-11 bg-dark-800 border-b border-hairline"
+                style={{ gridTemplateColumns: COLS }}>
+                <Th col="nivel">Nív</Th>
+                <Th col="nome">Nome</Th>
+                <Th>Quem chamou</Th>
+                <Th>Status</Th>
+                <Th col="placas" className="justify-end" title="Placas pagas da pessoa no ciclo">Placas</Th>
+                <Th col="ramo" className="justify-end" title="Placas da pessoa + de todo o time abaixo dela">Ramo</Th>
+                <Th className="justify-end">Contato</Th>
+              </div>
+
+              {/* Corpo virtualizado */}
+              <div style={{ height: virtual.getTotalSize(), position: 'relative' }}>
                 {virtual.getVirtualItems().map((item) => {
                   const l = linhas[item.index]
-                  const wa = waLink(l.membro.celular)
+                  const m = l.membro
+                  const wa = waLink(m.celular)
                   return (
-                    <tr key={l.membro.id} className="table-row"
+                    <div key={m.id}
+                      className={`grid items-center border-b border-hairline/60 transition-colors hover:bg-dark-800/50 ${item.index % 2 ? 'bg-dark-900/30' : ''}`}
                       style={{
+                        gridTemplateColumns: COLS,
                         position: 'absolute', top: 0, left: 0, width: '100%',
                         height: ALTURA_LINHA, transform: `translateY(${item.start}px)`,
-                        display: 'flex', alignItems: 'center',
                       }}>
-                      <td className="flex-1 min-w-0">
-                        <button onClick={() => onAbrirPessoa(l.membro)}
-                          className="text-left text-sm font-medium text-dark-50 truncate hover:underline max-w-full"
-                          title={l.membro.caminho.replace(/ > /g, ' › ')}>
-                          {l.membro.nome}
-                        </button>
-                      </td>
-                      <td className="w-16">
+                      {/* Nivel */}
+                      <div className="px-3">
                         <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded-md"
-                          style={{ background: levelColor(l.membro.nivelRaiz), color: levelTextColor(l.membro.nivelRaiz) }}>
-                          N{l.membro.nivelRaiz}
+                          style={{ background: levelColor(m.nivelRaiz), color: levelTextColor(m.nivelRaiz) }}>
+                          N{m.nivelRaiz}
                         </span>
-                      </td>
-                      <td className="w-40 truncate text-sm text-dark-300 hidden sm:block">{l.quemChamou}</td>
-                      <td className="w-28">
-                        <span className={l.membro.status === 'ativo' ? 'badge-success' : 'badge-danger'}>
-                          {l.membro.status === 'ativo' ? 'Ativo' : 'Bloqueado'}
+                      </div>
+                      {/* Nome */}
+                      <div className="px-3 min-w-0">
+                        <button onClick={() => onAbrirPessoa(m)}
+                          className="block max-w-full text-left text-sm font-medium text-dark-50 truncate hover:text-blue-300 transition-colors"
+                          title={m.caminho.replace(/ > /g, ' › ')}>
+                          {m.nome}
+                        </button>
+                      </div>
+                      {/* Quem chamou */}
+                      <div className="px-3 min-w-0">
+                        <span className="text-sm text-dark-300 truncate block" title={l.quemChamou}>{l.quemChamou}</span>
+                      </div>
+                      {/* Status */}
+                      <div className="px-3">
+                        <span className={m.status === 'ativo' ? 'badge-success' : 'badge-danger'}>
+                          {m.status === 'ativo' ? 'Ativo' : 'Bloqueado'}
                         </span>
-                      </td>
-                      <td className="w-20 text-right font-mono tabular-nums text-sm text-dark-100">{l.placas}</td>
-                      <td className="w-20 text-right font-mono tabular-nums text-sm text-orange-400">{l.ramo}</td>
-                      <td className="w-16 text-right">
+                      </div>
+                      {/* Placas */}
+                      <div className="px-3 text-right font-mono tabular-nums text-sm text-dark-100">{l.placas}</div>
+                      {/* Ramo */}
+                      <div className="px-3 text-right font-mono tabular-nums text-sm text-orange-400">{l.ramo}</div>
+                      {/* Contato */}
+                      <div className="px-3 flex justify-end">
                         {wa ? (
                           <a href={wa} target="_blank" rel="noreferrer"
-                            aria-label={`Chamar ${l.membro.nome} no WhatsApp`}
-                            className="inline-flex items-center justify-center h-7 w-7 rounded-lg border border-emerald-500/25 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20">
+                            aria-label={`Chamar ${m.nome} no WhatsApp`}
+                            className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-emerald-500/25 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors">
                             <MessageCircle className="w-3.5 h-3.5" />
                           </a>
                         ) : (
                           <span className="text-dark-500" title="Sem telefone no cadastro do Power">—</span>
                         )}
-                      </td>
-                    </tr>
+                      </div>
+                    </div>
                   )
                 })}
-              </tbody>
-            </table>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
       <p className="mt-3 text-xs text-dark-400">
-        Mostrando {linhas.length} de {dados.membros.length - 1} pessoas · ordenado por {rotulo}
+        Mostrando {linhas.length} de {dados.membros.length - 1} pessoas · ordenado por {rotuloOrdem}
       </p>
     </div>
   )
