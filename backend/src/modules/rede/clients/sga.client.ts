@@ -7,6 +7,14 @@ import { TokenExpiradoError } from './power.client'
 
 const BASE = (process.env.HINOVA_SGA_BASE_URL || 'https://api.hinova.com.br/api/sga/v2').replace(/\/+$/, '')
 
+/** Erro do SGA que NAO e credencial — ex.: usuario com restricao de horario. */
+export class SgaRecusouError extends Error {
+  constructor(public readonly motivo: string, public readonly codigo?: number) {
+    super(`SGA recusou a autenticacao: ${motivo}`)
+    this.name = 'SgaRecusouError'
+  }
+}
+
 /**
  * POST /usuario/autenticar.
  *
@@ -14,6 +22,11 @@ const BASE = (process.env.HINOVA_SGA_BASE_URL || 'https://api.hinova.com.br/api/
  * integracao (HINOVA_SGA_TOKEN) vai no HEADER Authorization; o body leva apenas usuario e
  * senha; e a resposta devolve `token_usuario`, nao `token`. E esse token_usuario que
  * autentica todas as outras chamadas.
+ *
+ * O SGA responde 200 mesmo quando recusa por regra de negocio (ex.: usuario com restricao
+ * de horario) — nesse caso o corpo traz `{ error: { mensagem, codigo_erro } }` e nao o
+ * token. Distinguimos isso de credencial invalida para nao mandar "renove o token" quando
+ * o problema e so o horario.
  */
 export async function autenticarSga(): Promise<string> {
   const tokenIntegracao = process.env.HINOVA_SGA_TOKEN
@@ -32,10 +45,18 @@ export async function autenticarSga(): Promise<string> {
     }),
   })
 
-  if (!resp.ok) throw new TokenExpiradoError('sga', resp.status)
-  const data = (await resp.json()) as { token_usuario?: string }
-  if (!data.token_usuario) throw new TokenExpiradoError('sga', resp.status)
-  return data.token_usuario
+  if (resp.status === 401 || resp.status === 403) throw new TokenExpiradoError('sga', resp.status)
+
+  const data = (await resp.json().catch(() => ({}))) as {
+    token_usuario?: string
+    error?: { mensagem?: string; codigo_erro?: number }
+  }
+
+  if (data.token_usuario) return data.token_usuario
+
+  // 200 sem token: o SGA recusou por regra de negocio (horario, permissao, etc.).
+  const motivo = data.error?.mensagem || 'resposta sem token_usuario'
+  throw new SgaRecusouError(motivo, data.error?.codigo_erro)
 }
 
 export async function postSga<T>(path: string, body: unknown, token: string): Promise<T> {
