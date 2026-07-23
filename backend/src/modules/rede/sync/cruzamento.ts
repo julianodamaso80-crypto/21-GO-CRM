@@ -1,4 +1,4 @@
-import type { VeiculoSga } from './coletor-placas'
+import { telefoneDoAssociado, type VeiculoSga } from './coletor-placas'
 import { diasDeAtraso, type BoletoAberto, type Pagamento } from './coletor-boletos'
 import type { PlacaContada } from '../rede.types'
 
@@ -41,7 +41,7 @@ export function cruzarPlacas(
       codigoVeiculo,
       placa: v.placa,
       associado: v.nome_associado,
-      telefoneAssociado: v.celular_associado || v.telefone_associado || null,
+      telefoneAssociado: telefoneDoAssociado(v),
       dataContrato,
       mesContrato: dataContrato.slice(0, 7),
       dataPagamento: pago?.dataPagamento ?? null,

@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import { cruzarPlacas } from './cruzamento'
-import type { VeiculoSga } from './coletor-placas'
+import { telefoneDoAssociado, type VeiculoSga } from './coletor-placas'
 
 const veic = (cod: string, cpf: string): VeiculoSga => ({
   codigo_veiculo: cod, placa: `AAA${cod}`, nome_associado: 'Fulano de Tal',
-  celular_associado: '(21) 99999-0000', data_contrato: '2026-05-10T00:00:00-0300',
+  ddd_celular: '21', telefone_celular: '99999-0000', data_contrato: '2026-05-10T00:00:00-0300',
   descricao_situacao: 'ATIVO', cpf_voluntario: cpf,
 })
 
@@ -41,16 +41,38 @@ describe('cruzarPlacas', () => {
   })
 
   it('normaliza CPF, mes de contrato e telefone do associado', () => {
-    const v = { ...veic('10', '151.837.367-40'), celular_associado: '(21) 97543-3883' }
+    const v = { ...veic('10', '151.837.367-40'), ddd_celular: '21', telefone_celular: '99999-0000' }
     const r = cruzarPlacas([v], new Map([['10', { dataPagamento: '2026-06-05', valor: 1 }]]), new Map(), HOJE)
     expect(r[0].cpfConsultor).toBe('15183736740')
     expect(r[0].mesContrato).toBe('2026-05')
     expect(r[0].dataContrato).toBe('2026-05-10')
-    expect(r[0].telefoneAssociado).toBe('(21) 97543-3883')
+    expect(r[0].telefoneAssociado).toBe('(21) 99999-0000')
   })
 
   it('placa contratada, sem pagamento e sem boleto vencido fica de fora das duas listas', () => {
     const r = cruzarPlacas([veic('10', '111')], new Map(), new Map(), HOJE)
     expect(r).toHaveLength(0)
+  })
+})
+
+describe('telefoneDoAssociado', () => {
+  const base = { codigo_veiculo: '1', placa: 'X', nome_associado: 'F', data_contrato: '2026-05-01' }
+
+  it('prioriza o celular, juntando ddd e numero', () => {
+    expect(telefoneDoAssociado({ ...base, ddd_celular: '21', telefone_celular: '99999-0000', telefone: '3333-4444', ddd: '11' }))
+      .toBe('(21) 99999-0000')
+  })
+
+  it('cai para o comercial quando nao ha celular', () => {
+    expect(telefoneDoAssociado({ ...base, telefone_celular: '', ddd_comercial: '11', telefone_comercial: '3232-1010' }))
+      .toBe('(11) 3232-1010')
+  })
+
+  it('usa o telefone fixo em ultimo caso', () => {
+    expect(telefoneDoAssociado({ ...base, ddd: '31', telefone: '3555-0000' })).toBe('(31) 3555-0000')
+  })
+
+  it('devolve null quando nao ha nenhum numero', () => {
+    expect(telefoneDoAssociado({ ...base })).toBeNull()
   })
 })

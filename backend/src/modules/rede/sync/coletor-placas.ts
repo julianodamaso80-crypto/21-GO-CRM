@@ -9,13 +9,40 @@ export interface VeiculoSga {
   placa: string
   modelo?: string
   nome_associado: string
-  telefone_associado?: string
-  celular_associado?: string
+  // O /listar/veiculo traz o telefone do associado em campos separados (ddd + numero).
+  telefone?: string
+  ddd?: string
+  telefone_celular?: string
+  ddd_celular?: string
+  telefone_celular_aux?: string
+  ddd_celular_aux?: string
+  telefone_comercial?: string
+  ddd_comercial?: string
   data_contrato: string
   descricao_situacao?: string
   codigo_voluntario?: string | number
   nome_voluntario?: string
   cpf_voluntario?: string
+}
+
+/**
+ * Monta o telefone do associado a partir dos campos do SGA, priorizando o celular.
+ * Cada telefone vem em par ddd + numero; junta como "(DDD) NUMERO" quando ha numero.
+ */
+export function telefoneDoAssociado(v: VeiculoSga): string | null {
+  const pares: Array<[string | undefined, string | undefined]> = [
+    [v.ddd_celular, v.telefone_celular],
+    [v.ddd_celular_aux, v.telefone_celular_aux],
+    [v.ddd_comercial, v.telefone_comercial],
+    [v.ddd, v.telefone],
+  ]
+  for (const [ddd, num] of pares) {
+    const n = String(num || '').trim()
+    if (!n) continue
+    const d = String(ddd || '').trim()
+    return d ? `(${d}) ${n}` : n
+  }
+  return null
 }
 
 /** Dias do mes no formato DD/MM/AAAA. `mes` vem como YYYY-MM. */
