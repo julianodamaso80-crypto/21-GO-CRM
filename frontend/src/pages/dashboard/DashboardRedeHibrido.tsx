@@ -27,6 +27,13 @@ const fmtNum = (v: number) =>
 const fmtBRL = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 
+/**
+ * O SGA nao devolve valor no boleto vencido (vem zerado), entao mostrar "R$ 0 em aberto"
+ * enganaria. So cita o valor quando ele existe de fato.
+ */
+const subInadimplencia = (valor: number) =>
+  valor > 0 ? `${fmtBRL(valor)} em aberto` : 'boletos vencidos'
+
 // Escala de cor por nivel (N1 mais quente -> N6 mais frio), com contraste WCAG ok.
 const NIVEL_COR = ['#F2911D', '#E8A33C', '#C7B15A', '#8FA98C', '#5E97B0', '#6E7FC0']
 const corNivel = (n: number) => NIVEL_COR[(n - 1) % NIVEL_COR.length]
@@ -151,7 +158,7 @@ function VisaoRede({ data }: { data: DashboardRedeResponse }) {
           <MiniStat icon={<ShieldCheck className="w-4 h-4" />} accent="#34D399" label="Suas placas" value={String(r.proprias)} sub="venda própria ×1,0" />
           <MiniStat icon={<Users2 className="w-4 h-4" />} accent="#445DA8" label="Placas do time" value={String(r.equipe)} sub="N1 a N6 ×0,5" />
           <MiniStat icon={<Wallet className="w-4 h-4" />} accent="#F2911D" label="Receita cobrada" value={fmtBRL(r.valorTotal)} sub={`${r.bruto} boletos pagos`} />
-          <MiniStat icon={<AlertTriangle className="w-4 h-4" />} accent="#F43F5E" label="Inadimplência" value={String(r.inadimplentes.qtd)} sub={`${fmtBRL(r.inadimplentes.valor)} em aberto`} />
+          <MiniStat icon={<AlertTriangle className="w-4 h-4" />} accent="#F43F5E" label="Inadimplência" value={String(r.inadimplentes.qtd)} sub={subInadimplencia(r.inadimplentes.valor)} />
           {r.foraDoAlcance > 0 && (
             <MiniStat icon={<Layers className="w-4 h-4" />} accent="#94A3B8" label="Fora do alcance" value={String(r.foraDoAlcance)} sub="N7+ (não remunera)" />
           )}
@@ -233,7 +240,7 @@ function VisaoAssociados({ data }: { data: DashboardRedeResponse }) {
         <MiniStat icon={<UserCheck className="w-4 h-4" />} accent="#34D399" label="Placas pagas" value={String(a.placasPagas)} sub={`${a.associadosDistintos} associados`} />
         <MiniStat icon={<Wallet className="w-4 h-4" />} accent="#F2911D" label="Receita do ciclo" value={fmtBRL(a.receita)} sub="boletos pagos" />
         <MiniStat icon={<TrendingUp className="w-4 h-4" />} accent="#445DA8" label="Ticket médio" value={fmtBRL(a.ticketMedio)} sub="por placa" />
-        <MiniStat icon={<AlertTriangle className="w-4 h-4" />} accent="#F43F5E" label="Inadimplência" value={String(a.inadimplentes.qtd)} sub={`${fmtBRL(a.inadimplentes.valor)} em aberto`} />
+        <MiniStat icon={<AlertTriangle className="w-4 h-4" />} accent="#F43F5E" label="Inadimplência" value={String(a.inadimplentes.qtd)} sub={subInadimplencia(a.inadimplentes.valor)} />
       </div>
 
       <div className="rounded-2xl border border-dark-700/40 bg-gradient-to-br from-dark-800/60 to-dark-900/40 p-5">
