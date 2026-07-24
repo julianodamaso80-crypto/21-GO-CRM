@@ -11,6 +11,7 @@ import {
 } from 'recharts'
 import { useDashboardStats } from '../../hooks/useDashboard'
 import { useAnalyticsSources, useAnalyticsByState, useAnalyticsByVehicleType } from '../../hooks/useAnalytics'
+import { DashboardRedeHibrido } from './DashboardRedeHibrido'
 import type { DashboardPeriod } from '../../../../shared/types'
 
 const SOURCE_META: Record<string, { label: string; color: string }> = {
@@ -190,6 +191,10 @@ export function DashboardPage() {
             </div>
           )}
         </div>
+
+        {/* === DASHBOARD HIBRIDO DA REDE (protagonista) ===
+            Se render nada quando o usuario nao tem rede vinculada (cai no funil abaixo). */}
+        <DashboardRedeHibrido />
 
         {/* === KPI HERO (4 cards principais) === */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 stagger-children">

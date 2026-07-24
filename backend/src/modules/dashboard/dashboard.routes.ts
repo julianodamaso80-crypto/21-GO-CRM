@@ -24,4 +24,22 @@ export async function dashboardRoutes(fastify: FastifyInstance) {
     },
     handler: dashboardController.getStats.bind(dashboardController),
   })
+
+  // GET /dashboard/rede?contrato&pagamento&raiz — Dashboard Hibrido da rede (3 visoes)
+  fastify.get('/rede', {
+    schema: {
+      description: 'Dashboard Hibrido da rede: visoes Minha Rede, Meus Consultores, Meus Associados',
+      tags: ['dashboard'],
+      security: [{ bearerAuth: [] }],
+      querystring: {
+        type: 'object',
+        properties: {
+          contrato: { type: 'string' },
+          pagamento: { type: 'string' },
+          raiz: { type: 'string' },
+        },
+      },
+    },
+    handler: dashboardController.getRede.bind(dashboardController),
+  })
 }
